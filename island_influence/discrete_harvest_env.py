@@ -1,63 +1,56 @@
 import copy
-import functools
 import pickle
 from pathlib import Path
 
 import numpy as np
 import pygame
 
-from leader_follower.agent import Poi, Leader, RepAttrFollower, AgentType
+from island_influence.agent import Poi, AgentType, Agent, Obstacle
 
 
-class LeaderFollowerEnv:
-    metadata = {'render_modes': ['human', 'rgb_array', 'none'], 'render_fps': 4, 'name': 'leader_follower_environment'}
-
-    @property
-    @functools.lru_cache(maxsize=None)
-    def observation_spaces(self):
-        return {name: agent.observation_space() for name, agent in self.agent_mapping}
+class DiscreteHarvestEnv:
+    metadata = {'render_modes': ['human', 'rgb_array', 'none'], 'render_fps': 4, 'name': 'DiscreteHarvestEnvironment'}
 
     @property
-    @functools.lru_cache(maxsize=None)
-    def action_spaces(self):
-        return {name: agent.action_space() for name, agent in self.agent_mapping}
+    def all_entities(self):
+        return self.agents | self.obstacles | self.pois
 
-    def __init__(self, leaders: list[tuple[Leader, tuple]], followers: list[tuple[RepAttrFollower, tuple]],
+    def __init__(self, agents: list[tuple[Agent, tuple]], obstacles: list[tuple[Obstacle, tuple]],
                  pois: list[tuple[Poi, tuple]], max_steps, delta_time=1, render_mode=None):
-        """
-        https://pettingzoo.farama.org/api/parallel/
-
-        The init method takes in environment arguments and should define the following attributes:
-        - possible_agents
-        - action_spaces
-        - observation_spaces
-
-        These attributes should not be changed after initialization.
-        """
         self._current_step = 0
         self.max_steps = max_steps
         self.delta_time = delta_time
 
-        # these are meant to store a reference to the possible agents
-        self.leaders = {f'{each_agent[0].name}': each_agent for each_agent in leaders}
-        self.followers = {f'{each_agent[0].name}': each_agent for each_agent in followers}
-        self.pois = {f'{each_agent[0].name}': each_agent for each_agent in pois}
-
-        self.leader_state = [each_agent[1] for each_agent in leaders]
-        self.follower_state = [each_agent[1] for each_agent in followers]
-        self.poi_state = [each_agent[1] for each_agent in pois]
-
-        self.initial_leader_state = copy.copy(self.leader_state)
-        self.initial_follower_state = copy.copy(self.follower_state)
-        self.initial_poi_state = copy.copy(self.poi_state)
-
-        self.possible_agents = list(self.leaders.keys())
-        self.possible_agents.extend(self.followers.keys())
-        self.possible_agents.extend(self.pois.keys())
-
-        self.agents = [each_agent for each_agent in self.possible_agents]
-        self.completed_agents = []
-        self.agent_mapping = self.leaders | self.followers | self.pois
+        # note: state/observations history starts at len() == 1
+        #       while action/reward history starts at len() == 0
+        # agents are the harvesters and the supports
+        self.agents = {
+            agent.name: {
+                'agent': agent,
+                'states': [state],
+                'observations': [agent.sense(state)],
+                'actions': [],
+                'rewards': [],
+            } for agent, state in agents
+        }
+        self.obstacles = {
+            agent.name: {
+                'agent': agent,
+                'states': [state],
+                'observations': [agent.sense(state)],
+                'actions': [],
+                'rewards': [],
+            } for agent, state in obstacles
+        }
+        self.pois = {
+            agent.name: {
+                'agent': agent,
+                'states': [state],
+                'observations': [agent.sense(state)],
+                'actions': [],
+                'rewards': [],
+            } for agent, state in pois
+        }
 
         """
         If human-rendering is used, `self.window` will be a reference
@@ -75,25 +68,15 @@ class LeaderFollowerEnv:
         self.clock = None
         return
 
-    # this cache ensures that same space object is returned for the same agent
-    # allows action space seeding to work as expected
-    @functools.lru_cache(maxsize=None)
-    def observation_space(self, agent_name):
-        """
-        Gym spaces are defined and documented here: https://www.gymlibrary.dev/api/spaces/
+    def agent_state(self, agent):
+        agent_history = self.state_history[agent.name]
+        state = agent_history[-1]
+        return state
 
-        :param agent_name:
-        :return:
-        """
-        return self.observation_spaces[agent_name]
-
-    @functools.lru_cache(maxsize=None)
-    def action_space(self, agent_name):
-        # Action space is desired velocity and heading
-        return self.action_spaces[agent_name]
-
-    def seed(self, seed=None):
-        pass
+    def initial_state(self, agent):
+        agent_history = self.state_history[agent.name]
+        state = agent_history[0]
+        return state
 
     def state(self):
         """
@@ -106,6 +89,7 @@ class LeaderFollowerEnv:
         # todo  store state as a matrix in environment rather than individually in agents
         #       env is the state and agents are how the updates are calculated based on current state
         #       note that this may imply non-changing set of agents
+
         all_states = np.concatenate((self.leader_state, self.follower_state), axis=0)
         all_states = np.concatenate((all_states, self.poi_state), axis=0)
         return all_states
@@ -280,7 +264,7 @@ class LeaderFollowerEnv:
             pygame.quit()
         return
 
-    def reset(self, seed: int | None = None, options: dict | None = None, **kwargs):
+    def reset(self, seed: int | None = None):
         """
         Reset needs to initialize the `agents` attribute and must set up the
         environment so that render(), and step() can be called without issues.
@@ -288,18 +272,16 @@ class LeaderFollowerEnv:
         And returns a dictionary of observations (keyed by the agent name).
 
         :param seed:
-        :param options:
-        :param kwargs:
         """
         if seed is not None:
             np.random.seed(seed)
 
-        # add all possible agents to the environment - agents are removed from the self.agents as they finish the task
-        self.agents = self.possible_agents[:]
-        self.completed_agents = []
+        # # add all possible agents to the environment - agents are removed from the self.agents as they finish the task
+        # self.agents = self.possible_agents[:]
+        # self.completed_agents = []
         self._current_step = 0
 
-        # todo  set self.leader_state, self.follower_state, and self.poi_state to be the initial states
+        # todo  set agents, obstacles, and pois to the initial states
         #       clear the action, observation, and state histories
         # _ = [each_agent.reset() for each_agent in self.leaders.values()]
         # _ = [each_agent.reset() for each_agent in self.followers.values()]

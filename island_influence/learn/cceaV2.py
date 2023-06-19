@@ -17,12 +17,8 @@ from numpy.random import default_rng
 from torch.nn.utils import parameters_to_vector, vector_to_parameters
 from tqdm import trange
 
-from leader_follower.leader_follower_env import LeaderFollowerEnv
-
 
 # selection_functions
-
-
 def select_roulette(agent_pops, select_size, noise=0.01):
     """
     output a list of dicts, where each dict in the list contains a policy for each agent in agent_pops
@@ -264,9 +260,10 @@ DOWNSELECT_FUNCTIONS = {
     'downselect_top_n': downselect_top_n,
 }
 
-def neuro_evolve(
-        env: LeaderFollowerEnv, agent_pops, population_size, n_gens,
-        reward_func, experiment_dir, selection_func, sim_func, downselect_func, starting_gen=0,
+
+def ccea(
+        env, agent_pops, population_size, n_gens, reward_func, experiment_dir,
+        selection_func, sim_func, downselect_func, starting_gen=0,
 ):
     # todo  implement leniency
     # # selection_func = partial(select_roulette, **{'select_size': num_simulations, 'noise': 0.01})

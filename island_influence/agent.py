@@ -13,13 +13,10 @@ import torch
 from gym.vector.utils import spaces
 from numpy.random import default_rng
 
-from leader_follower.learn.neural_network import NeuralNetwork
+from island_influence.learn.neural_network import NeuralNetwork
 
 
 def relative(start_loc, end_loc):
-    # assert isinstance(end_agent, Agent)
-    # start_loc = self.location
-    # end_loc = end_agent.location
     assert len(start_loc) == len(end_loc)
 
     dx = end_loc[0] - start_loc[0]
@@ -31,43 +28,33 @@ def relative(start_loc, end_loc):
     dist = np.linalg.norm(np.asarray(end_loc) - np.asarray(start_loc))
     return angle, dist
 
+
 class AgentType(Enum):
-    Learner = auto()
-    Actor = auto()
-    Static = auto()
-    StaticTarget = auto()
-    MovingTarget = auto()
+    Harvester = auto()
+    Support = auto()
+    Obstacle = auto()
+    StaticPoi = auto()
+    MovingPoi = auto()
 
 
 class Agent(ABC):
     # a row is the set of bins that correspond to a type of agent
     # each set of (sensor_resolution) bins maps to a set of agent types
     ROW_MAPPING = {
-        AgentType.Learner: 0,
-        AgentType.Actor: 0,
-        AgentType.Static: 0,
-        AgentType.StaticTarget: 1,
-        AgentType.MovingTarget: 1,
+        AgentType.Harvester: 0,
+        AgentType.Support: 0,
+        AgentType.Obstacle: 0,
+        AgentType.StaticPoi: 1,
+        AgentType.MovingPoi: 1,
     }
     NUM_ROWS = 2
-
-    # @property
-    # def state(self):
-    #     return self.state_history[-1]
-    #
-    # @property
-    # def observation(self):
-    #     return self.observation_history[-1]
-    #
-    # @property
-    # def action(self):
-    #     return self.action_history[-1]
 
     def __init__(self, agent_id: int, sensor_resolution: int, value: float, max_velocity: float,
                  weight: float):
         self.name = f'agent_{agent_id}'
         self.id = agent_id
-        self.type = AgentType.Static
+        self.type = None
+        # self.type = AgentType.Static
 
         # lower/upper bounds agent is able to move
         # same for both x and y directions
@@ -98,22 +85,6 @@ class Agent(ABC):
         # self.action_history: list[np.ndarray] = []
         return
 
-    # def relative(self, end_agent):
-    #     assert isinstance(end_agent, Agent)
-    #     start_loc = self.location
-    #     end_loc = end_agent.location
-    #     # add very small amount of gaussian noise to make the locations unequal
-    #     assert len(start_loc) == len(end_loc)
-    #
-    #     dx = end_loc[0] - start_loc[0]
-    #     dy = end_loc[1] - start_loc[1]
-    #     angle = np.arctan2(dy, dx)
-    #     angle = np.degrees(angle)
-    #     angle = angle % 360
-    #
-    #     dist = np.linalg.norm(np.asarray(end_loc) - np.asarray(start_loc))
-    #     return angle, dist
-
     def observable_agents(self, relative_agents, observation_radius):
         """
         observable_agents
@@ -134,7 +105,7 @@ class Agent(ABC):
         return bins
 
     @abc.abstractmethod
-    def sense(self, relative_agents):
+    def sense(self, state):
         return NotImplemented
 
     @abc.abstractmethod
@@ -150,7 +121,7 @@ class Agent(ABC):
         return NotImplemented
 
 
-class Leader(Agent):
+class Harvester(Agent):
 
     def __init__(self, agent_id, sensor_resolution, value, max_velocity, weight,
                  observation_radius, policy: NeuralNetwork | None):
@@ -248,14 +219,14 @@ class Leader(Agent):
         return action
 
 
-class RepAttrFollower(Agent):
+class Support(Agent):
 
     def __init__(self, agent_id, sensor_resolution, value, max_velocity, weight,
                  repulsion_radius, repulsion_strength, attraction_radius, attraction_strength):
         # agent_id: int, location: tuple, sensor_resolution: int, value: float, max_velocity: float, weight: float
         super().__init__(agent_id, sensor_resolution, value, max_velocity, weight)
         self.name = f'follower_{agent_id}'
-        self.type = AgentType.Actor
+        self.type = AgentType.Support
 
         self.repulsion_radius = repulsion_radius
         self.repulsion_strength = repulsion_strength
@@ -305,17 +276,17 @@ class RepAttrFollower(Agent):
         obs_agents.remove((self, 0, 0))
         return avg_locs, obs_agents
 
-    def sense(self, relative_agents):
+    def sense(self, state):
         """
         agent_velocities
         Finds the average velocity and acceleration of all the agents within the observation radius of the base agent.
 
-        :param relative_agents:
+        :param state:
         :return:
         """
         self.state_history.append(self.location)
-        repulsion_bins, repulsion_agents = self.__obs_rule(relative_agents, self.repulsion_radius)
-        attraction_bins, attraction_agents = self.__obs_rule(relative_agents, self.attraction_radius)
+        repulsion_bins, repulsion_agents = self.__obs_rule(state, self.repulsion_radius)
+        attraction_bins, attraction_agents = self.__obs_rule(state, self.attraction_radius)
 
         self.influence_history['repulsion'].extend(repulsion_agents)
         self.influence_history['attraction'].extend(attraction_agents)
@@ -365,6 +336,44 @@ class RepAttrFollower(Agent):
         return action
 
 
+class Obstacle(Agent):
+
+    def __init__(self, agent_id, sensor_resolution, value, weight,
+                 observation_radius, coupling):
+        # agent_id: int, sensor_resolution: int, value: float, max_velocity: float, weight: float
+        super().__init__(agent_id, sensor_resolution, value, max_velocity=0, weight=weight)
+        self.name = f'obstacle_{agent_id}'
+        self.type = AgentType.Static
+
+        self.observation_radius = observation_radius
+        self.coupling = coupling
+        return
+
+    def observation_space(self):
+        sensor_range = spaces.Box(low=0, high=self.coupling, shape=(1,))
+        return sensor_range
+
+    def action_space(self):
+        # static agents do not move during an episode
+        action_range = spaces.Box(low=0, high=0, shape=(2,), dtype=np.float64)
+        return action_range
+
+    def sense(self, state):
+        """
+        Each entry in the observation is a tuple of (agent, angle, dist) where angle and dist are the
+        angle and distance to the agent in the tuple relative to this poi.
+
+        """
+        observation = []
+        self.observation_history.append(observation)
+        return observation
+
+    def get_action(self, observation):
+        action = np.array([0, 0])
+        self.action_history.append(action)
+        return action
+
+
 class Poi(Agent):
 
     @property
@@ -407,7 +416,7 @@ class Poi(Agent):
         observed = idx_seen >= self.coupling
         return observed
 
-    def sense(self, relative_agents):
+    def sense(self, state):
         """
         Each entry in the observation is a tuple of (agent, angle, dist) where angle and dist are the
         angle and distance to the agent in the tuple relative to this poi.
@@ -416,7 +425,7 @@ class Poi(Agent):
         self.state_history.append(self.location)
         # filter out other POIs from the poi observation
         # todo only store agent_names rather than full agent object
-        observable = self.observable_agents(relative_agents, self.observation_radius)
+        observable = self.observable_agents(state, self.observation_radius)
         observation = [
             each_obs
             for each_obs in observable
@@ -429,29 +438,3 @@ class Poi(Agent):
         action = np.array([0, 0])
         self.action_history.append(action)
         return action
-
-
-class Key(Agent):
-
-    def __init__(self, agent_id, sensor_resolution, value, max_velocity, weight,
-                 observation_radius, coupling):
-        # agent_id: int, sensor_resolution: int, value: float, max_velocity: float, weight: float
-        super().__init__(agent_id, sensor_resolution, value, max_velocity=max_velocity, weight=weight)
-        self.name = f'poi_{agent_id}'
-        self.type = AgentType.Static
-
-        self.observation_radius = observation_radius
-        self.coupling = coupling
-        return
-
-    def sense(self, relative_agents):
-        pass
-
-    def observation_space(self):
-        pass
-
-    def action_space(self):
-        pass
-
-    def get_action(self, observation):
-        pass

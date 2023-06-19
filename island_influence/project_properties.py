@@ -51,8 +51,8 @@ cached_dir = Path(project_path, 'cached')
 # Test directories
 # Directories to store test code and resources
 # --------------------------------------------
-test_dir = Path(project_path, 'test')
-test_config_dir = Path(test_dir, 'test')
+test_dir = Path(project_path, '../test')
+test_config_dir = Path(test_dir, '../test')
 
 # --------------------------------------------
 # Resource files
