@@ -1,4 +1,3 @@
-import copy
 import pickle
 from pathlib import Path
 
@@ -15,20 +14,21 @@ class DiscreteHarvestEnv:
     def all_entities(self):
         return self.agents | self.obstacles | self.pois
 
-    def __init__(self, agents: list[tuple[Agent, tuple]], obstacles: list[tuple[Obstacle, tuple]],
-                 pois: list[tuple[Poi, tuple]], max_steps, delta_time=1, render_mode=None):
+    def __init__(self, agents: list[tuple[Agent, np.ndarray]], obstacles: list[tuple[Obstacle, np.ndarray]], pois: list[tuple[Poi, np.ndarray]],
+                 max_steps, delta_time=1, render_mode=None):
         self._current_step = 0
         self.max_steps = max_steps
         self.delta_time = delta_time
 
         # note: state/observations history starts at len() == 1
         #       while action/reward history starts at len() == 0
+        # todo  keep direct record of state history so it's faster to compute the update
         # agents are the harvesters and the supports
         self.agents = {
             agent.name: {
                 'agent': agent,
                 'states': [state],
-                'observations': [agent.sense(state)],
+                # 'observations': [agent.sense(state)],
                 'actions': [],
                 'rewards': [],
             } for agent, state in agents
@@ -37,7 +37,7 @@ class DiscreteHarvestEnv:
             agent.name: {
                 'agent': agent,
                 'states': [state],
-                'observations': [agent.sense(state)],
+                # 'observations': [agent.sense(state)],
                 'actions': [],
                 'rewards': [],
             } for agent, state in obstacles
@@ -46,7 +46,7 @@ class DiscreteHarvestEnv:
             agent.name: {
                 'agent': agent,
                 'states': [state],
-                'observations': [agent.sense(state)],
+                # 'observations': [agent.sense(state)],
                 'actions': [],
                 'rewards': [],
             } for agent, state in pois
@@ -68,16 +68,6 @@ class DiscreteHarvestEnv:
         self.clock = None
         return
 
-    def agent_state(self, agent):
-        agent_history = self.state_history[agent.name]
-        state = agent_history[-1]
-        return state
-
-    def initial_state(self, agent):
-        agent_history = self.state_history[agent.name]
-        state = agent_history[0]
-        return state
-
     def state(self):
         """
         Returns the state.
@@ -89,9 +79,12 @@ class DiscreteHarvestEnv:
         # todo  store state as a matrix in environment rather than individually in agents
         #       env is the state and agents are how the updates are calculated based on current state
         #       note that this may imply non-changing set of agents
+        agent_states = [agent['state'][-1] for name, agent in self.agents]
+        obstacles_states = [obstacle['state'][-1] for name, obstacle in self.obstacles]
+        poi_states = [poi['state'][-1] for name, poi in self.pois]
 
-        all_states = np.concatenate((self.leader_state, self.follower_state), axis=0)
-        all_states = np.concatenate((all_states, self.poi_state), axis=0)
+        all_states = np.concatenate((agent_states, obstacles_states), axis=0)
+        all_states = np.concatenate((all_states, poi_states), axis=0)
         return all_states
 
     def save_environment(self, base_dir, tag=''):

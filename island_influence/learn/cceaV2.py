@@ -17,6 +17,8 @@ from numpy.random import default_rng
 from torch.nn.utils import parameters_to_vector, vector_to_parameters
 from tqdm import trange
 
+from island_influence.discrete_harvest_env import DiscreteHarvestEnv
+
 
 # selection_functions
 def select_roulette(agent_pops, select_size, noise=0.01):
@@ -194,7 +196,7 @@ def downselect_top_n(agent_pops, select_size):
     return chosen_agent_pops
 
 
-def rollout(env: LeaderFollowerEnv, individuals, reward_func, render: bool | dict = False):
+def rollout(env: DiscreteHarvestEnv, individuals, reward_func, render: bool | dict = False):
     render_func = partial(env.render, **render) if isinstance(render, dict) else env.render
 
     observations = env.reset()
