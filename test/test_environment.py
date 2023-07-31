@@ -5,17 +5,15 @@
 
 """
 import argparse
+import math
 import time
-from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
-from pettingzoo.test import parallel_api_test
 
-from island_influence import project_properties
-from island_influence.agent import Poi, Follower, Leader
+from island_influence.agent import Poi, Agent, Obstacle, AgentType
 from island_influence.discrete_harvest_env import DiscreteHarvestEnv
-from island_influence.utils import load_config
+from island_influence.learn.neural_network import NeuralNetwork
 
 
 def display_final_agents(env):
@@ -211,16 +209,6 @@ def test_rollout(env, render):
     return
 
 
-def test_api(env):
-    print(f'=' * 80)
-    print(f'Running parallel api tests')
-    result = parallel_api_test(env, num_cycles=50)
-    print(f'{result=}')
-    display_final_agents(env)
-    print(f'=' * 80)
-    return
-
-
 def test_persistence(env: DiscreteHarvestEnv):
     save_path = env.save_environment()
     test_env = DiscreteHarvestEnv.load_environment(save_path)
@@ -240,40 +228,58 @@ def main(main_args):
     render_mode = 'rgb_array'
     delta_time = 1
 
-    leader_obs_rad = 100
-    leader_value = 1
+    obs_rad = 100
+    max_vel = 1
+    sen_res = 8
 
-    follower_value = 1
-    repulsion_rad = 0.5
-    attraction_rad = 1
+    agent_weight = 1
+    obs_weight = 1
+    poi_weight = 1
 
-    poi_obs_rad = 1
+    agent_value = 1
+    obstacle_value = 1
     poi_value = 0
-    poi_coupling = 1
 
-    config_fn = Path(project_properties.test_dir, 'configs', 'test.yaml')
-    experiment_config = load_config(str(config_fn))
-
-    leaders = [
-        Leader(idx, location=each_pos, sensor_resolution=4, value=leader_value,
-               observation_radius=leader_obs_rad, policy=None)
-        for idx, each_pos in enumerate(experiment_config['leader_positions'])
+    agent_config = [
+        (AgentType.Harvester, np.asarray((0, 1))),
+        (AgentType.Harvester, np.asarray((0, 2))),
+        (AgentType.Harvester, np.asarray((0, 3))),
+        (AgentType.Harvester, np.asarray((0, 4))),
     ]
-    followers = [
-        Follower(agent_id=idx, location=each_pos, sensor_resolution=4, value=follower_value,
-                 repulsion_radius=repulsion_rad, repulsion_strength=2,
-                 attraction_radius=attraction_rad, attraction_strength=1)
-        for idx, each_pos in enumerate(experiment_config['follower_positions'])
+
+    obstacle_config = [
+        (AgentType.Obstacle, np.asarray((1, 1))),
+        (AgentType.Obstacle, np.asarray((1, 2))),
+        (AgentType.Obstacle, np.asarray((1, 3))),
+        (AgentType.Obstacle, np.asarray((1, 4))),
+    ]
+
+    poi_config = [
+        (AgentType.StaticPoi, np.asarray((2, 1))),
+        (AgentType.StaticPoi, np.asarray((2, 2))),
+        (AgentType.StaticPoi, np.asarray((2, 3))),
+        (AgentType.StaticPoi, np.asarray((2, 4))),
+    ]
+
+    n_inputs = sen_res * Agent.NUM_BINS
+    n_outputs = 2
+    n_hidden = math.ceil((n_inputs + n_outputs) / 2)
+    policy = NeuralNetwork(n_inputs=n_inputs, n_outputs=n_outputs, n_hidden=n_hidden)
+
+    agents = [
+        Agent(idx, agent_info[0], agent_info[1], obs_rad, agent_weight, agent_value, max_vel, policy, sense_function='regions')
+        for idx, agent_info in enumerate(agent_config)
+    ]
+    obstacles = [
+        Obstacle(idx, agent_info[0], agent_info[1], obs_rad, obs_weight, obstacle_value)
+        for idx, agent_info in enumerate(obstacle_config)
     ]
     pois = [
-        Poi(idx, location=each_pos, sensor_resolution=4, value=poi_value,
-            observation_radius=poi_obs_rad, coupling=poi_coupling)
-        for idx, each_pos in enumerate(experiment_config['poi_positions'])
+        Poi(idx, agent_info[0], agent_info[1], obs_rad, poi_weight, poi_value)
+        for idx, agent_info in enumerate(poi_config)
     ]
 
-    env = DiscreteHarvestEnv(
-        leaders=leaders, followers=followers, pois=pois, max_steps=100, render_mode=render_mode, delta_time=delta_time
-    )
+    env = DiscreteHarvestEnv(agents=agents, obstacles=obstacles, pois=pois, max_steps=100, delta_time=delta_time, render_mode=render_mode)
 
     # test_observations(env)
     # test_actions(env)
@@ -287,8 +293,6 @@ def main(main_args):
 
     # test_rollout(env, render=None)
     # test_rollout(env, render='rgb_array')
-
-    # test_api(env)
 
     test_persistence(env)
     return

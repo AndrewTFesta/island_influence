@@ -4,6 +4,7 @@
 @description
 
 """
+import copy
 from enum import Enum, auto
 
 import numpy as np
@@ -35,63 +36,68 @@ class AgentType(Enum):
 
 
 class Agent:
-    # a row is the set of bins that correspond to a type of agent
-    # each set of (sensor_resolution) bins maps to a set of agent types
     ROW_MAPPING = {
         AgentType.Harvester: 0,
         AgentType.Support: 0,
-        AgentType.Obstacle: 0,
-        AgentType.StaticPoi: 1,
-        AgentType.MovingPoi: 1,
+        AgentType.Obstacle: 1,
+        AgentType.StaticPoi: 2,
+        AgentType.MovingPoi: 2
     }
-    NUM_ROWS = 2
 
-    def __init__(self, agent_id: int, agent_type: AgentType, sensor_resolution: int, max_velocity: float, weight: float, location: np.ndarray,
-                 observation_radius, policy: NeuralNetwork | None, sense_function='regions'):
+    NUM_BINS = 3
+
+    def __init__(self, agent_id: int, agent_type: AgentType, location: np.ndarray, observation_radius, weight: float, value: float,
+                 max_velocity: float = 0.0, policy: NeuralNetwork | None = None, sense_function='regions'):
         self.name = f'{agent_type.name}_{agent_id}'
         self.id = agent_id
         self.agent_type = agent_type
 
-        # lower/upper bounds agent is able to move
-        # same for both x and y directions
-        self.max_velocity = max_velocity
-        self.sensor_resolution = sensor_resolution
-        self.weight = weight
-
+        self._initial_location = copy.copy(location)
         self.location = location
 
         self.observation_radius = observation_radius
+        self.weight = weight
+        self.value = value
+
+        # lower/upper bounds agent is able to move
+        # same for both x and y directions
+        self.max_velocity = max_velocity
         self.policy = policy
 
-        self.n_in = self.sensor_resolution * self.NUM_ROWS
-        self.n_out = 2
+        # input is one bin for each of
+        #   other agents
+        #   obstacles
+        #   pois
+        # self.n_in = self.sensor_resolution * self.num_bins
+        self.sensor_resolution = int(policy.n_inputs / self.NUM_BINS) if policy is not None else None
 
         self.sense_functions = {
             'regions': self._sense_regions,
             'vision': self._sense_vision,
         }
 
-        self._sense_func = self.sense_functions.get(sense_function, 'regions')
+        self._sense_func = self.sense_functions.get(sense_function, list(self.sense_functions.keys())[0])
         return
 
     def __repr__(self):
-        return f'({self.name=}: {self.agent_type}: {self.max_velocity=}: {self.sensor_resolution}: {self.weight=})'
+        return f'({self.name=}: {self.agent_type}: {self.location=})'
 
     def observation_space(self):
         sensor_range = spaces.Box(
             low=0, high=np.inf,
-            shape=(self.sensor_resolution, self.NUM_ROWS), dtype=np.float64
+            shape=(self.sensor_resolution, self.NUM_BINS), dtype=np.float64
         )
         return sensor_range
 
     def action_space(self):
         action_range = spaces.Box(
             low=-1 * self.max_velocity, high=self.max_velocity,
-            shape=(self.n_out,), dtype=np.float64
+            shape=(self.policy.n_outputs,), dtype=np.float64
         )
         return action_range
 
     def reset(self):
+        self.location = copy.copy(self._initial_location)
         return
 
     def observable_agents(self, relative_agents, observation_radius):
@@ -136,10 +142,10 @@ class Agent:
             offset = 360 / (self.sensor_resolution * 2)
             bin_size = offset * 2
 
-        observation = np.zeros((2, self.sensor_resolution))
-        counts = np.ones((2, self.sensor_resolution))
+        observation = np.zeros((self.NUM_BINS, self.sensor_resolution))
+        counts = np.ones(observation.shape)
         for idx, entry in enumerate(obs_agents):
-            agent, angle, dist = entry[0]
+            agent, angle, dist = entry
             agent_type_idx = self.ROW_MAPPING[agent.agent_type]
             bin_idx = int(np.floor(angle / bin_size) % self.sensor_resolution)
             observation[agent_type_idx, bin_idx] += agent.value / max(dist, 0.01)
@@ -179,3 +185,24 @@ class Agent:
             action = action / mag
             action *= self.max_velocity
         return action
+
+
+class Obstacle(Agent):
+
+    def __init__(self, agent_id, agent_type, location, observation_radius, weight, value):
+        super().__init__(agent_id, agent_type, location, observation_radius, weight, value)
+        return
+
+
+class Poi(Agent):
+
+    def __init__(self, agent_id, agent_type, location, observation_radius, weight, value):
+        super().__init__(agent_id, agent_type, location, observation_radius, weight, value)
+        return
+
+    def sense(self, other_agents):
+        # sense nearby harvester agents
+        return np.asarray([0, 0])
+
+    def get_action(self, observation):
+        return np.asarray([0, 0])

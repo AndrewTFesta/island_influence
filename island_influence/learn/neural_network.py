@@ -114,8 +114,7 @@ class NeuralNetwork(nn.Module):
         # todo optimize saving pytorch model
         # https://pytorch.org/tutorials/beginner/saving_loading_models.html#saving-loading-a-general-checkpoint-for-inference-and-or-resuming-training
         if save_dir is None:
-            save_dir = project_properties.output_dir
-            save_dir = Path(save_dir, 'models')
+            save_dir = project_properties.model_dir
 
         if not save_dir.exists():
             save_dir.mkdir(parents=True, exist_ok=True)

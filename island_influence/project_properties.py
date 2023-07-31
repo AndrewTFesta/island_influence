@@ -36,8 +36,10 @@ doc_dir = Path(project_path, 'docs')
 # Directories to programs outputs and generated artefacts
 # --------------------------------------------
 output_dir = Path(project_path, 'output')
-model_dir = Path(project_path, 'models')
-log_dir = Path(project_path, 'logs')
+model_dir = Path(output_dir, 'models')
+env_dir = Path(output_dir, 'envs')
+exps_dir = Path(output_dir, 'exps')
+log_dir = Path(output_dir, 'logs')
 
 # --------------------------------------------
 # Cached directories
