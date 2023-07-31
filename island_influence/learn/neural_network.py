@@ -14,6 +14,18 @@ from torch import nn
 from island_influence import project_properties
 
 
+def network_distance(network_0, network_1):
+    # Frobenius Norm
+    # Kullback–Leibler divergence
+    # Jensen–Shannon divergence
+    # Jordan normal form
+    # Frobenius normal form
+    # RV coefficient
+    # Matrix similarity
+    
+    return
+
+
 def linear_stack(n_inputs, n_hidden, n_outputs):
     hidden_size = int((n_inputs + n_outputs) / 2)
     network = nn.Sequential(
@@ -54,7 +66,6 @@ def load_pytorch_model(model_path):
 
 
 class NeuralNetwork(nn.Module):
-
     LAST_CREATED = 0
 
     def __init__(self, n_inputs, n_outputs, n_hidden=2, network_func=linear_layer):

@@ -2,9 +2,8 @@ import pickle
 from pathlib import Path
 
 import numpy as np
-import pygame
 
-from island_influence.agent import Poi, AgentType, Agent, Obstacle
+from island_influence.agent import Poi, Agent, Obstacle
 
 
 class DiscreteHarvestEnv:
@@ -22,13 +21,12 @@ class DiscreteHarvestEnv:
 
         # note: state/observations history starts at len() == 1
         #       while action/reward history starts at len() == 0
-        # todo  keep direct record of state history so it's faster to compute the update
+        # keep direct record of state history so it's faster to compute the update
         # agents are the harvesters and the supports
         self.agents = {
             agent.name: {
                 'agent': agent,
                 'states': [state],
-                # 'observations': [agent.sense(state)],
                 'actions': [],
                 'rewards': [],
             } for agent, state in agents
@@ -37,7 +35,6 @@ class DiscreteHarvestEnv:
             agent.name: {
                 'agent': agent,
                 'states': [state],
-                # 'observations': [agent.sense(state)],
                 'actions': [],
                 'rewards': [],
             } for agent, state in obstacles
@@ -46,26 +43,10 @@ class DiscreteHarvestEnv:
             agent.name: {
                 'agent': agent,
                 'states': [state],
-                # 'observations': [agent.sense(state)],
                 'actions': [],
                 'rewards': [],
             } for agent, state in pois
         }
-
-        """
-        If human-rendering is used, `self.window` will be a reference
-        to the window that we draw to. `self.clock` will be a clock that is used
-        to ensure that the environment is rendered at the correct framerate in
-        human-mode. They will remain `None` until human-mode is used for the
-        first time.
-        """
-        assert render_mode is None or render_mode in self.metadata['render_modes']
-        self.render_mode = render_mode
-        # The size of the PyGame window
-        self.render_bound = 100
-        self.window_size = 512
-        self.window = None
-        self.clock = None
         return
 
     def state(self):
@@ -79,9 +60,9 @@ class DiscreteHarvestEnv:
         # todo  store state as a matrix in environment rather than individually in agents
         #       env is the state and agents are how the updates are calculated based on current state
         #       note that this may imply non-changing set of agents
-        agent_states = [agent['state'][-1] for name, agent in self.agents]
-        obstacles_states = [obstacle['state'][-1] for name, obstacle in self.obstacles]
-        poi_states = [poi['state'][-1] for name, poi in self.pois]
+        agent_states = [agent['states'][-1] for name, agent in self.agents]
+        obstacles_states = [obstacle['states'][-1] for name, obstacle in self.obstacles]
+        poi_states = [poi['states'][-1] for name, poi in self.pois]
 
         all_states = np.concatenate((agent_states, obstacles_states), axis=0)
         all_states = np.concatenate((all_states, poi_states), axis=0)
@@ -111,151 +92,6 @@ class DiscreteHarvestEnv:
         with open(load_path, 'rb') as load_file:
             env = pickle.load(load_file)
         return env
-
-    def __render_frame(self, window_size=None, render_bound=None):
-        if self.window is None and self.render_mode == 'human':
-            pygame.init()
-            pygame.display.init()
-            self.window = pygame.display.set_mode((self.window_size, self.window_size))
-
-        if self.clock is None and self.render_mode == 'human':
-            self.clock = pygame.time.Clock()
-
-        render_bound = self.render_bound if render_bound is None else render_bound
-        window_size = self.window_size if window_size is None else window_size
-
-        canvas = pygame.Surface((window_size, self.window_size))
-        canvas.fill((255, 255, 255))
-
-        # The size of a single grid square in pixels
-        pix_square_size = (window_size / render_bound)
-
-        leader_color = (255, 0, 0)
-        follower_color = (0, 0, 255)
-        obs_poi_color = (0, 255, 0)
-        non_obs_poi_color = (0, 0, 0)
-        line_color = (192, 192, 192)
-
-        # draw some gridlines
-        for x in range(render_bound + 1):
-            pygame.draw.line(
-                canvas, line_color, (0, pix_square_size * x), (window_size, pix_square_size * x), width=1,
-            )
-            pygame.draw.line(
-                canvas, line_color, (pix_square_size * x, 0), (pix_square_size * x, window_size), width=1,
-            )
-
-        for name, agent in self.leaders.items():
-            location = np.array(agent.location)
-            pygame.draw.rect(
-                canvas, leader_color, pygame.Rect(pix_square_size * location, (pix_square_size, pix_square_size))
-            )
-
-        for name, agent in self.followers.items():
-            location = np.array(agent.location)
-            pygame.draw.circle(canvas, follower_color, (location + 0.5) * pix_square_size, pix_square_size / 1.5)
-
-        for name, agent in self.pois.items():
-            # different colors to distinguish if the poi is captured
-            location = np.array(agent.location)
-            agent_color = obs_poi_color if agent.observed else non_obs_poi_color
-            # todo  draw circle around poi indicating the observation radius
-            pygame.draw.circle(canvas, agent_color, (location + 0.5) * pix_square_size, pix_square_size / 1.5)
-
-        if self.render_mode == 'human':
-            # The following line copies our drawings from `canvas` to the visible window
-            self.window.blit(canvas, canvas.get_rect())
-            pygame.event.pump()
-            pygame.display.update()
-
-            # We need to ensure that human-rendering occurs at the predefined framerate.
-            # The following line will automatically add a delay to keep the framerate stable.
-            self.clock.tick(self.metadata['render_fps'])
-        else:  # rgb_array
-            np_frame = np.transpose(np.array(pygame.surfarray.pixels3d(canvas)), axes=(1, 0, 2))
-            return np_frame
-        return
-
-    def __render_rgb(self):
-        # todo set based on min/max agent locations
-        render_resolution = (512, 512)
-        render_bounds = (-5, 55)
-        scaling = np.divide(render_resolution, render_bounds[1] - render_bounds[0])
-
-        agent_colors = {AgentType.Learner: [255, 0, 0], AgentType.Actor: [0, 255, 0], AgentType.Static: [0, 0, 255]}
-        agent_sizes = {AgentType.Learner: 2, AgentType.Actor: 1, AgentType.Static: 3}
-
-        background_color = [255, 255, 255]
-        line_color = [0, 0, 0]
-        default_color = [128, 128, 128]
-        default_size = 2
-        num_lines = 10
-        x_line_idxs = np.linspace(0, render_resolution[1], num=num_lines)
-        y_line_idxs = np.linspace(0, render_resolution[0], num=num_lines)
-
-        frame = np.full((render_resolution[0] + 1, render_resolution[1] + 1, 3), background_color)
-
-        # draw a grid over the frame
-        for each_line in x_line_idxs:
-            each_line = int(each_line)
-            frame[each_line] = line_color
-
-        for each_line in y_line_idxs:
-            each_line = int(each_line)
-            frame[:, each_line] = line_color
-
-        # place the agents in the frame based on the sizes and colors specified in agent_colors and agent_sizes
-        for agent_name in self.agents:
-            agent = self.agent_mapping[agent_name]
-            acolor = agent_colors.get(agent.type, default_color)
-            asize = agent_sizes.get(agent.type, default_size)
-            aloc = np.array(agent.location)
-
-            scaled_loc = aloc - render_bounds[0]
-            scaled_loc = np.multiply(scaled_loc, scaling)
-            scaled_loc = np.rint(scaled_loc)
-            scaled_loc = scaled_loc.astype(np.int)
-            frame[
-            scaled_loc[1] - asize: scaled_loc[1] + asize,
-            scaled_loc[0] - asize: scaled_loc[0] + asize,
-            ] = acolor
-        frame = frame.astype(np.uint8)
-        return frame
-
-    def render(self, mode: str | None = None, **kwargs):
-        """
-        Displays a rendered frame from the environment, if supported.
-
-        Alternate render modes in the default environments are ‘rgb_array’ which returns a numpy array and
-        is supported by all environments outside of classic, and ‘ansi’ which returns the strings printed
-        (specific to classic environments).
-
-        :param mode:
-        :param kwargs:
-        :return:
-        """
-        if not mode:
-            mode = self.render_mode
-
-        match mode:
-            case 'human':
-                frame = self.__render_frame(**kwargs)
-            case 'rgb_array':
-                frame = self.__render_frame(**kwargs)
-                # frame = self.__render_rgb()
-            case _:
-                frame = None
-        return frame
-
-    def close(self):
-        """
-        Close should release any graphical displays, subprocesses, network connections or any other
-        environment data which should not be kept around after the user is no longer using the environment.
-        """
-        if self.window is not None:
-            pygame.display.quit()
-            pygame.quit()
-        return
 
     def reset(self, seed: int | None = None):
         """
@@ -289,39 +125,33 @@ class DiscreteHarvestEnv:
 
         :return:
         """
-        rem_agents = {self.agent_mapping[name] for name in self.agents}
-
+        curr_state = self.state()
         observations = {}
-        for agent_name in self.agents:
-            agent = self.agent_mapping[agent_name]
-
-            agent_obs = agent.sense(rem_agents)
-            observations[agent_name] = agent_obs
+        for name, agent in self.agents.items():
+            agent = agent['agent']
+            agent_obs = agent.sense(curr_state)
+            observations[name] = agent_obs
         return observations
 
+    #
     def get_actions(self):
-        observations = self.get_observations()
-        actions = self.get_actions_from_observations(observations)
-        return actions
-
-    def get_actions_from_observations(self, observations):
         """
         Returns a dictionary of actions (keyed by the agent name).
 
         :return:
         """
+        observations = self.get_observations()
         actions = {}
-        for agent_name in self.agents:
-            agent = self.agent_mapping[agent_name]
-            agent_obs = observations[agent_name]
-
+        for name, agent in self.agents.items():
+            agent = agent['agent']
+            agent_obs = observations[name]
             agent_action = agent.get_action(agent_obs)
-            actions[agent_name] = agent_action
+            actions[name] = agent_action
         return actions
 
-    def observed_pois(self):
-        observed = [poi for name, poi in self.pois.items() if poi.observed]
-        return observed
+    # def observed_pois(self):
+    #     observed = [poi for name, poi in self.pois.items() if poi.observed]
+    #     return observed
 
     def done(self):
         all_obs = len(self.observed_pois()) == len(self.pois.values())
@@ -347,11 +177,11 @@ class DiscreteHarvestEnv:
         # step leaders, followers, and pois
         # should not matter which order they are stepped in as long as dt is small enough
         for agent_name, each_action in actions.items():
-            agent = self.agent_mapping[agent_name]
+            agent = self.agents[agent_name]
             # each_action[0] is dx
             # each_action[1] is dy
-            new_loc = tuple(coord + vel * self.delta_time for coord, vel in zip(agent.location, each_action))
-            agent.location = new_loc
+            new_loc = agent['states'] + each_action
+            agent['states'].append(new_loc)
 
         # todo track actions and observations in step function, not when functions called in agent implementation
         # Get all observations
@@ -364,7 +194,7 @@ class DiscreteHarvestEnv:
 
         # Step forward and check if simulation is done
         # Update all agent dones with environment done
-        self._current_step += 1
+        self._current_step += self.delta_time
         dones = self.done()
 
         # Update infos and truncated for agents.
