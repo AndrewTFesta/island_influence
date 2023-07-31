@@ -226,7 +226,7 @@ def main(main_args):
     render_mode = 'rgb_array'
     delta_time = 1
 
-    obs_rad = 100
+    obs_rad = 2
     max_vel = 1
     sen_res = 8
 
@@ -262,13 +262,13 @@ def main(main_args):
 
     poi_config = [
         (AgentType.StaticPoi, np.asarray((4, 1))),
-        (AgentType.StaticPoi, np.asarray((4, 2))),
+        # (AgentType.StaticPoi, np.asarray((4, 2))),
         (AgentType.StaticPoi, np.asarray((4, 3))),
-        (AgentType.StaticPoi, np.asarray((4, 4))),
+        # (AgentType.StaticPoi, np.asarray((4, 4))),
         (AgentType.StaticPoi, np.asarray((4, 5))),
-        (AgentType.StaticPoi, np.asarray((4, 6))),
+        # (AgentType.StaticPoi, np.asarray((4, 6))),
         (AgentType.StaticPoi, np.asarray((4, 7))),
-        (AgentType.StaticPoi, np.asarray((4, 8))),
+        # (AgentType.StaticPoi, np.asarray((4, 8))),
     ]
 
     n_inputs = sen_res * Agent.NUM_BINS
@@ -298,10 +298,10 @@ def main(main_args):
     # test_step(env, render_mode=None)
     # test_step(env, render_mode='rgb_array')
 
-    # test_random(env, render_mode=None)
-    test_random(env, render_mode='rgb_array')
+    test_random(env, render_mode=None)
+    # test_random(env, render_mode='rgb_array')
 
-    # test_rollout(env, render_mode=None)
+    test_rollout(env, render_mode=None)
     # test_rollout(env, render_mode='rgb_array')
 
     test_persistence(env)

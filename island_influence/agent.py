@@ -242,6 +242,13 @@ class Obstacle(Agent):
         super().__init__(agent_id, agent_type, location, observation_radius, weight, value)
         return
 
+    def sense(self, other_agents):
+        # sense nearby harvester agents
+        return np.asarray([0, 0])
+
+    def get_action(self, observation):
+        return np.asarray([0, 0])
+
 
 class Poi(Agent):
 

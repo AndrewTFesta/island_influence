@@ -1,12 +1,12 @@
 myaml
 numpy
 pygame
-matplotlib~=3.6.2
+matplotlib
 tqdm
 gym
-PettingZoo~=1.22.0
-PyYAML~=6.0
-scipy~=1.9.3
+PettingZoo
+PyYAML
+scipy
 torch
 torchvision
 torchaudio

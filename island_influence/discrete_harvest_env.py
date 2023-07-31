@@ -50,7 +50,7 @@ class DiscreteHarvestEnv:
         self.render_mode = render_mode
         # The size of the PyGame window
         self.window_size = 512
-        self.render_scale = 2
+        self.render_scale = 3
         self.window = None
         self.clock = None
 
@@ -69,6 +69,7 @@ class DiscreteHarvestEnv:
 
         self.render_bound = math.ceil(max(delta_x, delta_y))
         self.render_bound = self.render_bound * self.render_scale
+        self.location_offset = self.render_bound // (self.render_scale * 3)
         return
 
     def action_space(self, agent: Agent | str):
@@ -154,11 +155,13 @@ class DiscreteHarvestEnv:
             )
 
         for name, agent in self.agents.items():
+            location = np.array(agent.location) + self.location_offset
             acolor = agent_colors.get(agent.agent_type, default_color)
             asize = agent_sizes.get(agent.agent_type, default_size)
-            location = np.array(agent.location)
             pygame.draw.rect(
-                canvas, acolor, pygame.Rect(pix_square_size * location, (pix_square_size * asize, pix_square_size * asize))
+                canvas, acolor, pygame.Rect(
+                    pix_square_size * location, (pix_square_size * asize, pix_square_size * asize)
+                )
             )
 
         for name, agent in self.obstacles.items():
@@ -166,7 +169,7 @@ class DiscreteHarvestEnv:
             if agent.value <= 0:
                 continue
 
-            location = np.array(agent.location)
+            location = np.array(agent.location) + self.location_offset
             asize = agent_sizes.get(agent.agent_type, default_size)
             # different colors to distinguish how much remains of the obstacle
             acolor = agent_colors.get(agent.agent_type, default_color)
@@ -178,7 +181,7 @@ class DiscreteHarvestEnv:
             pygame.draw.circle(canvas, acolor, (location + 0.5) * pix_square_size, pix_square_size * asize)
 
         for name, agent in self.pois.items():
-            location = np.array(agent.location)
+            location = np.array(agent.location) + self.location_offset
             asize = agent_sizes.get(agent.agent_type, default_size)
             # different colors to distinguish how much of the poi is observed
             acolor = agent_colors.get(agent.agent_type, default_color)
@@ -186,9 +189,10 @@ class DiscreteHarvestEnv:
             # todo  draw circle around poi indicating the observation radius
             # draw a circle at the location to represent the obstacle
             pygame.draw.circle(canvas, acolor, (location + 0.5) * pix_square_size, pix_square_size * asize)
+            pygame.draw.circle(canvas, acolor, (location + 0.5) * pix_square_size, pix_square_size * agent.observation_radius, width=1)
 
         for name, agent in self.pois.items():
-            location = np.array(agent.location)
+            location = np.array(agent.location) + self.location_offset
             # display text of the current value remaining of a poi
             # do this in a loop after to make sure it displays on all pois and agents
             text_surface = font.render(f'{agent.value}', False, text_color)
@@ -247,8 +251,8 @@ class DiscreteHarvestEnv:
             scaled_loc = np.rint(scaled_loc)
             scaled_loc = scaled_loc.astype(np.int)
             frame[
-                scaled_loc[1] - asize: scaled_loc[1] + asize,
-                scaled_loc[0] - asize: scaled_loc[0] + asize,
+            scaled_loc[1] - asize: scaled_loc[1] + asize,
+            scaled_loc[0] - asize: scaled_loc[0] + asize,
             ] = acolor
         frame = frame.astype(np.uint8)
         return frame
