@@ -16,56 +16,58 @@ from island_influence.discrete_harvest_env import DiscreteHarvestEnv
 from island_influence.learn.neural_network import NeuralNetwork
 
 
-def display_final_agents(env):
-    print(f'Remaining agents: {len(env.agents)}')
-    for agent_name in env.agents:
-        agent = env.agent_mapping[agent_name]
-        print(f'{agent_name=}: {agent.location=}')
-    print(f'Completed agents: {len(env.completed_agents)}')
-    for agent_name, agent_reward in env.completed_agents.items():
-        agent = env.agent_mapping[agent_name]
-        print(f'{agent_name=} | {agent_reward=} | {agent.location=}')
-    return
+# def display_final_agents(env: DiscreteHarvestEnv):
+#     print(f'Remaining agents: {len(env.agents)}')
+#     for agent_name in env.agents:
+#         agent = env.agent_mapping[agent_name]
+#         print(f'{agent_name=}: {agent.location=}')
+#     print(f'Completed agents: {len(env.completed_agents)}')
+#     for agent_name, agent_reward in env.completed_agents.items():
+#         agent = env.agent_mapping[agent_name]
+#         print(f'{agent_name=} | {agent_reward=} | {agent.location=}')
+#     return
 
 
-def test_observations(env):
+def test_observations(env: DiscreteHarvestEnv):
     print(f'=' * 80)
     env.reset()
     print(f'Running observation tests')
-    obs_space = env.observation_space(env.agents[0])
+    first_agent = list(env.agents.values())[0]
+    obs_space = env.observation_space(first_agent)
     print(f'{obs_space=}')
 
-    for agent_name in env.agents:
-        each_obs = env.observation_space(agent_name)
-        print(f'{agent_name}: {each_obs}')
+    for name, agent in env.agents.items():
+        each_obs = env.observation_space(agent)
+        print(f'{name}: {each_obs}')
     all_obs = env.get_observations()
-    for agent_name, each_obs in all_obs.items():
-        print(f'{agent_name}: {each_obs}')
+    for name, each_obs in all_obs.items():
+        print(f'{name}: {each_obs}')
     print(f'=' * 80)
     return
 
 
-def test_actions(env):
+def test_actions(env: DiscreteHarvestEnv):
     print(f'=' * 80)
     env.reset()
     print(f'Running action tests')
-    act_space = env.action_space(env.agents[0])
+    first_agent = list(env.agents.values())[0]
+    act_space = env.action_space(first_agent)
     print(f'{act_space=}')
 
-    for each_agent in env.agents:
-        each_act = env.action_space(each_agent)
-        print(f'{each_agent}: {each_act}')
+    for name, agent in env.agents.items():
+        each_act = env.action_space(agent)
+        print(f'{name}: {each_act}')
 
     all_obs = env.get_observations()
     for agent_name, obs in all_obs.items():
-        agent = env.agent_mapping[agent_name]
+        agent = env.agents[agent_name]
         action = agent.get_action(obs)
         print(f'{agent_name=}: {obs=} | {action=}')
     print(f'=' * 80)
     return
 
 
-def test_render(env):
+def test_render(env: DiscreteHarvestEnv):
     print(f'=' * 80)
     env.reset()
     print(f'Running render tests')
@@ -83,7 +85,7 @@ def test_render(env):
     return
 
 
-def test_step(env, render):
+def test_step(env: DiscreteHarvestEnv, render_mode):
     render_delay = 0.1
 
     # action is (dx, dy)
@@ -112,15 +114,16 @@ def test_step(env, render):
     print(f'=' * 80)
     env.reset()
     print(f'Running step tests')
-    obs_space = env.observation_space(env.agents[0])
-    act_space = env.action_space(env.agents[0])
+    first_agent = list(env.agents.values())[0]
+    obs_space = env.observation_space(first_agent)
+    act_space = env.action_space(first_agent)
     print(f'{obs_space=}')
     print(f'{act_space=}')
 
     for each_action in tests:
         observations, rewards, terminations, truncs, infos = env.step(each_action)
-        if render:
-            frame = env.render(render)
+        if render_mode:
+            frame = env.render(render_mode)
             plt.imshow(frame)
             plt.show()
             time.sleep(render_delay)
@@ -129,22 +132,17 @@ def test_step(env, render):
     env.reset()
     for each_action in tests:
         observations, rewards, terminations, truncs, infos = env.step(each_action)
-        if render:
-            frame = env.render(render)
+        if render_mode:
+            frame = env.render(render_mode)
             plt.imshow(frame)
             plt.show()
             time.sleep(render_delay)
-    display_final_agents(env)
+    # display_final_agents(env)
     print(f'=' * 80)
-    influence_counts = [
-        follower.influence_counts()
-        for follower_name, follower in env.__followers.items()
-    ]
-    print(f'{influence_counts=}')
     return
 
 
-def test_random(env, render):
+def test_random(env: DiscreteHarvestEnv, render_mode):
     render_delay = 0.1
     counter = 0
     done = False
@@ -156,14 +154,14 @@ def test_random(env, render):
     init_observations = env.reset()
     print(f'{init_observations=}')
     while not done:
-        actions = {agent: env.action_space(agent).sample() for agent in env.agents}
+        actions = {name: env.action_space(agent).sample() for name, agent in env.agents.items()}
         observations, rewards, terminations, truncs, infos = env.step(actions)
         done = all(terminations.values())
         counter += 1
         if counter % 100 == 0:
             print(f'{counter=}')
-        if render:
-            frame = env.render(render)
+        if render_mode:
+            frame = env.render(render_mode)
             plt.imshow(frame)
             plt.show()
             time.sleep(render_delay)
@@ -173,24 +171,24 @@ def test_random(env, render):
     init_observations = env.reset()
     print(f'{init_observations=}')
     while not done:
-        actions = {agent: env.action_space(agent).sample() for agent in env.agents}
+        actions = {name: env.action_space(agent).sample() for name, agent in env.agents.items()}
         observations, rewards, terminations, truncs, infos = env.step(actions)
         done = all(terminations.values())
         counter += 1
         if counter % 100 == 0:
             print(f'{counter=}')
-        if render:
-            frame = env.render(render)
+        if render_mode:
+            frame = env.render(render_mode)
             plt.imshow(frame)
             plt.show()
             time.sleep(render_delay)
 
-    display_final_agents(env)
+    # display_final_agents(env)
     print(f'=' * 80)
     return
 
 
-def test_rollout(env, render):
+def test_rollout(env: DiscreteHarvestEnv, render_mode):
     render_delay = 0.1
     env.reset()
     agent_dones = env.done()
@@ -198,11 +196,11 @@ def test_rollout(env, render):
 
     while not done:
         observations = env.get_observations()
-        next_actions = env.get_actions_from_observations(observations=observations)
+        next_actions = env.get_actions()
         observations, rewards, agent_dones, truncs, infos = env.step(next_actions)
         done = all(agent_dones.values())
-        if render:
-            frame = env.render(render)
+        if render_mode:
+            frame = env.render(render_mode)
             plt.imshow(frame)
             plt.show()
             time.sleep(render_delay)
@@ -238,27 +236,39 @@ def main(main_args):
 
     agent_value = 1
     obstacle_value = 1
-    poi_value = 0
+    poi_value = 1
 
     agent_config = [
-        (AgentType.Harvester, np.asarray((0, 1))),
-        (AgentType.Harvester, np.asarray((0, 2))),
-        (AgentType.Harvester, np.asarray((0, 3))),
-        (AgentType.Harvester, np.asarray((0, 4))),
+        (AgentType.Harvester, np.asarray((5, 1))),
+        (AgentType.Excavators, np.asarray((5, 2))),
+        (AgentType.Harvester, np.asarray((5, 3))),
+        (AgentType.Excavators, np.asarray((5, 4))),
+        (AgentType.Harvester, np.asarray((5, 5))),
+        (AgentType.Excavators, np.asarray((5, 6))),
+        (AgentType.Harvester, np.asarray((5, 7))),
+        (AgentType.Excavators, np.asarray((5, 8))),
     ]
 
     obstacle_config = [
-        (AgentType.Obstacle, np.asarray((1, 1))),
-        (AgentType.Obstacle, np.asarray((1, 2))),
-        (AgentType.Obstacle, np.asarray((1, 3))),
-        (AgentType.Obstacle, np.asarray((1, 4))),
+        (AgentType.Obstacle, np.asarray((6, 1))),
+        (AgentType.Obstacle, np.asarray((6, 2))),
+        (AgentType.Obstacle, np.asarray((6, 3))),
+        (AgentType.Obstacle, np.asarray((6, 4))),
+        (AgentType.Obstacle, np.asarray((6, 5))),
+        (AgentType.Obstacle, np.asarray((6, 6))),
+        (AgentType.Obstacle, np.asarray((6, 7))),
+        (AgentType.Obstacle, np.asarray((6, 8))),
     ]
 
     poi_config = [
-        (AgentType.StaticPoi, np.asarray((2, 1))),
-        (AgentType.StaticPoi, np.asarray((2, 2))),
-        (AgentType.StaticPoi, np.asarray((2, 3))),
-        (AgentType.StaticPoi, np.asarray((2, 4))),
+        (AgentType.StaticPoi, np.asarray((4, 1))),
+        (AgentType.StaticPoi, np.asarray((4, 2))),
+        (AgentType.StaticPoi, np.asarray((4, 3))),
+        (AgentType.StaticPoi, np.asarray((4, 4))),
+        (AgentType.StaticPoi, np.asarray((4, 5))),
+        (AgentType.StaticPoi, np.asarray((4, 6))),
+        (AgentType.StaticPoi, np.asarray((4, 7))),
+        (AgentType.StaticPoi, np.asarray((4, 8))),
     ]
 
     n_inputs = sen_res * Agent.NUM_BINS
@@ -283,16 +293,16 @@ def main(main_args):
 
     # test_observations(env)
     # test_actions(env)
-    # test_render(env)uhu
+    # test_render(env)
 
-    # test_step(env, render=None)
-    # test_step(env, render='rgb_array')
+    test_step(env, render_mode=None)
+    # test_step(env, render_mode='rgb_array')
 
-    # test_random(env, render=None)
-    # test_random(env, render='rgb_array')
+    test_random(env, render_mode=None)
+    # test_random(env, render_mode='rgb_array')
 
-    # test_rollout(env, render=None)
-    # test_rollout(env, render='rgb_array')
+    # test_rollout(env, render_mode=None)
+    # test_rollout(env, render_mode='rgb_array')
 
     test_persistence(env)
     return

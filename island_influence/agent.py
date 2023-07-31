@@ -5,6 +5,7 @@
 
 """
 import copy
+import math
 from enum import Enum, auto
 
 import numpy as np
@@ -27,9 +28,26 @@ def relative(start_loc, end_loc):
     return angle, dist
 
 
+def closest_agent_sets(origin_set, end_set, min_dist=math.inf):
+    closest = {}
+    for origin_name, origin_agent in origin_set.items():
+        origin_location = origin_agent.location
+        closest_agent = None
+        closest_dist = math.inf
+        for end_name, end_agent in end_set.items():
+            end_location = end_agent.location
+            angle, dist = relative(end_location, origin_location)
+            if dist < closest_dist:
+                closest_dist = dist
+                closest_agent = end_agent
+        if closest_dist <= min_dist:
+            closest[origin_name] = (closest_agent, closest_dist)
+    return closest
+
+
 class AgentType(Enum):
     Harvester = auto()
-    Support = auto()
+    Excavators = auto()
     Obstacle = auto()
     StaticPoi = auto()
     MovingPoi = auto()
@@ -38,7 +56,7 @@ class AgentType(Enum):
 class Agent:
     ROW_MAPPING = {
         AgentType.Harvester: 0,
-        AgentType.Support: 0,
+        AgentType.Excavators: 0,
         AgentType.Obstacle: 1,
         AgentType.StaticPoi: 2,
         AgentType.MovingPoi: 2
@@ -48,6 +66,24 @@ class Agent:
 
     def __init__(self, agent_id: int, agent_type: AgentType, location: np.ndarray, observation_radius, weight: float, value: float,
                  max_velocity: float = 0.0, policy: NeuralNetwork | None = None, sense_function='regions'):
+        """
+        The weight of an agent is how many agents it counts as when checking if the agent has an effect on another agent.
+        This essentially acts as a coupling value, where a single agent might be able to account for "more than one" agent when
+        computing if the coupling requirement of a poi/obstacle has been satisfied.
+
+        The value of an agent is how much the agent is capable of affecting another agent.
+        This essentially affects how many interactions a poi/obstacle can have with other agents in the environment before
+        no longer having an effect on the environment.
+
+        For instance, a higher valued agent will be able to observe more of a POI whereas a higher weight agent will require fewer agents to observe it.
+
+        :param agent_id:
+        :param agent_type:
+        :param location:
+        :param observation_radius:
+        :param weight:
+        :param value:
+        """
         self.name = f'{agent_type.name}_{agent_id}'
         self.id = agent_id
         self.agent_type = agent_type
@@ -76,11 +112,11 @@ class Agent:
             'vision': self._sense_vision,
         }
 
-        self._sense_func = self.sense_functions.get(sense_function, list(self.sense_functions.keys())[0])
+        self._sense_func = self.sense_functions.get(sense_function, self._sense_regions)
         return
 
     def __repr__(self):
-        return f'({self.name=}: {self.agent_type}: {self.location=})'
+        return f'({self.name}: {self.agent_type}: {self.weight=}: {self.value=}: {self.location=})'
 
     def observation_space(self):
         sensor_range = spaces.Box(
@@ -190,6 +226,19 @@ class Agent:
 class Obstacle(Agent):
 
     def __init__(self, agent_id, agent_type, location, observation_radius, weight, value):
+        """
+        The weight of an obstacle is how many agents it requires to remove it.
+
+        The value of an obstacle is the potential reward that can be obtained from it when it is removed.
+        The simulation is expected to reduce this value by one each time an excavator collides with it.
+
+        :param agent_id:
+        :param agent_type:
+        :param location:
+        :param observation_radius:
+        :param weight:
+        :param value:
+        """
         super().__init__(agent_id, agent_type, location, observation_radius, weight, value)
         return
 
@@ -197,6 +246,19 @@ class Obstacle(Agent):
 class Poi(Agent):
 
     def __init__(self, agent_id, agent_type, location, observation_radius, weight, value):
+        """
+        The weight of a poi is how many agents it requires to remove it.
+
+        The value of a poi is the potential reward that can be obtained from it when it is observed.
+        The simulation is expected to reduce this value by one each time a harvester collides with it.
+
+        :param agent_id:
+        :param agent_type:
+        :param location:
+        :param observation_radius:
+        :param weight:
+        :param value:
+        """
         super().__init__(agent_id, agent_type, location, observation_radius, weight, value)
         return
 

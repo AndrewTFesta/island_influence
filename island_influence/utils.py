@@ -4,12 +4,23 @@ from typing import Dict, Optional
 
 import myaml
 import numpy as np
-from numpy.typing import NDArray
 
 
-def euclidean(positions_a: NDArray[np.float64], positions_b: NDArray[np.float64]) -> NDArray[np.float64]:
+def network_distance(network_0, network_1):
+    # Frobenius Norm
+    # Kullback–Leibler divergence
+    # Jensen–Shannon divergence
+    # Jordan normal form
+    # Frobenius normal form
+    # RV coefficient
+    # Matrix similarity
+
+    return
+
+
+def euclidean(positions_a: np.ndarray, positions_b: np.ndarray, axis=0):
     """Calculate the distance between positions A and B"""
-    return np.linalg.norm(positions_a - positions_b, axis=1)
+    return np.linalg.norm(positions_a - positions_b, axis=axis)
 
 
 def calc_delta_heading(current_heading: float, desired_heading: float) -> float:
@@ -32,7 +43,6 @@ def calc_delta_heading(current_heading: float, desired_heading: float) -> float:
         which_delta = np.argmin([np.abs(delta0), np.abs(delta1)])
         delta_heading = np.array([delta0, delta1])[which_delta]
     return delta_heading
-
 
 
 def bound_angle(heading, bound=np.pi):
@@ -95,7 +105,6 @@ def save_trial(base_dir, save_data: Dict, trial_num: Optional[str] = None):
         trial_name = new_trial_name(base_dir)
     else:
         trial_name = f'trial_{trial_num}'
-
 
     # todo save as json for readability
     trial_name = f'{trial_name}.pkl'

@@ -6,7 +6,7 @@ import numpy as np
 import pygame
 
 from island_influence import project_properties
-from island_influence.agent import Agent, Obstacle, Poi, AgentType
+from island_influence.agent import Agent, Obstacle, Poi, AgentType, closest_agent_sets
 from island_influence.learn.neural_network import NeuralNetwork
 
 
@@ -30,9 +30,9 @@ class DiscreteHarvestEnv:
         self.action_history = []
         self.reward_history = []
 
-        # todo  implement a network for learning state transitions
-        #       input   num_agents * (num_dimensions (2) + action_size (2))
-        #       output  num_agents * num_dimensions (2)
+        # network for learning state transitions
+        #   input   num_agents * (num_dimensions (2) + action_size (2))
+        #   output  num_agents * num_dimensions (2)
         action_size = agents[0].action_space().shape[0]
         n_inputs = len(agents) * (action_size + len(agents[0].location))
         n_outputs = len(agents) * len(agents[0].location)
@@ -49,11 +49,40 @@ class DiscreteHarvestEnv:
         assert render_mode is None or render_mode in self.metadata['render_modes']
         self.render_mode = render_mode
         # The size of the PyGame window
-        self.render_bound = 100
         self.window_size = 512
+        self.render_scale = 2
         self.window = None
         self.clock = None
+        self.render_setup = False
+
+        agent_locations = np.asarray([agent.location for name, agent in self.agents.items()])
+        obstacle_locations = np.asarray([agent.location for name, agent in self.obstacles.items()])
+        poi_locations = np.asarray([agent.location for name, agent in self.pois.items()])
+
+        locations = np.concatenate((agent_locations, obstacle_locations), axis=0)
+        locations = np.concatenate((locations, poi_locations), axis=0)
+
+        min_loc = np.min(locations, axis=0)
+        max_loc = np.max(locations, axis=0)
+
+        delta_x = max_loc[0] - min_loc[0]
+        delta_y = max_loc[1] - min_loc[1]
+
+        self.render_bound = math.ceil(max(delta_x, delta_y))
+        self.render_bound = self.render_bound * self.render_scale
         return
+
+    def action_space(self, agent: Agent | str):
+        if isinstance(agent, str):
+            agent = self.agents[agent]
+        act_space = agent.action_space()
+        return act_space
+
+    def observation_space(self, agent: Agent | str):
+        if isinstance(agent, str):
+            agent = self.agents[agent]
+        obs_space = agent.observation_space()
+        return obs_space
 
     def state(self):
         """
@@ -64,8 +93,8 @@ class DiscreteHarvestEnv:
         :return:
         """
         # todo  store state as a matrix in environment rather than individually in agents
-        #       env is the state and agents are how the updates are calculated based on current state
-        #       note that this may imply non-changing set of agents
+        # env is the state and agents are how the updates are calculated based on current state
+        # note that this may imply non-changing set of agents
         agent_states = [agent for name, agent in self.agents.items()]
         obstacles_states = [obstacle for name, obstacle in self.obstacles.items()]
         poi_states = [poi for name, poi in self.pois.items()]
@@ -88,58 +117,67 @@ class DiscreteHarvestEnv:
             state_transitions.append(transition)
         return state_transitions
 
-    def __render_frame(self, window_size=None, render_bound=None):
+    def __render_frame(self):
+        if not self.render_setup:
+            pygame.font.init()
+
         if self.window is None and self.render_mode == 'human':
             pygame.init()
             pygame.display.init()
+            pygame.font.init()
             self.window = pygame.display.set_mode((self.window_size, self.window_size))
 
         if self.clock is None and self.render_mode == 'human':
             self.clock = pygame.time.Clock()
 
-        render_bound = self.render_bound if render_bound is None else render_bound
-        window_size = self.window_size if window_size is None else window_size
-
-        canvas = pygame.Surface((window_size, self.window_size))
+        canvas = pygame.Surface((self.window_size, self.window_size))
         canvas.fill((255, 255, 255))
 
         # The size of a single grid square in pixels
-        pix_square_size = (window_size / render_bound)
+        pix_square_size = (self.window_size / self.render_bound)
 
-        # todo  implement rendering
-        agent_colors = {AgentType.Harvester: [0, 102, 0], AgentType.Support: [0, 0, 102], AgentType.Obstacle: [102, 51, 0], AgentType.StaticPoi: [102, 0, 0]}
+        agent_colors = {AgentType.Harvester: [0, 102, 0], AgentType.Excavators: [0, 0, 102], AgentType.Obstacle: [102, 51, 0], AgentType.StaticPoi: [102, 0, 0]}
         line_color = [0, 0, 0]
         default_color = [128, 128, 128]
+        text_color = [255, 255, 255]
+        text_size = 16
+        font = pygame.font.SysFont('arial', text_size)
 
         # draw some gridlines
-        for x in range(render_bound + 1):
+        for x in range(self.render_bound + 1):
             pygame.draw.line(
-                canvas, line_color, (0, pix_square_size * x), (window_size, pix_square_size * x), width=1,
+                canvas, line_color, (0, pix_square_size * x), (self.window_size, pix_square_size * x), width=1,
             )
             pygame.draw.line(
-                canvas, line_color, (pix_square_size * x, 0), (pix_square_size * x, window_size), width=1,
+                canvas, line_color, (pix_square_size * x, 0), (pix_square_size * x, self.window_size), width=1,
             )
 
         for name, agent in self.agents.items():
-            acolor = agent_colors.get(agent.type, default_color)
+            acolor = agent_colors.get(agent.agent_type, default_color)
             location = np.array(agent.location)
             pygame.draw.rect(
                 canvas, acolor, pygame.Rect(pix_square_size * location, (pix_square_size, pix_square_size))
             )
 
         for name, agent in self.obstacles.items():
-            acolor = agent_colors.get(agent.type, default_color)
+            # only render the obstacle if it has not been removed by an excavator
+            if agent.value <= 0:
+                continue
+
+            acolor = agent_colors.get(agent.agent_type, default_color)
             location = np.array(agent.location)
             pygame.draw.circle(canvas, acolor, (location + 0.5) * pix_square_size, pix_square_size / 1.5)
 
         for name, agent in self.pois.items():
-            acolor = agent_colors.get(agent.type, default_color)
             location = np.array(agent.location)
-            # todo  different colors to distinguish if the poi is captured
-            # agent_color = acolor if agent.observed else (0, 0, 0)
-            agent_color = acolor
+            acolor = agent_colors.get(agent.agent_type, default_color)
+            # different colors to distinguish if the poi is captured
+            agent_color = np.divide(acolor, (agent.value + 1))
             # todo  draw circle around poi indicating the observation radius
             pygame.draw.circle(canvas, agent_color, (location + 0.5) * pix_square_size, pix_square_size / 1.5)
+            # display the current value remaining of a poi
+            text_surface = font.render(f'{agent.value}', False, text_color)
+            canvas.blit(text_surface, (location + 0.35) * pix_square_size)
 
         if self.render_mode == 'human':
             # The following line copies our drawings from `canvas` to the visible window
@@ -156,13 +194,11 @@ class DiscreteHarvestEnv:
         return
 
     def __render_rgb(self):
-        # todo set based on min/max agent locations
         render_resolution = (512, 512)
-        render_bounds = (-5, 55)
-        scaling = np.divide(render_resolution, render_bounds[1] - render_bounds[0])
+        scaling = np.divide(render_resolution, self.render_bound)
 
-        agent_colors = {AgentType.Harvester: [0, 102, 0], AgentType.Support: [0, 0, 102], AgentType.Obstacle: [102, 51, 0], AgentType.StaticPoi: [102, 0, 0]}
-        agent_sizes = {AgentType.Harvester: 2, AgentType.Support: 2, AgentType.Obstacle: 3, AgentType.StaticPoi: 3}
+        agent_colors = {AgentType.Harvester: [0, 102, 0], AgentType.Excavators: [0, 0, 102], AgentType.Obstacle: [102, 51, 0], AgentType.StaticPoi: [102, 0, 0]}
+        agent_sizes = {AgentType.Harvester: 2, AgentType.Excavators: 2, AgentType.Obstacle: 3, AgentType.StaticPoi: 3}
 
         background_color = [255, 255, 255]
         line_color = [0, 0, 0]
@@ -185,22 +221,24 @@ class DiscreteHarvestEnv:
 
         # place the agents in the frame based on the sizes and colors specified in agent_colors and agent_sizes
         for name, agent in self.agents.items():
-            acolor = agent_colors.get(agent.type, default_color)
-            asize = agent_sizes.get(agent.type, default_size)
+            if agent.agent_type == AgentType.Obstacle and agent.value <= 0:
+                continue
+            acolor = agent_colors.get(agent.agent_type, default_color)
+            asize = agent_sizes.get(agent.agent_type, default_size)
             aloc = np.array(agent.location)
 
-            scaled_loc = aloc - render_bounds[0]
+            scaled_loc = aloc - self.render_bound
             scaled_loc = np.multiply(scaled_loc, scaling)
             scaled_loc = np.rint(scaled_loc)
             scaled_loc = scaled_loc.astype(np.int)
             frame[
-            scaled_loc[1] - asize: scaled_loc[1] + asize,
-            scaled_loc[0] - asize: scaled_loc[0] + asize,
+                scaled_loc[1] - asize: scaled_loc[1] + asize,
+                scaled_loc[0] - asize: scaled_loc[0] + asize,
             ] = acolor
         frame = frame.astype(np.uint8)
         return frame
 
-    def render(self, mode: str | None = None, **kwargs):
+    def render(self, mode: str | None = None):
         """
         Displays a rendered frame from the environment, if supported.
 
@@ -209,7 +247,6 @@ class DiscreteHarvestEnv:
         (specific to classic environments).
 
         :param mode:
-        :param kwargs:
         :return:
         """
         if not mode:
@@ -217,9 +254,9 @@ class DiscreteHarvestEnv:
 
         match mode:
             case 'human':
-                frame = self.__render_frame(**kwargs)
+                frame = self.__render_frame()
             case 'rgb_array':
-                frame = self.__render_frame(**kwargs)
+                frame = self.__render_frame()
                 # frame = self.__render_rgb()
             case _:
                 frame = None
@@ -345,7 +382,7 @@ class DiscreteHarvestEnv:
         dicts keyed by the agent name
             e.g. {agent_0: observation_0, agent_1: observation_1, ...}
         """
-        # step leaders, followers, and pois
+        # step location and time of all agents
         # should not matter which order they are stepped in as long as dt is small enough
         for agent_name, each_action in actions.items():
             agent = self.agents[agent_name]
@@ -353,40 +390,64 @@ class DiscreteHarvestEnv:
             # each_action[1] is dy
             new_loc = agent.location + each_action
             agent.location = new_loc
-
-        # todo  remove an obstacle if an excavator collides with it
-        # todo  reduce the value of a poi from self.pois if it is observed
-        #       the reward for an agent is based on the current value of a poi
-        curr_state = self.state()
-        # for name, observation in observations.items():
-        #     agent = self.agent_mapping[name]
-        #     if isinstance(agent, Poi) and agent.observed:
-        #         self.agents.remove(name)
-
-        # Step forward and check if simulation is done
-        # Update all agent dones with environment done
         self._current_step += self.delta_time
+
+        # apply the effects of harvesters and excavators on obstacles and pois
+        # assign rewards to harvester for observing pois and excavators for removing obstacles
+        rewards = {name: 0.0 for name, agent in self.agents.items()}
+
+        # Compute for excavators and obstacles
+        excavators = {name: agent for name, agent in self.agents.items() if agent.agent_type == AgentType.Excavators}
+        remaining_obstacles = {name: agent for name, agent in self.obstacles.items() if agent.value > 0}
+        closest_obstacles = closest_agent_sets(remaining_obstacles, excavators, min_dist=1)
+
+        rewards['excavator_team'] = 0.0
+        for obstacle_name, excavator_info in closest_obstacles.items():
+            excavator = excavator_info[0]
+            # remove an obstacle if an excavator collides with it
+            # assign reward for removing the obstacle to the closest excavator
+            #       the reward for an agent is based on the current value of the obstacle
+            #       this value cannot exceed the remaining value of the obstacle being removed
+            value_diff = min(excavator.value, self.obstacles[obstacle_name].value)
+            self.obstacles[obstacle_name].value -= value_diff
+            rewards[excavator.name] += value_diff
+            rewards['excavator_team'] += value_diff
+
+        # Compute for harvesters and pois
+        harvesters = {name: agent for name, agent in self.agents.items() if agent.agent_type == AgentType.Harvester}
+        remaining_pois = {name: agent for name, agent in self.pois.items() if agent.value > 0}
+        closest_pois = closest_agent_sets(remaining_pois, harvesters, min_dist=1)
+
+        rewards['harvest_team'] = 0.0
+        for poi_name, harvester_info in closest_pois.items():
+            harvester = harvester_info[0]
+            # reduce the value of a poi from self.pois if it is observed
+            # assign reward for observing the poi to the closest harvester
+            #       the reward for an agent is based on the current value of the poi
+            #       this value cannot exceed the remaining value of the poi being observed
+            value_diff = min(harvester.value, self.pois[poi_name].value)
+            self.pois[poi_name].value -= value_diff
+            assert value_diff >= 0
+            rewards[harvester.name] += value_diff
+            rewards['harvest_team'] += value_diff
+
+        # Global team reward is the sum of subteam (excavator team and harvest team) rewards
+        rewards['team'] = rewards['excavator_team'] + rewards['harvest_team']
+
+        # check if simulation is done
         dones = self.done()
 
         # The effects of the actions have all been applied to the state
         # No more state changes should occur below this point
-        self.action_history.append(actions)
         curr_state = self.state()
+        self.action_history.append(actions)
         self.state_history.append(curr_state)
+        self.reward_history.append(rewards)
 
         # Update infos and truncated for agents.
         # Not sure what would go here, but it seems to be expected by pettingzoo
         infos = {name: {} for name, agent in self.agents.items()}
         truncs = {name: {} for name, agent in self.agents.items()}
 
-        # todo  Calculate fitnesses
-        rewards = {agent: 0.0 for name, agent in self.agents.items()}
-        rewards['team'] = 0.0
-        self.reward_history.append(rewards)
-
         observations = self.get_observations()
-        if all(dones.values()):
-            # self.completed_agents = self.possible_agents[:]
-            # self.agents = []
-            pass
         return observations, rewards, dones, truncs, infos
