@@ -295,11 +295,11 @@ def main(main_args):
     # test_actions(env)
     # test_render(env)
 
-    test_step(env, render_mode=None)
+    # test_step(env, render_mode=None)
     # test_step(env, render_mode='rgb_array')
 
-    test_random(env, render_mode=None)
-    # test_random(env, render_mode='rgb_array')
+    # test_random(env, render_mode=None)
+    test_random(env, render_mode='rgb_array')
 
     # test_rollout(env, render_mode=None)
     # test_rollout(env, render_mode='rgb_array')

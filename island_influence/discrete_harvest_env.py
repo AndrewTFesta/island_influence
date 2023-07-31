@@ -53,7 +53,6 @@ class DiscreteHarvestEnv:
         self.render_scale = 2
         self.window = None
         self.clock = None
-        self.render_setup = False
 
         agent_locations = np.asarray([agent.location for name, agent in self.agents.items()])
         obstacle_locations = np.asarray([agent.location for name, agent in self.obstacles.items()])
@@ -118,9 +117,6 @@ class DiscreteHarvestEnv:
         return state_transitions
 
     def __render_frame(self):
-        if not self.render_setup:
-            pygame.font.init()
-
         if self.window is None and self.render_mode == 'human':
             pygame.init()
             pygame.display.init()
@@ -137,10 +133,15 @@ class DiscreteHarvestEnv:
         pix_square_size = (self.window_size / self.render_bound)
 
         agent_colors = {AgentType.Harvester: [0, 102, 0], AgentType.Excavators: [0, 0, 102], AgentType.Obstacle: [102, 51, 0], AgentType.StaticPoi: [102, 0, 0]}
-        line_color = [0, 0, 0]
         default_color = [128, 128, 128]
+
+        agent_sizes = {AgentType.Harvester: 0.5, AgentType.Excavators: 0.5, AgentType.Obstacle: 0.25, AgentType.StaticPoi: 0.25}
+        default_size = 0.1
+
+        line_color = [0, 0, 0]
         text_color = [255, 255, 255]
-        text_size = 16
+        text_size = 14
+        pygame.font.init()
         font = pygame.font.SysFont('arial', text_size)
 
         # draw some gridlines
@@ -154,9 +155,10 @@ class DiscreteHarvestEnv:
 
         for name, agent in self.agents.items():
             acolor = agent_colors.get(agent.agent_type, default_color)
+            asize = agent_sizes.get(agent.agent_type, default_size)
             location = np.array(agent.location)
             pygame.draw.rect(
-                canvas, acolor, pygame.Rect(pix_square_size * location, (pix_square_size, pix_square_size))
+                canvas, acolor, pygame.Rect(pix_square_size * location, (pix_square_size * asize, pix_square_size * asize))
             )
 
         for name, agent in self.obstacles.items():
@@ -164,20 +166,33 @@ class DiscreteHarvestEnv:
             if agent.value <= 0:
                 continue
 
-            acolor = agent_colors.get(agent.agent_type, default_color)
             location = np.array(agent.location)
-            pygame.draw.circle(canvas, acolor, (location + 0.5) * pix_square_size, pix_square_size / 1.5)
+            asize = agent_sizes.get(agent.agent_type, default_size)
+            # different colors to distinguish how much remains of the obstacle
+            acolor = agent_colors.get(agent.agent_type, default_color)
+            acolor = np.divide(acolor, (agent.value + 1))
+            # display text of the current value remaining of a poi
+            text_surface = font.render(f'{agent.value}', False, text_color)
+            canvas.blit(text_surface, (location + 0.35) * pix_square_size)
+            # draw a circle at the location to represent the obstacle
+            pygame.draw.circle(canvas, acolor, (location + 0.5) * pix_square_size, pix_square_size * asize)
 
         for name, agent in self.pois.items():
             location = np.array(agent.location)
+            asize = agent_sizes.get(agent.agent_type, default_size)
+            # different colors to distinguish how much of the poi is observed
             acolor = agent_colors.get(agent.agent_type, default_color)
-            # different colors to distinguish if the poi is captured
-            agent_color = np.divide(acolor, (agent.value + 1))
+            acolor = np.divide(acolor, (agent.value + 1))
             # todo  draw circle around poi indicating the observation radius
-            pygame.draw.circle(canvas, agent_color, (location + 0.5) * pix_square_size, pix_square_size / 1.5)
-            # display the current value remaining of a poi
+            # draw a circle at the location to represent the obstacle
+            pygame.draw.circle(canvas, acolor, (location + 0.5) * pix_square_size, pix_square_size * asize)
+
+        for name, agent in self.pois.items():
+            location = np.array(agent.location)
+            # display text of the current value remaining of a poi
+            # do this in a loop after to make sure it displays on all pois and agents
             text_surface = font.render(f'{agent.value}', False, text_color)
-            canvas.blit(text_surface, (location + 0.35) * pix_square_size)
+            canvas.blit(text_surface, (location + 0.3) * pix_square_size)
 
         if self.render_mode == 'human':
             # The following line copies our drawings from `canvas` to the visible window
@@ -427,7 +442,6 @@ class DiscreteHarvestEnv:
             #       this value cannot exceed the remaining value of the poi being observed
             value_diff = min(harvester.value, self.pois[poi_name].value)
             self.pois[poi_name].value -= value_diff
-            assert value_diff >= 0
             rewards[harvester.name] += value_diff
             rewards['harvest_team'] += value_diff
 
