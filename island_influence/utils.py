@@ -18,6 +18,56 @@ def network_distance(network_0, network_1):
     return
 
 
+def dl2ld(dict_of_lists: dict[object, list]):
+    # all lists in the dictionary must be of the same length
+    first_val = list(dict_of_lists.values())[0]
+    num_vals = len(first_val)
+
+    list_of_dicts = [
+        {key: val[idx] for key, val in dict_of_lists.items()}
+        for idx in range(num_vals)
+    ]
+    return list_of_dicts
+
+
+def ld2dl(list_of_dicts: list[dict]):
+    # all lists must contain the same dict keys
+    first_element = list_of_dicts[0]
+    keys = list(first_element.keys())
+
+    dict_of_lists = {
+        [each_element[each_key] for each_element in list_of_dicts]
+        for each_key in keys
+    }
+    return dict_of_lists
+
+
+def pol2cart(angle, radius):
+    x = radius * np.cos(angle)
+    y = radius * np.sin(angle)
+    return x, y
+
+
+def random_ring(num_points, center, min_rad, max_rad, seed=None):
+    rng = np.random.default_rng(seed=seed)
+    angles = rng.uniform(size=num_points)
+    angles *= 2 * np.pi
+
+    radius = rng.uniform(low=min_rad, high=max_rad, size=num_points)
+
+    polar_coords = np.vstack((radius, angles))
+    polar_coords = np.transpose(polar_coords)
+
+    # calculating coordinates
+    vector_pol2cart = np.vectorize(pol2cart, )
+    cart_coords = vector_pol2cart(angles, radius)
+    cart_coords = np.transpose(cart_coords)
+    center_arr = np.tile(center, (cart_coords.shape[0], 1))
+
+    cart_coords = cart_coords + center_arr
+    return cart_coords
+
+
 def euclidean(positions_a: np.ndarray, positions_b: np.ndarray, axis=0):
     """Calculate the distance between positions A and B"""
     return np.linalg.norm(positions_a - positions_b, axis=axis)

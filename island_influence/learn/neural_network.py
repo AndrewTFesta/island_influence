@@ -14,9 +14,6 @@ from torch import nn
 from island_influence import project_properties
 
 
-
-
-
 def linear_stack(n_inputs, n_hidden, n_outputs):
     hidden_size = int((n_inputs + n_outputs) / 2)
     network = nn.Sequential(

@@ -64,7 +64,7 @@ class Agent:
 
     NUM_BINS = 3
 
-    def __init__(self, agent_id: int, agent_type: AgentType, location: np.ndarray, observation_radius, weight: float, value: float,
+    def __init__(self, agent_id: int, agent_type: AgentType, learner: bool, location: np.ndarray, observation_radius, weight: float, value: float,
                  max_velocity: float = 0.0, policy: NeuralNetwork | None = None, sense_function='regions'):
         """
         The weight of an agent is how many agents it counts as when checking if the agent has an effect on another agent.
@@ -87,6 +87,7 @@ class Agent:
         self.name = f'{agent_type.name}_{agent_id}'
         self.id = agent_id
         self.agent_type = agent_type
+        self.learner = learner
 
         self._initial_location = copy.copy(location)
         self.location = location
@@ -94,6 +95,7 @@ class Agent:
         self.observation_radius = observation_radius
         self.weight = weight
         self.value = value
+        self.fitness = math.nan
 
         # lower/upper bounds agent is able to move
         # same for both x and y directions
@@ -116,7 +118,7 @@ class Agent:
         return
 
     def __repr__(self):
-        return f'({self.name}: {self.agent_type}: {self.weight=}: {self.value=}: {self.location=})'
+        return f'({self.name}: {self.agent_type}: {self.fitness=}: {self.weight=}: {self.value=}: {self.location=})'
 
     def observation_space(self):
         sensor_range = spaces.Box(
@@ -132,8 +134,11 @@ class Agent:
         )
         return action_range
 
-    def reset(self):
-        self.location = copy.copy(self._initial_location)
+    def reset(self, location: np.ndarray | None = None):
+        if location is not None:
+            self.location = copy.copy(location)
+        else:
+            self.location = copy.copy(self._initial_location)
         return
 
     def observable_agents(self, relative_agents, observation_radius):
@@ -239,7 +244,7 @@ class Obstacle(Agent):
         :param weight:
         :param value:
         """
-        super().__init__(agent_id, agent_type, location, observation_radius, weight, value)
+        super().__init__(agent_id, agent_type, False, location, observation_radius, weight, value)
         return
 
     def sense(self, other_agents):
@@ -266,7 +271,7 @@ class Poi(Agent):
         :param weight:
         :param value:
         """
-        super().__init__(agent_id, agent_type, location, observation_radius, weight, value)
+        super().__init__(agent_id, agent_type, False, location, observation_radius, weight, value)
         return
 
     def sense(self, other_agents):

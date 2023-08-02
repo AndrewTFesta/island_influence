@@ -6,14 +6,14 @@
 """
 import argparse
 
-from island_influence.discrete_harvest_env import DiscreteHarvestEnv
+from island_influence.harvest_env import HarvestEnv
 from island_influence.learn.cceaV2 import ccea
 from island_influence.learn.island import MAIsland
 
 
 def main(main_args):
     optimizer = ccea
-    env = DiscreteHarvestEnv
+    env = HarvestEnv
     agents = {'red_harvesters': [], 'blue_harvesters': [], 'excavators': []}
 
     island = MAIsland(optimizer=optimizer, env=env, actors=agents, evolving_agent_names=['red_harvesters'], neighbors=['blue_harvesters', 'excavators'])

@@ -5,20 +5,84 @@
 
 """
 import argparse
+import math
+from pathlib import Path
 
-from island_influence.discrete_harvest_env import DiscreteHarvestEnv
+import numpy as np
+
+from island_influence import project_properties
+from island_influence.agent import Agent, Poi, Obstacle, AgentType
+from island_influence.harvest_env import HarvestEnv
 from island_influence.learn.cceaV2 import ccea
+from island_influence.learn.neural_network import NeuralNetwork
 
 
 def main(main_args):
-    env = DiscreteHarvestEnv()
-    agents = {'red_harvesters': []}
-    supports = {'supports': None, 'blue_harvesters': None}
-    agent_pops = agents | supports
+    obs_rad = 2
+    max_vel = 1
 
-    # env, agent_pops, population_size, n_gens, reward_func, experiment_dir,
-    # selection_func, sim_func, downselect_func, starting_gen=0,
-    optimizer = ccea(env, agent_pops)
+    agent_weight = 1
+    obs_weight = 1
+    poi_weight = 1
+
+    agent_value = 1
+    obstacle_value = 1
+    poi_value = 1
+
+    learners = [AgentType.Harvester, AgentType.Excavators]
+
+    experiment_dir = Path(project_properties.exps_dir)
+    num_gens = 10
+    num_sims = 10
+    sen_res = 8
+    delta_time = 1
+    render_mode = None
+    max_steps = 100
+
+    population_sizes = {AgentType.Harvester: 10, AgentType.Excavators: 10}
+    num_harvesters = 4
+    num_excavators = 4
+    num_obstacles = 10
+    num_pois = 10
+
+    n_inputs = sen_res * Agent.NUM_BINS
+    n_outputs = 2
+    n_hidden = math.ceil((n_inputs + n_outputs) / 2)
+    policy = NeuralNetwork(n_inputs=n_inputs, n_outputs=n_outputs, n_hidden=n_hidden)
+    location = np.asarray((0, 0))
+
+    agent_pops = {
+        agent_type: [
+            Agent(
+                idx, agent_type, agent_type in learners, location, obs_rad, agent_weight, agent_value, max_vel, sense_function='regions',
+                policy=NeuralNetwork(n_inputs=n_inputs, n_outputs=n_outputs, n_hidden=n_hidden),
+            )
+            for idx in range(pop_size)
+        ]
+        for agent_type, pop_size in population_sizes.items()
+    }
+
+    agents = [
+        Agent(idx, AgentType.Harvester, True, location, obs_rad, agent_weight, agent_value, max_vel, policy, sense_function='regions')
+        for idx in range(num_harvesters)
+    ]
+    excavators = [
+        Agent(idx, AgentType.Excavators, True, location, obs_rad, agent_weight, agent_value, max_vel, policy, sense_function='regions')
+        for idx in range(num_excavators)
+    ]
+    agents.extend(excavators)
+
+    obstacles = [
+        Obstacle(idx, AgentType.Obstacle, location, obs_rad, obs_weight, obstacle_value)
+        for idx in range(num_obstacles)
+    ]
+    pois = [
+        Poi(idx, AgentType.StaticPoi, location, obs_rad, poi_weight, poi_value)
+        for idx in range(num_pois)
+    ]
+
+    env = HarvestEnv(agents=agents, obstacles=obstacles, pois=pois, max_steps=max_steps, delta_time=delta_time, render_mode=render_mode)
+    optimizer = ccea(env, agent_pops=agent_pops, population_sizes=population_sizes, num_gens=num_gens, num_sims=num_sims, experiment_dir=experiment_dir)
     return
 
 
