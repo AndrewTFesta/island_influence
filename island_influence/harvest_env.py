@@ -459,51 +459,6 @@ class HarvestEnv:
             return np_frame
         return
 
-    def __render_rgb(self):
-        render_resolution = (512, 512)
-        scaling = np.divide(render_resolution, self.render_bound)
-
-        agent_colors = {AgentType.Harvester: [0, 102, 0], AgentType.Excavators: [0, 0, 102], AgentType.Obstacle: [102, 51, 0], AgentType.StaticPoi: [102, 0, 0]}
-        agent_sizes = {AgentType.Harvester: 2, AgentType.Excavators: 2, AgentType.Obstacle: 3, AgentType.StaticPoi: 3}
-
-        background_color = [255, 255, 255]
-        line_color = [0, 0, 0]
-        default_color = [128, 128, 128]
-        default_size = 2
-        num_lines = 10
-        x_line_idxs = np.linspace(0, render_resolution[1], num=num_lines)
-        y_line_idxs = np.linspace(0, render_resolution[0], num=num_lines)
-
-        frame = np.full((render_resolution[0] + 1, render_resolution[1] + 1, 3), background_color)
-
-        # draw a grid over the frame
-        for each_line in x_line_idxs:
-            each_line = int(each_line)
-            frame[each_line] = line_color
-
-        for each_line in y_line_idxs:
-            each_line = int(each_line)
-            frame[:, each_line] = line_color
-
-        # place the agents in the frame based on the sizes and colors specified in agent_colors and agent_sizes
-        for agent in self.agents:
-            if agent.agent_type == AgentType.Obstacle and agent.value <= 0:
-                continue
-            acolor = agent_colors.get(agent.agent_type, default_color)
-            asize = agent_sizes.get(agent.agent_type, default_size)
-            aloc = np.array(agent.location)
-
-            scaled_loc = aloc - self.render_bound
-            scaled_loc = np.multiply(scaled_loc, scaling)
-            scaled_loc = np.rint(scaled_loc)
-            scaled_loc = scaled_loc.astype(np.int)
-            frame[
-            scaled_loc[1] - asize: scaled_loc[1] + asize,
-            scaled_loc[0] - asize: scaled_loc[0] + asize,
-            ] = acolor
-        frame = frame.astype(np.uint8)
-        return frame
-
     def render(self, mode: str | None = None):
         """
         Displays a rendered frame from the environment, if supported.
