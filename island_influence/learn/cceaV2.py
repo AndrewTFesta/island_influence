@@ -4,7 +4,6 @@
 @description
 
 """
-import copy
 import multiprocessing
 from concurrent.futures import ProcessPoolExecutor
 from functools import partial
@@ -12,9 +11,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import torch
 from numpy.random import default_rng
-from torch.nn.utils import parameters_to_vector, vector_to_parameters
 from tqdm import trange
 
 from island_influence.agent import AgentType
@@ -46,6 +43,13 @@ def select_roulette(agent_pops, select_sizes: dict[AgentType, int], noise=0.01):
 
 
 # def select_egreedy(agent_pops, select_sizes: dict[AgentType, int], epsilon):
+#     """
+#
+#     :param agent_pops:
+#     :param select_sizes:
+#     :param epsilon:
+#     :return: list with tuple of agents and indices, where the indices are the agents selected for evaluation
+#     """
 #     # todo implement egreedy selection
 #     rng = default_rng()
 #     chosen_agent_pops = {}
@@ -66,14 +70,21 @@ def select_roulette(agent_pops, select_sizes: dict[AgentType, int], noise=0.01):
 #     return chosen_pops
 
 
-# def select_leniency(agent_pops, select_sizes: dict[AgentType, int]):
+# def select_leniency(agent_pops, env, select_sizes: dict[AgentType, int]):
+#     """
+#
+#     :param agent_pops:
+#     :param env:
+#     :param select_sizes:
+#     :return: list with tuple of agents and indices, where the indices are the agents selected for evaluation
+#     """
 #     # todo  implement leniency
 #     rng = default_rng()
-#     best_policies = select_top_n(agent_pops, select_size=1)[0]
+#     best_policies = select_top_n(agent_pops, select_sizes=1)[0]
 #     chosen_pops = []
 #     for agent_name, policies in agent_pops.items():
 #         # todo  weight select based on fitness
-#         policies = rng.choice(policies, size=select_size)
+#         policies = rng.choice(policies, size=select_sizes)
 #         for each_policy in policies:
 #             entry = {
 #                 name: policy if name != agent_name else each_policy
@@ -84,20 +95,26 @@ def select_roulette(agent_pops, select_sizes: dict[AgentType, int], noise=0.01):
 
 
 def select_hall_of_fame(agent_pops, env, num_sims):
-    best_policies = select_top_n(agent_pops, select_sizes={name: env.get_num_agent_type(name) for name, pop in agent_pops.items()})
+    """
+
+
+    :param agent_pops:
+    :param env:
+    :param num_sims:
+    :return: list with tuple of agents and indices, where the indices are the agents selected for evaluation
+    """
+    best_policies = select_top_n(agent_pops, select_sizes={name: env.num_agent_types(name) for name, pop in agent_pops.items()})
     all_selected_policies = select_roulette(agent_pops, select_sizes={agent_type: num_sims for agent_type in agent_pops.keys()})
 
     chosen_teams = []
-    for agent_type, agent_selected_policies in all_selected_policies.items():
-        for each_agent in agent_selected_policies:
+    for agent_type, selected_policies in all_selected_policies.items():
+        for each_policy in selected_policies:
             best_team = {each_type: [each_member for each_member in team_members] for each_type, team_members in best_policies.items()}
             collaborators = best_team[agent_type]
-            collaborators.insert(0, each_agent)
-            # todo  check for duplicates
-            #       an agent should not be paired with itself
+            collaborators.insert(0, each_policy)
             collaborators = collaborators[:-1]
             best_team[agent_type] = collaborators
-            chosen_teams.append((best_team, (each_agent,)))
+            chosen_teams.append((best_team, {agent_type: (0,)}))
     return chosen_teams
 
 
@@ -112,30 +129,16 @@ def select_top_n(agent_pops, select_sizes: dict[AgentType, int]):
 
 
 # Mutation Functions
-def mutate_gaussian(agent_policies, mutation_scalar=0.1, probability_to_mutate=0.05):
-    mutated_agents = {}
-    for agent_name, individual in agent_policies.items():
-        model = individual['network']
-        model_copy = copy.deepcopy(model)
-
-        rng = default_rng()
-        with torch.no_grad():
-            param_vector = parameters_to_vector(model_copy.parameters())
-
-            for each_val in param_vector:
-                rand_val = rng.random()
-                if rand_val <= probability_to_mutate:
-                    # todo  base proportion on current weight rather than scaled random sample
-                    noise = torch.randn(each_val.size()) * mutation_scalar
-                    each_val.add_(noise)
-
-            vector_to_parameters(param_vector, model_copy.parameters())
-        new_ind = {
-            'network': model_copy,
-            'fitness': None
-        }
-        mutated_agents[agent_name] = new_ind
-    return mutated_agents
+# def mutate_gaussian(agent_policies, mutation_scalar=0.1, probability_to_mutate=0.05):
+#     mutated_agents = {}
+#     for agent_name, individual in agent_policies.items():
+#         # model_copy = individual.copy()
+#         model_copy = copy.deepcopy(individual)
+#         model_copy.mutate_gaussian(mutation_scalar=mutation_scalar, probability_to_mutate=probability_to_mutate)
+#
+#         model_copy.fitness = None
+#         mutated_agents[agent_name] = model_copy
+#     return mutated_agents
 
 
 # def simulate_subpop(agent_policies, env, mutate_func):
@@ -149,22 +152,22 @@ def mutate_gaussian(agent_policies, mutation_scalar=0.1, probability_to_mutate=0
 #     return mutated_policies, agent_policies[1]
 
 
-def downselect_top_n(agent_pops, select_sizes: dict[AgentType, int]):
-    chosen_agent_pops = {}
-    for agent_type, population in agent_pops.items():
-        sorted_pop = sorted(population, key=lambda x: x.fitness, reverse=True)
-        select_size = select_sizes[agent_type]
-        top_pop = sorted_pop[:select_size]
-        chosen_agent_pops[agent_type] = top_pop
-    return chosen_agent_pops
+# def downselect_top_n(agent_pops, select_sizes: dict[AgentType, int]):
+#     chosen_agent_pops = {}
+#     for agent_type, population in agent_pops.items():
+#         sorted_pop = sorted(population, key=lambda x: x.fitness, reverse=True)
+#         select_size = select_sizes[agent_type]
+#         top_pop = sorted_pop[:select_size]
+#         chosen_agent_pops[agent_type] = top_pop
+#     return chosen_agent_pops
 
 
-def rollout(env: HarvestEnv, individuals, render: bool | dict = False):
+def rollout(env: HarvestEnv, agent_policies, render: bool | dict = False):
     render_func = partial(env.render, **render) if isinstance(render, dict) else env.render
 
     # set policy to use for each learning agent
-    env.set_agents(individuals)
-    env.reset()
+    for agent_type, policies in agent_policies.items():
+        env.set_policies(agent_type, policies)
 
     _ = env.reset()
     agent_dones = env.done()
@@ -180,10 +183,12 @@ def rollout(env: HarvestEnv, individuals, render: bool | dict = False):
             render_func()
 
     # assign rewards based on the cumulative rewards of the env
-    episode_rewards = env.cumulative_rewards()
+    agent_rewards = env.cumulative_rewards()
+    # correlate policies to rewards
+    policy_rewards = {each_agent.policy: agent_rewards[each_agent.name] for each_agent in env.agents}
     # episode_rewards = all_rewards[-1]
     # episode_rewards = reward_func(env)
-    return episode_rewards
+    return agent_rewards, policy_rewards
 
 
 def save_agent_policies(experiment_dir, gen_idx, env, agent_pops, fitnesses):
@@ -217,36 +222,39 @@ SELECTION_FUNCTIONS = {
 }
 
 MUTATION_FUNCTIONS = {
-    'mutate_gaussian': mutate_gaussian,
+    # 'mutate_gaussian': mutate_gaussian,
 }
 
-# SIMULATION_FUNCTIONS = {
-#     'simulate_subpop': simulate_subpop,
-# }
+SIMULATION_FUNCTIONS = {
+    # 'simulate_subpop': simulate_subpop,
+}
 
 DOWNSELECT_FUNCTIONS = {
-    'downselect_top_n': downselect_top_n,
+    'downselect_top_n': select_top_n,
 }
 
 
-def ccea(env: HarvestEnv, agent_pops, population_sizes, num_gens, sims_per_atype, experiment_dir,
+def ccea(env: HarvestEnv, agent_policies, population_sizes, num_gens, num_sims, experiment_dir,
          starting_gen=0, direct_assign_fitness=True, fitness_update_eps=1):
     direct_assign_fitness = direct_assign_fitness
     max_fitness = 100.0
 
     # selection_func = partial(select_roulette, **{'select_size': num_simulations, 'noise': 0.01})
-    selection_func = partial(select_hall_of_fame, **{'env': env, 'num_sims': sims_per_atype})
+    selection_func = partial(select_hall_of_fame, **{'env': env, 'num_sims': num_sims})
 
-    mutate_func = partial(mutate_gaussian, mutation_scalar=0.1, probability_to_mutate=0.05)
+    # mutate_func = partial(mutate_gaussian, mutation_scalar=0.1, probability_to_mutate=0.05)
     # sim_func = partial(simulate_subpop, **{'env': env, 'mutate_func': mutate_func})
-    downselect_func = partial(downselect_top_n, **{'select_sizes': population_sizes})
+    downselect_func = partial(select_top_n, **{'select_sizes': population_sizes})
+
+    mutation_scalar = 0.1
+    probability_to_mutate = 0.05
 
     env.save_environment(experiment_dir, tag='initial')
 
     # todo  initial rollout to assign fitnesses of individuals on random teams
     #       pair each agent in a population with first agent in other agents' populations
     # todo  UCB style selection for networks?
-    for agent_type, population in agent_pops.items():
+    for agent_type, population in agent_policies.items():
         for individual in population:
             individual.fitness = max_fitness
 
@@ -267,28 +275,37 @@ def ccea(env: HarvestEnv, agent_pops, population_sizes, num_gens, sims_per_atype
     num_cores = multiprocessing.cpu_count()
     mp_pool = ProcessPoolExecutor(max_workers=num_cores - 1)
     for gen_idx in trange(starting_gen, num_gens):
-        selected_policies = selection_func(agent_pops)
-        # todo  mutate selected policies
+        selected_policies = selection_func(agent_policies)
 
-        results = []
+        teams = []
         for individuals, update_fitnesses in selected_policies:
-            episode_rewards = rollout(env, individuals, render=False)
-            results.append((episode_rewards, update_fitnesses))
+            networks = []
+            # new_team = individuals
+            for agent_type, policy_idxs in update_fitnesses.items():
+                for each_idx in policy_idxs:
+                    policy_to_mutate = individuals[agent_type][each_idx]
+                    model_copy = policy_to_mutate.copy()
+                    model_copy.mutate_gaussian(mutation_scalar=mutation_scalar, probability_to_mutate=probability_to_mutate)
+                    model_copy.fitness = None
+                    # add mutated policies into respective agent_population
+                    agent_policies[agent_type].append(model_copy)
+                    networks.append(model_copy)
+                    individuals[agent_type][each_idx] = model_copy
+                # new_team[agent_type] = new_team
+            teams.append((individuals, networks))
+
         # results = map(sim_func, selected_policies)
-        # results = mp_pool.map(sim_func, selected_policies)
-
-        all_agent_fitnesses = {}
-        for fitnesses, eval_agents in results:
-            # each_result stores the rewards of the agents assigned to be evaluated
-            #   e.g. for hall of fame or leniency, each entry in selected_policies should only be evaluating a single policy
-            for each_agent in eval_agents:
-                if each_agent not in all_agent_fitnesses:
-                    all_agent_fitnesses[each_agent] = []
-
-                agent_fitness = fitnesses[each_agent.name]
-                all_agent_fitnesses[each_agent].append(agent_fitness)
+        # results = mp_pool.map(sim_func, selected_policies)ss)
+        results = {}
+        for individuals, update_fitnesses in teams:
+            agent_rewards, policy_rewards = rollout(env, individuals, render=False)
+            for policy_id in update_fitnesses:
+                update_policy_reward = policy_rewards[policy_id]
+                if policy_id not in results:
+                    results[policy_id] = []
+                results[policy_id].append(update_policy_reward)
         # average all fitnesses and assign back to agent
-        avg_fitnesses = {each_agent: np.average(fitnesses) for each_agent, fitnesses in all_agent_fitnesses.items()}
+        avg_fitnesses = {each_agent: np.average(fitnesses) for each_agent, fitnesses in results.items()}
 
         if direct_assign_fitness:
             for agent, fitness in avg_fitnesses.items():
@@ -299,7 +316,7 @@ def ccea(env: HarvestEnv, agent_pops, population_sizes, num_gens, sims_per_atype
                 agent.fitness += fitness_delta * fitness_update_eps
 
         # downselect
-        agent_pops = downselect_func(agent_pops)
+        agent_policies = downselect_func(agent_policies)
 
         # top_inds = select_top_n(agent_pops, select_size=1)[0]
         # _ = rollout(env, top_inds, render=False)
@@ -313,8 +330,8 @@ def ccea(env: HarvestEnv, agent_pops, population_sizes, num_gens, sims_per_atype
         # fitnesses['G'] = [g_reward for _ in range(population_sizes)]
 
         # # save all policies of each agent and save fitnesses mapping policies to fitnesses
-        # save_agent_policies(experiment_dir, gen_idx, env, agent_pops, fitnesses)
+        # save_agent_policies(experiment_dir, gen_idx, env, agent_policies, fitnesses)
     # mp_pool.shutdown()
 
-    top_inds = select_top_n(agent_pops, select_sizes={agent_type: 1 for agent_type in population_sizes.keys()})[0]
+    top_inds = select_top_n(agent_policies, select_sizes={agent_type: 1 for agent_type in population_sizes.keys()})[0]
     return top_inds

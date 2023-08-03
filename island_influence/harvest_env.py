@@ -48,6 +48,13 @@ class HarvestEnv:
         self.obstacles = obstacles
         self.pois = pois
 
+        self.type_mapping = {
+            AgentType.Harvester: self.harvesters,
+            AgentType.Excavators: self.excavators,
+            AgentType.Obstacle: self.obstacles,
+            AgentType.StaticPoi: self.pois,
+        }
+
         self.location_funcs = location_funcs
 
         # note: state/observations history starts at len() == 1
@@ -82,6 +89,18 @@ class HarvestEnv:
 
         self.render_bound = None
         self.location_offset = None
+        return
+
+    def num_agent_types(self, agent_type):
+        agents = self.type_mapping[agent_type]
+        num_agents = len(agents)
+        return num_agents
+
+    def set_policies(self, agent_type, agent_policies):
+        agents = self.type_mapping[agent_type]
+        assert len(agents) == len(agent_policies)
+        for each_agent, policy in zip(agents, agent_policies):
+            each_agent.policy = policy
         return
 
     def get_agent(self, agent_name: str):
@@ -352,8 +371,6 @@ class HarvestEnv:
             obstacle.value -= value_diff
             rewards[excavator.name] += value_diff
             rewards['excavator_team'] += value_diff
-            if value_diff != 0:
-                print(f'reward was received: {self._current_step}')
 
         # Compute for harvesters and pois
         rewards['harvest_team'] = 0.0
@@ -368,8 +385,6 @@ class HarvestEnv:
             poi.value -= value_diff
             rewards[harvester.name] += value_diff
             rewards['harvest_team'] += value_diff
-            if value_diff != 0:
-                print(f'reward was received: {self._current_step}')
 
         # Global team reward is the sum of subteam (excavator team and harvest team) rewards
         rewards['team'] = rewards['excavator_team'] + rewards['harvest_team']

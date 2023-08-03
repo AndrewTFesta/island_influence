@@ -43,8 +43,6 @@ def main(main_args):
         'pois': poi_locs,
     }
 
-    learners = [AgentType.Harvester, AgentType.Excavators]
-
     experiment_dir = Path(project_properties.exps_dir)
     num_gens = 5
     num_sims = 5
@@ -66,10 +64,7 @@ def main(main_args):
 
     agent_pops = {
         agent_type: [
-            Agent(
-                idx, agent_type, agent_type in learners, obs_rad, agent_weight, agent_value, max_vel, sense_function='regions',
-                policy=NeuralNetwork(n_inputs=n_inputs, n_outputs=n_outputs, n_hidden=n_hidden),
-            )
+            NeuralNetwork(n_inputs=n_inputs, n_outputs=n_outputs, n_hidden=n_hidden)
             for idx in range(pop_size)
         ]
         for agent_type, pop_size in population_sizes.items()
@@ -94,15 +89,17 @@ def main(main_args):
     ]
 
     env = HarvestEnv(
-        num_harvesters=len(harvesters), num_excavators=len(excavators), num_obstacles=len(obstacles), num_pois=len(pois),
+        harvesters=harvesters, excavators=excavators, obstacles=obstacles, pois=pois,
         location_funcs=location_funcs, max_steps=max_steps, delta_time=delta_time, render_mode=render_mode
     )
-    env.set_excavators(excavators)
-    env.set_harvesters(harvesters)
-    env.set_obstacles(obstacles)
-    env.set_pois(pois)
+    env.reset()
 
-    optimizer = ccea(env, agent_pops=agent_pops, population_sizes=population_sizes, num_gens=num_gens, sims_per_atype=num_sims, experiment_dir=experiment_dir)
+    top_inds = ccea(
+        env, agent_policies=agent_pops, population_sizes=population_sizes,
+        num_gens=num_gens, num_sims=num_sims, experiment_dir=experiment_dir
+    )
+    for individual in top_inds:
+        print(f'{individual.fitness}')
     return
 
 

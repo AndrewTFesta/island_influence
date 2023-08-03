@@ -85,8 +85,6 @@ class Agent:
 
     def __repr__(self):
         str_rep = f'({self.name}: {self.agent_type}: {self.weight=}: {self.value=}: {self.location=})'
-        if hasattr(self, 'fitness'):
-            str_rep = f'({self.name}: {self.agent_type}: {self.fitness=}: {self.weight=}: {self.value=}: {self.location=})'
         return str_rep
 
     def observation_space(self):

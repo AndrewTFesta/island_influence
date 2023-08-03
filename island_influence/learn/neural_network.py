@@ -5,11 +5,14 @@
 
 """
 import copy
+import uuid
 from pathlib import Path
 
 import numpy as np
 import torch
+from numpy.random import default_rng
 from torch import nn
+from torch.nn.utils import parameters_to_vector, vector_to_parameters
 
 from island_influence import project_properties
 
@@ -54,12 +57,14 @@ def load_pytorch_model(model_path):
 
 
 class NeuralNetwork(nn.Module):
-    LAST_CREATED = 0
+
+    @property
+    def name(self):
+        return f'{self.network_func.__name__}_NN_{str(self.network_id)[-4:]}'
 
     def __init__(self, n_inputs, n_outputs, n_hidden=2, network_func=linear_layer):
         super(NeuralNetwork, self).__init__()
-        self.name = f'{self.LAST_CREATED}'
-        self.LAST_CREATED += 1
+        self.network_id = uuid.uuid1().int
 
         self.network_func = network_func
 
@@ -68,16 +73,36 @@ class NeuralNetwork(nn.Module):
 
         self.flatten = nn.Flatten()
         self.network = self.network_func(n_inputs=n_inputs, n_hidden=n_hidden, n_outputs=n_outputs)
+
+        self.parent = None
         return
 
     def __repr__(self):
-        return f'{self.name}'
+        base_repr = f'{self.name}'
+        if hasattr(self, 'fitness'):
+            base_repr = f'{base_repr}, {self.fitness=}'
+        return base_repr
 
     def copy(self):
-        new_copy = copy.copy(self)
-        self.LAST_CREATED += 1
-        new_copy.name = f'{self.LAST_CREATED}'
+        # https://discuss.pytorch.org/t/deep-copying-pytorch-modules/13514/2
+        new_copy = copy.deepcopy(self)
+        new_copy.network_id = uuid.uuid1().int
         return new_copy
+
+    def mutate_gaussian(self, mutation_scalar=0.1, probability_to_mutate=0.05):
+        rng = default_rng()
+        with torch.no_grad():
+            param_vector = parameters_to_vector(self.parameters())
+
+            for each_val in param_vector:
+                rand_val = rng.random()
+                if rand_val <= probability_to_mutate:
+                    # todo  base proportion on current weight rather than scaled random sample
+                    noise = torch.randn(each_val.size()) * mutation_scalar
+                    each_val.add_(noise)
+
+            vector_to_parameters(param_vector, self.parameters())
+        return
 
     def device(self):
         dev = next(self.parameters()).device

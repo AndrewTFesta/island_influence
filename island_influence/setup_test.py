@@ -73,12 +73,8 @@ def linear_setup():
     ]
 
     env = HarvestEnv(
-        num_harvesters=len(harvesters), num_excavators=len(excavators), num_obstacles=len(obstacles), num_pois=len(pois),
+        harvesters=harvesters, excavators=excavators, obstacles=obstacles, pois=pois,
         location_funcs=location_funcs, max_steps=max_steps, delta_time=delta_time, render_mode=render_mode
     )
-    env.set_excavators(excavators)
-    env.set_harvesters(harvesters)
-    env.set_obstacles(obstacles)
-    env.set_pois(pois)
     env.reset()
     return env
