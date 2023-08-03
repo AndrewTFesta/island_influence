@@ -1,3 +1,4 @@
+import math
 import pickle
 from pathlib import Path
 from typing import Dict, Optional
@@ -16,6 +17,36 @@ def network_distance(network_0, network_1):
     # Matrix similarity
 
     return
+
+
+def relative(start_loc, end_loc):
+    assert len(start_loc) == len(end_loc)
+
+    dx = end_loc[0] - start_loc[0]
+    dy = end_loc[1] - start_loc[1]
+    angle = np.arctan2(dy, dx)
+    angle = np.degrees(angle)
+    angle = angle % 360
+
+    dist = np.linalg.norm(np.asarray(end_loc) - np.asarray(start_loc))
+    return angle, dist
+
+
+def closest_agent_sets(origin_set, end_set, min_dist=math.inf):
+    closest = {}
+    for origin_agent in origin_set:
+        origin_location = origin_agent.location
+        closest_agent = None
+        closest_dist = math.inf
+        for end_agent in end_set:
+            end_location = end_agent.location
+            angle, dist = relative(end_location, origin_location)
+            if dist < closest_dist:
+                closest_dist = dist
+                closest_agent = end_agent
+        if closest_dist <= min_dist:
+            closest[origin_agent.name] = (closest_agent, closest_dist)
+    return closest
 
 
 def dl2ld(dict_of_lists: dict[object, list]):

@@ -6,15 +6,15 @@
 """
 import argparse
 import math
+from functools import partial
 from pathlib import Path
-
-import numpy as np
 
 from island_influence import project_properties
 from island_influence.agent import Agent, Poi, Obstacle, AgentType
 from island_influence.harvest_env import HarvestEnv
 from island_influence.learn.cceaV2 import ccea
 from island_influence.learn.neural_network import NeuralNetwork
+from island_influence.utils import random_ring
 
 
 def main(main_args):
@@ -29,11 +29,25 @@ def main(main_args):
     obstacle_value = 1
     poi_value = 1
 
+    agent_bounds = [0, 3]
+    obstacle_bounds = [5, 8]
+    poi_bounds = [10, 13]
+
+    agent_locs = partial(random_ring, **{'center': (5, 5), 'min_rad': agent_bounds[0], 'max_rad': agent_bounds[1]})
+    obstacle_locs = partial(random_ring, **{'center': (5, 5), 'min_rad': obstacle_bounds[0], 'max_rad': obstacle_bounds[1]})
+    poi_locs = partial(random_ring, **{'center': (5, 5), 'min_rad': poi_bounds[0], 'max_rad': poi_bounds[1]})
+    location_funcs = {
+        'harvesters': agent_locs,
+        'excavators': agent_locs,
+        'obstacles': obstacle_locs,
+        'pois': poi_locs,
+    }
+
     learners = [AgentType.Harvester, AgentType.Excavators]
 
     experiment_dir = Path(project_properties.exps_dir)
-    num_gens = 10
-    num_sims = 10
+    num_gens = 5
+    num_sims = 5
     sen_res = 8
     delta_time = 1
     render_mode = None
@@ -49,12 +63,11 @@ def main(main_args):
     n_outputs = 2
     n_hidden = math.ceil((n_inputs + n_outputs) / 2)
     policy = NeuralNetwork(n_inputs=n_inputs, n_outputs=n_outputs, n_hidden=n_hidden)
-    location = np.asarray((0, 0))
 
     agent_pops = {
         agent_type: [
             Agent(
-                idx, agent_type, agent_type in learners, location, obs_rad, agent_weight, agent_value, max_vel, sense_function='regions',
+                idx, agent_type, agent_type in learners, obs_rad, agent_weight, agent_value, max_vel, sense_function='regions',
                 policy=NeuralNetwork(n_inputs=n_inputs, n_outputs=n_outputs, n_hidden=n_hidden),
             )
             for idx in range(pop_size)
@@ -62,27 +75,34 @@ def main(main_args):
         for agent_type, pop_size in population_sizes.items()
     }
 
-    agents = [
-        Agent(idx, AgentType.Harvester, True, location, obs_rad, agent_weight, agent_value, max_vel, policy, sense_function='regions')
+    harvesters = [
+        Agent(idx, AgentType.Harvester, True, obs_rad, agent_weight, agent_value, max_vel, policy, sense_function='regions')
         for idx in range(num_harvesters)
     ]
     excavators = [
-        Agent(idx, AgentType.Excavators, True, location, obs_rad, agent_weight, agent_value, max_vel, policy, sense_function='regions')
+        Agent(idx, AgentType.Excavators, True, obs_rad, agent_weight, agent_value, max_vel, policy, sense_function='regions')
         for idx in range(num_excavators)
     ]
-    agents.extend(excavators)
 
     obstacles = [
-        Obstacle(idx, AgentType.Obstacle, location, obs_rad, obs_weight, obstacle_value)
+        Obstacle(idx, AgentType.Obstacle, obs_rad, obs_weight, obstacle_value)
         for idx in range(num_obstacles)
     ]
     pois = [
-        Poi(idx, AgentType.StaticPoi, location, obs_rad, poi_weight, poi_value)
+        Poi(idx, AgentType.StaticPoi, obs_rad, poi_weight, poi_value)
         for idx in range(num_pois)
     ]
 
-    env = HarvestEnv(agents=agents, obstacles=obstacles, pois=pois, max_steps=max_steps, delta_time=delta_time, render_mode=render_mode)
-    optimizer = ccea(env, agent_pops=agent_pops, population_sizes=population_sizes, num_gens=num_gens, num_sims=num_sims, experiment_dir=experiment_dir)
+    env = HarvestEnv(
+        num_harvesters=len(harvesters), num_excavators=len(excavators), num_obstacles=len(obstacles), num_pois=len(pois),
+        location_funcs=location_funcs, max_steps=max_steps, delta_time=delta_time, render_mode=render_mode
+    )
+    env.set_excavators(excavators)
+    env.set_harvesters(harvesters)
+    env.set_obstacles(obstacles)
+    env.set_pois(pois)
+
+    optimizer = ccea(env, agent_pops=agent_pops, population_sizes=population_sizes, num_gens=num_gens, sims_per_atype=num_sims, experiment_dir=experiment_dir)
     return
 
 

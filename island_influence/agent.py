@@ -4,8 +4,6 @@
 @description
 
 """
-import copy
-import math
 from enum import Enum, auto
 
 import numpy as np
@@ -13,36 +11,7 @@ import torch
 from gym.vector.utils import spaces
 
 from island_influence.learn.neural_network import NeuralNetwork
-
-
-def relative(start_loc, end_loc):
-    assert len(start_loc) == len(end_loc)
-
-    dx = end_loc[0] - start_loc[0]
-    dy = end_loc[1] - start_loc[1]
-    angle = np.arctan2(dy, dx)
-    angle = np.degrees(angle)
-    angle = angle % 360
-
-    dist = np.linalg.norm(np.asarray(end_loc) - np.asarray(start_loc))
-    return angle, dist
-
-
-def closest_agent_sets(origin_set, end_set, min_dist=math.inf):
-    closest = {}
-    for origin_name, origin_agent in origin_set.items():
-        origin_location = origin_agent.location
-        closest_agent = None
-        closest_dist = math.inf
-        for end_name, end_agent in end_set.items():
-            end_location = end_agent.location
-            angle, dist = relative(end_location, origin_location)
-            if dist < closest_dist:
-                closest_dist = dist
-                closest_agent = end_agent
-        if closest_dist <= min_dist:
-            closest[origin_name] = (closest_agent, closest_dist)
-    return closest
+from island_influence.utils import relative
 
 
 class AgentType(Enum):
@@ -64,7 +33,7 @@ class Agent:
 
     NUM_BINS = 3
 
-    def __init__(self, agent_id: int, agent_type: AgentType, learner: bool, location: np.ndarray, observation_radius, weight: float, value: float,
+    def __init__(self, agent_id: int, agent_type: AgentType, learner: bool, observation_radius, weight: float, value: float,
                  max_velocity: float = 0.0, policy: NeuralNetwork | None = None, sense_function='regions'):
         """
         The weight of an agent is how many agents it counts as when checking if the agent has an effect on another agent.
@@ -79,7 +48,6 @@ class Agent:
 
         :param agent_id:
         :param agent_type:
-        :param location:
         :param observation_radius:
         :param weight:
         :param value:
@@ -89,13 +57,11 @@ class Agent:
         self.agent_type = agent_type
         self.learner = learner
 
-        self._initial_location = copy.copy(location)
-        self.location = location
+        self.location = None
 
         self.observation_radius = observation_radius
         self.weight = weight
         self.value = value
-        self.fitness = math.nan
 
         # lower/upper bounds agent is able to move
         # same for both x and y directions
@@ -118,7 +84,10 @@ class Agent:
         return
 
     def __repr__(self):
-        return f'({self.name}: {self.agent_type}: {self.fitness=}: {self.weight=}: {self.value=}: {self.location=})'
+        str_rep = f'({self.name}: {self.agent_type}: {self.weight=}: {self.value=}: {self.location=})'
+        if hasattr(self, 'fitness'):
+            str_rep = f'({self.name}: {self.agent_type}: {self.fitness=}: {self.weight=}: {self.value=}: {self.location=})'
+        return str_rep
 
     def observation_space(self):
         sensor_range = spaces.Box(
@@ -134,11 +103,7 @@ class Agent:
         )
         return action_range
 
-    def reset(self, location: np.ndarray | None = None):
-        if location is not None:
-            self.location = copy.copy(location)
-        else:
-            self.location = copy.copy(self._initial_location)
+    def reset(self):
         return
 
     def observable_agents(self, relative_agents, observation_radius):
@@ -230,7 +195,7 @@ class Agent:
 
 class Obstacle(Agent):
 
-    def __init__(self, agent_id, agent_type, location, observation_radius, weight, value):
+    def __init__(self, agent_id, agent_type, observation_radius, weight, value):
         """
         The weight of an obstacle is how many agents it requires to remove it.
 
@@ -239,13 +204,15 @@ class Obstacle(Agent):
 
         :param agent_id:
         :param agent_type:
-        :param location:
         :param observation_radius:
         :param weight:
         :param value:
         """
-        super().__init__(agent_id, agent_type, False, location, observation_radius, weight, value)
+        super().__init__(agent_id, agent_type, False, observation_radius, weight, value)
         return
+
+    def __repr__(self):
+        return f'({self.name}: {self.agent_type}: {self.weight=}: {self.value=}: {self.location=})'
 
     def sense(self, other_agents):
         # sense nearby harvester agents
@@ -257,7 +224,7 @@ class Obstacle(Agent):
 
 class Poi(Agent):
 
-    def __init__(self, agent_id, agent_type, location, observation_radius, weight, value):
+    def __init__(self, agent_id, agent_type, observation_radius, weight, value):
         """
         The weight of a poi is how many agents it requires to remove it.
 
@@ -266,13 +233,15 @@ class Poi(Agent):
 
         :param agent_id:
         :param agent_type:
-        :param location:
         :param observation_radius:
         :param weight:
         :param value:
         """
-        super().__init__(agent_id, agent_type, False, location, observation_radius, weight, value)
+        super().__init__(agent_id, agent_type, False, observation_radius, weight, value)
         return
+
+    def __repr__(self):
+        return f'({self.name}: {self.agent_type}: {self.weight=}: {self.value=}: {self.location=})'
 
     def sense(self, other_agents):
         # sense nearby harvester agents
