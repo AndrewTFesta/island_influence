@@ -43,15 +43,16 @@ def main(main_args):
         'pois': poi_locs,
     }
 
+    # todo append exp_dir with date string
     experiment_dir = Path(project_properties.exps_dir)
-    num_gens = 5
-    num_sims = 5
-    sen_res = 8
+    num_gens = 10
+    num_sims = 10
+    sen_res = 4
     delta_time = 1
     render_mode = None
     max_steps = 100
 
-    population_sizes = {AgentType.Harvester: 10, AgentType.Excavators: 10}
+    population_sizes = {AgentType.Harvester: 20, AgentType.Excavators: 20}
     num_harvesters = 4
     num_excavators = 4
     num_obstacles = 10
@@ -65,7 +66,7 @@ def main(main_args):
     agent_pops = {
         agent_type: [
             NeuralNetwork(n_inputs=n_inputs, n_outputs=n_outputs, n_hidden=n_hidden)
-            for idx in range(pop_size)
+            for _ in range(pop_size // 5)
         ]
         for agent_type, pop_size in population_sizes.items()
     }
@@ -98,8 +99,9 @@ def main(main_args):
         env, agent_policies=agent_pops, population_sizes=population_sizes,
         num_gens=num_gens, num_sims=num_sims, experiment_dir=experiment_dir
     )
-    for individual in top_inds:
-        print(f'{individual.fitness}')
+    for agent_type, individuals in top_inds.items():
+        for each_ind in individuals:
+            print(f'{each_ind.fitness}')
     return
 
 

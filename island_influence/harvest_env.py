@@ -227,15 +227,6 @@ class HarvestEnv:
 
         :param seed:
         """
-        # exist_criteria = [
-        #     (len(self.harvesters) == self.num_harvesters),
-        #     (len(self.excavators) == self.num_excavators),
-        #     (len(self.obstacles) == self.num_obstacles),
-        #     (len(self.pois) == self.num_pois),
-        # ]
-        # if not all(exist_criteria):
-        #     raise RuntimeError(f'Not all agents added to environment before calling HarvestEnv.reset():\n{exist_criteria}')
-
         # set agents, obstacles, and pois to the initial states
         # add all possible agents to the environment - agents are removed from the self.agents as they finish the task
         if len(self.harvesters) > 0:

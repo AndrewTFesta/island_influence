@@ -4,6 +4,7 @@
 @description
 
 """
+import copy
 from enum import Enum, auto
 
 import numpy as np
@@ -63,6 +64,10 @@ class Agent:
         self.weight = weight
         self.value = value
 
+        self._initial_value = value
+        self._initial_weight = weight
+        # self._initial_location = copy.copy(location)
+
         # lower/upper bounds agent is able to move
         # same for both x and y directions
         self.max_velocity = max_velocity
@@ -102,6 +107,9 @@ class Agent:
         return action_range
 
     def reset(self):
+        self.value = self._initial_value
+        self.weight = self._initial_weight
+        # self._initial_location = copy.copy(location)
         return
 
     def observable_agents(self, relative_agents, observation_radius):
@@ -166,7 +174,7 @@ class Agent:
 
         :return:
         """
-        # todo  implement
+        # todo  implement sense_vision perception
         return other_agents
 
     def sense(self, other_agents):

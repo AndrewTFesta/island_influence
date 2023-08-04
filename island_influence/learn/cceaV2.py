@@ -236,8 +236,7 @@ DOWNSELECT_FUNCTIONS = {
 
 def ccea(env: HarvestEnv, agent_policies, population_sizes, num_gens, num_sims, experiment_dir,
          starting_gen=0, direct_assign_fitness=True, fitness_update_eps=1):
-    direct_assign_fitness = direct_assign_fitness
-    max_fitness = 100.0
+    # direct_assign_fitness = direct_assign_fitness
 
     # selection_func = partial(select_roulette, **{'select_size': num_simulations, 'noise': 0.01})
     selection_func = partial(select_hall_of_fame, **{'env': env, 'num_sims': num_sims})
@@ -251,30 +250,40 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, num_gens, num_sims, 
 
     env.save_environment(experiment_dir, tag='initial')
 
-    # todo  initial rollout to assign fitnesses of individuals on random teams
-    #       pair each agent in a population with first agent in other agents' populations
-    # todo  UCB style selection for networks?
-    for agent_type, population in agent_policies.items():
-        for individual in population:
-            individual.fitness = max_fitness
-
-    # team_members = {
-    #     agent_type: population[0]
-    #     for agent_type, population in agent_pops.items()
-    # }
-    # initial_teams = []
-    # for agent_type, population in agent_pops.items():
-    #     for individual in population:
-    #         ind_team = {each_type: each_member for each_type, each_member in team_members.items()}
-    #         ind_team[agent_type] = individual
-    #         initial_teams.append(ind_team)
-    #
-    # for each_team in initial_teams:
-    #     agent_rewards = rollout(env, each_team, render=False)
+    # initial rollout to assign fitnesses of individuals on random teams
+    #   pair first policies in each population together enough times to make a full team
+    #   UCB style selection for networks?
+    all_populations = list(agent_policies.values())
+    all_lens = np.asarray([len(each_pop) for each_pop in all_populations])
+    max_len = np.max(all_lens)
+    all_teams = [
+        {
+            agent_type: [
+                policies[idx % len(policies)]
+                for _ in range(env.num_agent_types(agent_type))
+            ]
+            for agent_type, policies in agent_policies.items()
+        }
+        for idx in range(max_len)]
+    for individuals in all_teams:
+        agent_rewards, policy_rewards = rollout(env, individuals, render=False)
+        for policy, reward in policy_rewards.items():
+            policy.fitness = reward
 
     num_cores = multiprocessing.cpu_count()
     mp_pool = ProcessPoolExecutor(max_workers=num_cores - 1)
     for gen_idx in trange(starting_gen, num_gens):
+        print(f'{gen_idx=}')
+
+        # for agent_type, population in agent_policies.items():
+        #     print(f'\t{agent_type}: {len(population)}')
+        for each_obstacle in env.obstacles:
+            print(f'{each_obstacle.value}', end=',')
+        print()
+        for each_poi in env.pois:
+            print(f'{each_poi.value}', end=',')
+        print()
+
         selected_policies = selection_func(agent_policies)
 
         teams = []
@@ -333,5 +342,5 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, num_gens, num_sims, 
         # save_agent_policies(experiment_dir, gen_idx, env, agent_policies, fitnesses)
     # mp_pool.shutdown()
 
-    top_inds = select_top_n(agent_policies, select_sizes={agent_type: 1 for agent_type in population_sizes.keys()})[0]
-    return top_inds
+    best_policies = select_top_n(agent_policies, select_sizes={name: env.num_agent_types(name) for name, pop in agent_policies.items()})
+    return best_policies
