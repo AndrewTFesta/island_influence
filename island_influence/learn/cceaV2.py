@@ -11,7 +11,6 @@ from functools import partial
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
 from numpy.random import default_rng
 from tqdm import trange
 
@@ -193,7 +192,8 @@ def rollout(env: HarvestEnv, agent_policies, render: bool | dict = False):
     return agent_rewards, policy_rewards
 
 
-def save_agent_policies(experiment_dir, gen_idx, env, agent_pops, fitnesses):
+def save_agent_policies(experiment_dir, gen_idx, env, agent_pops, fitnesses, human_readable=False):
+    indent = 2 if human_readable else None
     gen_path = Path(experiment_dir, f'gen_{gen_idx}')
     if not gen_path:
         gen_path.mkdir(parents=True, exist_ok=True)
@@ -210,8 +210,7 @@ def save_agent_policies(experiment_dir, gen_idx, env, agent_pops, fitnesses):
 
     fitnesses_path = Path(gen_path, 'fitnesses.csv')
     with open(fitnesses_path, 'w') as fitness_file:
-        json.dump(fitnesses, fitness_file, indent=2)
-        # json.dump(fitnesses, fitness_file)
+        json.dump(fitnesses, fitness_file, indent=indent)
     return
 
 
@@ -274,18 +273,8 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, num_gens, num_sims, 
 
     num_cores = multiprocessing.cpu_count()
     mp_pool = ProcessPoolExecutor(max_workers=num_cores - 1)
+    # todo  make multiprocessing work with refactor
     for gen_idx in trange(starting_gen, num_gens):
-        # print(f'{gen_idx=}')
-
-        # for agent_type, population in agent_policies.items():
-        #     print(f'\t{agent_type}: {len(population)}')
-        # for each_obstacle in env.obstacles:
-        #     print(f'{each_obstacle.value}', end=',')
-        # print()
-        # for each_poi in env.pois:
-        #     print(f'{each_poi.value}', end=',')
-        # print()
-
         selected_policies = selection_func(agent_policies)
 
         teams = []
@@ -334,16 +323,17 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, num_gens, num_sims, 
         episode_rewards, policy_rewards = rollout(env, best_policies, render=False)
 
         fitnesses = {
-            agent_name: [each_individual.fitness for each_individual in policy]
+            str(agent_name): [each_individual.fitness for each_individual in policy]
             for agent_name, policy in agent_policies.items()
         }
+        # todo  normalize base on total obstacle/poi values
         fitnesses['harvest_team'] = episode_rewards['harvest_team']
         fitnesses['excavator_team'] = episode_rewards['excavator_team']
         fitnesses['team'] = episode_rewards['team']
 
-        # # save all policies of each agent and save fitnesses mapping policies to fitnesses
+        # save all policies of each agent and save fitnesses mapping policies to fitnesses
         save_agent_policies(experiment_dir, gen_idx, env, agent_policies, fitnesses)
-    # mp_pool.shutdown()
+    mp_pool.shutdown()
 
     best_policies = select_top_n(agent_policies, select_sizes={name: env.num_agent_types(name) for name, pop in agent_policies.items()})
     return best_policies

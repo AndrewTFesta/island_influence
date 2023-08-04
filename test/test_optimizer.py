@@ -10,6 +10,8 @@ import math
 from functools import partial
 from pathlib import Path
 
+import numpy as np
+
 from island_influence import project_properties
 from island_influence.agent import Agent, Poi, Obstacle, AgentType
 from island_influence.harvest_env import HarvestEnv
@@ -30,9 +32,10 @@ def main(main_args):
     obstacle_value = 1
     poi_value = 1
 
-    agent_bounds = [0, 3]
-    obstacle_bounds = [5, 8]
-    poi_bounds = [10, 13]
+    env_scale_factor = 5
+    agent_bounds = np.asarray([0, 3]) * env_scale_factor
+    obstacle_bounds = np.asarray([5, 8]) * env_scale_factor
+    poi_bounds = np.asarray([10, 13]) * env_scale_factor
 
     agent_locs = partial(random_ring, **{'center': (5, 5), 'min_rad': agent_bounds[0], 'max_rad': agent_bounds[1]})
     obstacle_locs = partial(random_ring, **{'center': (5, 5), 'min_rad': obstacle_bounds[0], 'max_rad': obstacle_bounds[1]})
@@ -50,20 +53,20 @@ def main(main_args):
     if not experiment_dir.exists():
         experiment_dir.mkdir(parents=True, exist_ok=True)
 
-    num_gens = 10
+    num_gens = 10000
     # todo  make num_sim keyed to each agent type
     # to simulate all agents in both populations, choose a number larger than the population sizes of each agent type
-    num_sims = 20
+    num_sims = 50
     # num_sims = {AgentType.Harvester: 20, AgentType.Excavators: 20}
     sen_res = 8
     delta_time = 1
     render_mode = None
     max_steps = 100
 
-    population_sizes = {AgentType.Harvester: 20, AgentType.Excavators: 20}
+    population_sizes = {AgentType.Harvester: 50, AgentType.Excavators: 50}
     num_harvesters = 4
     num_excavators = 4
-    num_obstacles = 10
+    num_obstacles = 100
     num_pois = 10
 
     n_inputs = sen_res * Agent.NUM_BINS
