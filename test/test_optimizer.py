@@ -32,14 +32,31 @@ def main(main_args):
     obstacle_value = 1
     poi_value = 1
 
+    num_gens = 10000
+    sen_res = 8
+    delta_time = 1
+    render_mode = None
+    max_steps = 100
+
+    # todo  make num_sim keyed to each agent type
+    # to simulate all agents in both populations, choose a number larger than the population sizes of each agent type
+    num_sims = 50
+    # num_sims = {AgentType.Harvester: 20, AgentType.Excavators: 20}
+    population_sizes = {AgentType.Harvester: 50, AgentType.Excavators: 50}
+    num_harvesters = 4
+    num_excavators = 4
+    num_obstacles = 100
+    num_pois = 10
+
     env_scale_factor = 5
     agent_bounds = np.asarray([0, 3]) * env_scale_factor
     obstacle_bounds = np.asarray([5, 8]) * env_scale_factor
     poi_bounds = np.asarray([10, 13]) * env_scale_factor
-
-    agent_locs = partial(random_ring, **{'center': (5, 5), 'min_rad': agent_bounds[0], 'max_rad': agent_bounds[1]})
-    obstacle_locs = partial(random_ring, **{'center': (5, 5), 'min_rad': obstacle_bounds[0], 'max_rad': obstacle_bounds[1]})
-    poi_locs = partial(random_ring, **{'center': (5, 5), 'min_rad': poi_bounds[0], 'max_rad': poi_bounds[1]})
+    center_loc = (5, 5)
+    #############################################################################################
+    agent_locs = partial(random_ring, **{'center': center_loc, 'min_rad': agent_bounds[0], 'max_rad': agent_bounds[1]})
+    obstacle_locs = partial(random_ring, **{'center': center_loc, 'min_rad': obstacle_bounds[0], 'max_rad': obstacle_bounds[1]})
+    poi_locs = partial(random_ring, **{'center': center_loc, 'min_rad': poi_bounds[0], 'max_rad': poi_bounds[1]})
     location_funcs = {
         'harvesters': agent_locs,
         'excavators': agent_locs,
@@ -53,41 +70,25 @@ def main(main_args):
     if not experiment_dir.exists():
         experiment_dir.mkdir(parents=True, exist_ok=True)
 
-    num_gens = 10000
-    # todo  make num_sim keyed to each agent type
-    # to simulate all agents in both populations, choose a number larger than the population sizes of each agent type
-    num_sims = 50
-    # num_sims = {AgentType.Harvester: 20, AgentType.Excavators: 20}
-    sen_res = 8
-    delta_time = 1
-    render_mode = None
-    max_steps = 100
-
-    population_sizes = {AgentType.Harvester: 50, AgentType.Excavators: 50}
-    num_harvesters = 4
-    num_excavators = 4
-    num_obstacles = 100
-    num_pois = 10
-
     n_inputs = sen_res * Agent.NUM_BINS
     n_outputs = 2
     n_hidden = math.ceil((n_inputs + n_outputs) / 2)
-    policy = NeuralNetwork(n_inputs=n_inputs, n_outputs=n_outputs, n_hidden=n_hidden)
+    policy = NeuralNetwork(n_inputs=n_inputs, n_outputs=n_outputs, n_hidden=n_hidden, learner=True)
 
     agent_pops = {
         agent_type: [
-            NeuralNetwork(n_inputs=n_inputs, n_outputs=n_outputs, n_hidden=n_hidden)
+            NeuralNetwork(n_inputs=n_inputs, n_outputs=n_outputs, n_hidden=n_hidden, learner=True)
             for _ in range(pop_size // 5)
         ]
         for agent_type, pop_size in population_sizes.items()
     }
 
     harvesters = [
-        Agent(idx, AgentType.Harvester, True, obs_rad, agent_weight, agent_value, max_vel, policy, sense_function='regions')
+        Agent(idx, AgentType.Harvester, obs_rad, agent_weight, agent_value, max_vel, policy, sense_function='regions')
         for idx in range(num_harvesters)
     ]
     excavators = [
-        Agent(idx, AgentType.Excavators, True, obs_rad, agent_weight, agent_value, max_vel, policy, sense_function='regions')
+        Agent(idx, AgentType.Excavators, obs_rad, agent_weight, agent_value, max_vel, policy, sense_function='regions')
         for idx in range(num_excavators)
     ]
 

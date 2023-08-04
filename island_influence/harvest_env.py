@@ -226,8 +226,6 @@ class HarvestEnv:
 
         :param seed:
         """
-        # set agents, obstacles, and pois to the initial states
-        # add all possible agents to the environment - agents are removed from the self.agents as they finish the task
         if len(self.harvesters) > 0:
             harvester_locs = self.location_funcs['harvesters'](num_points=len(self.harvesters))
             for idx, agent in enumerate(self.harvesters):
@@ -324,6 +322,8 @@ class HarvestEnv:
         dicts keyed by the agent name
             e.g. {agent_0: observation_0, agent_1: observation_1, ...}
         """
+        # todo  test collisions of harvesters with pois and obstacles
+        # todo  test collisions of excavators with pois and obstacles
         remaining_obstacles = [agent for agent in self.obstacles if agent.value > 0]
         remaining_pois = [agent for agent in self.pois if agent.value > 0]
         closest_obstacles_excavators = closest_agent_sets(remaining_obstacles, self.excavators, min_dist=1)
@@ -439,7 +439,7 @@ class HarvestEnv:
         # The size of a single grid square in pixels
         pix_square_size = (self.window_size / self.render_bound)
 
-        agent_colors = {AgentType.Harvester: [0, 102, 0], AgentType.Excavators: [0, 0, 102], AgentType.Obstacle: [102, 51, 0], AgentType.StaticPoi: [102, 0, 0]}
+        agent_colors = {AgentType.Harvester: [0, 255, 0], AgentType.Excavators: [0, 0, 255], AgentType.Obstacle: [0, 0, 0], AgentType.StaticPoi: [255, 0, 0]}
         default_color = [128, 128, 128]
 
         agent_sizes = {AgentType.Harvester: 0.5, AgentType.Excavators: 0.5, AgentType.Obstacle: 0.25, AgentType.StaticPoi: 0.25}

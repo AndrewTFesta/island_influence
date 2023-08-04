@@ -4,7 +4,6 @@
 @description
 
 """
-import copy
 from enum import Enum, auto
 
 import numpy as np
@@ -34,7 +33,7 @@ class Agent:
 
     NUM_BINS = 3
 
-    def __init__(self, agent_id: int, agent_type: AgentType, learner: bool, observation_radius, weight: float, value: float,
+    def __init__(self, agent_id: int, agent_type: AgentType, observation_radius, weight: float, value: float,
                  max_velocity: float = 0.0, policy: NeuralNetwork | None = None, sense_function='regions'):
         """
         The weight of an agent is how many agents it counts as when checking if the agent has an effect on another agent.
@@ -56,7 +55,6 @@ class Agent:
         self.name = f'{agent_type.name}_{agent_id}'
         self.id = agent_id
         self.agent_type = agent_type
-        self.learner = learner
 
         self.location = None
 
@@ -214,7 +212,7 @@ class Obstacle(Agent):
         :param weight:
         :param value:
         """
-        super().__init__(agent_id, agent_type, False, observation_radius, weight, value)
+        super().__init__(agent_id, agent_type, observation_radius, weight, value)
         return
 
     def __repr__(self):
@@ -243,7 +241,7 @@ class Poi(Agent):
         :param weight:
         :param value:
         """
-        super().__init__(agent_id, agent_type, False, observation_radius, weight, value)
+        super().__init__(agent_id, agent_type, observation_radius, weight, value)
         return
 
     def __repr__(self):

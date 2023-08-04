@@ -79,6 +79,24 @@ def pol2cart(angle, radius):
     return x, y
 
 
+def deterministic_ring(num_points, center, radius, start_proportion=0):
+    angles = np.linspace(start=start_proportion, stop=1, num=num_points)
+    angles += start_proportion
+    angles *= 2 * np.pi
+
+    # polar_coords = np.vstack((radius, angles))
+    # polar_coords = np.transpose(polar_coords)
+
+    # calculating coordinates
+    vector_pol2cart = np.vectorize(pol2cart, )
+    cart_coords = vector_pol2cart(angles, radius)
+    cart_coords = np.transpose(cart_coords)
+    center_arr = np.tile(center, (cart_coords.shape[0], 1))
+
+    cart_coords = cart_coords + center_arr
+    return cart_coords
+
+
 def random_ring(num_points, center, min_rad, max_rad, seed=None):
     rng = np.random.default_rng(seed=seed)
     angles = rng.uniform(size=num_points)
@@ -86,8 +104,8 @@ def random_ring(num_points, center, min_rad, max_rad, seed=None):
 
     radius = rng.uniform(low=min_rad, high=max_rad, size=num_points)
 
-    polar_coords = np.vstack((radius, angles))
-    polar_coords = np.transpose(polar_coords)
+    # polar_coords = np.vstack((radius, angles))
+    # polar_coords = np.transpose(polar_coords)
 
     # calculating coordinates
     vector_pol2cart = np.vectorize(pol2cart, )

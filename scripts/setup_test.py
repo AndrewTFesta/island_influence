@@ -13,7 +13,7 @@ from island_influence.learn.neural_network import NeuralNetwork
 from island_influence.utils import random_ring
 
 
-def linear_setup():
+def ring_setup():
     render_mode = 'human'
     delta_time = 1
     max_steps = 100
@@ -55,11 +55,11 @@ def linear_setup():
     policy = NeuralNetwork(n_inputs=n_inputs, n_outputs=n_outputs, n_hidden=n_hidden)
 
     harvesters = [
-        Agent(idx, AgentType.Harvester, True, obs_rad, agent_weight, agent_value, max_vel, policy, sense_function='regions')
+        Agent(idx, AgentType.Harvester, obs_rad, agent_weight, agent_value, max_vel, policy, sense_function='regions')
         for idx in range(num_harvesters)
     ]
     excavators = [
-        Agent(idx, AgentType.Excavators, True, obs_rad, agent_weight, agent_value, max_vel, policy, sense_function='regions')
+        Agent(idx, AgentType.Excavators, obs_rad, agent_weight, agent_value, max_vel, policy, sense_function='regions')
         for idx in range(num_excavators)
     ]
 

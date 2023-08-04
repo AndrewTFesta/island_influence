@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from island_influence.harvest_env import HarvestEnv
-from island_influence.setup_test import linear_setup
+from scripts.setup_test import ring_setup
 
 
 # def display_final_agents(env: DiscreteHarvestEnv):
@@ -233,7 +233,7 @@ def test_reset(env: HarvestEnv, render_mode):
 
 
 def main(main_args):
-    env = linear_setup()
+    env = ring_setup()
 
     test_observations(env)
     test_actions(env)

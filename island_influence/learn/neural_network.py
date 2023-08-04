@@ -62,11 +62,25 @@ class NeuralNetwork(nn.Module):
     def name(self):
         return f'{self.network_func.__name__}_NN_{str(self.network_id)[-4:]}'
 
-    def __init__(self, n_inputs, n_outputs, n_hidden=2, network_func=linear_layer):
+    @property
+    def fitness(self):
+        return self._fitness
+
+    @fitness.setter
+    def fitness(self, value):
+        if self.learner:
+            self.fitness = value
+        else:
+            raise RuntimeError(f'Can\'t set a fitness value on a non-learning network')
+        return
+
+    def __init__(self, n_inputs, n_outputs, n_hidden=2, learner=True, network_func=linear_layer):
         super(NeuralNetwork, self).__init__()
         self.network_id = uuid.uuid1().int
 
         self.network_func = network_func
+        self.learner = learner
+        self._fitness = None
 
         self.n_inputs = n_inputs
         self.n_outputs = n_outputs
@@ -87,6 +101,7 @@ class NeuralNetwork(nn.Module):
         # https://discuss.pytorch.org/t/deep-copying-pytorch-modules/13514/2
         new_copy = copy.deepcopy(self)
         new_copy.network_id = uuid.uuid1().int
+        new_copy.fitness = None
         return new_copy
 
     def mutate_gaussian(self, mutation_scalar=0.1, probability_to_mutate=0.05):
