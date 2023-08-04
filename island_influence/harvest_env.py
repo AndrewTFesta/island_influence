@@ -35,7 +35,6 @@ class HarvestEnv:
         :param delta_time:
         :param render_mode:
         """
-        self.min_collision_dist = 2
         self.num_dims = 2
         self.agent_action_size = 2
         self._current_step = 0
@@ -301,7 +300,8 @@ class HarvestEnv:
         return agent_dones
 
     def cumulative_rewards(self):
-        cum_rewards = {each_agent.name: 0 for each_agent in self.agents}
+        cum_rewards = {each_key: 0 for each_key in self.reward_history[0]}
+        # cum_rewards = {each_agent.name: 0 for each_agent in self.agents}
         for agent_name in cum_rewards:
             step_rewards = []
             for each_reward in self.reward_history:
@@ -332,17 +332,21 @@ class HarvestEnv:
         # step location and time of all agents
         # should not matter which order they are stepped in as long as dt is small enough
         obstacle_locations = np.asarray([each_obstacle.location for each_obstacle in remaining_obstacles])
+        obstacle_radii = np.asarray([each_obstacle.observation_radius for each_obstacle in remaining_obstacles])
         # for agent_name, each_action in actions.items():
         default_action = np.asarray([0, 0])
         for agent in self.agents:
             agent_action = actions.get(agent.name, default_action)
             # each_action is (dx, dy)
             new_loc = agent.location + agent_action
-            # Collision detection for obstacles and agents
-            obstacle_dists = [euclidean(new_loc, each_loc) for each_loc in obstacle_locations]
-            collision = any((each_dist <= self.min_collision_dist for each_dist in obstacle_dists))
-            if not collision:
-                agent.location = new_loc
+            if agent.agent_type == AgentType.Harvester:
+                # Collision detection for obstacles and harvesters
+                obstacle_dists = [euclidean(new_loc, each_loc) for each_loc in obstacle_locations]
+                collision = any((each_dist <= each_size for each_dist, each_size in zip(obstacle_dists, obstacle_radii)))
+                if collision:
+                    new_loc = agent.location
+            agent.location = new_loc
+
         self._current_step += self.delta_time
 
         # apply the effects of harvesters and excavators on obstacles and pois
@@ -440,9 +444,9 @@ class HarvestEnv:
 
         agent_sizes = {AgentType.Harvester: 0.5, AgentType.Excavators: 0.5, AgentType.Obstacle: 0.25, AgentType.StaticPoi: 0.25}
         default_size = 0.1
-        size_scalar = 1
-        if self.render_mode == 'human':
-            size_scalar = 2
+        size_scalar = 2
+        # if self.render_mode == 'human':
+        #     size_scalar = 2
 
         line_color = [0, 0, 0]
         text_color = [255, 255, 255]
@@ -489,6 +493,7 @@ class HarvestEnv:
 
             # draw a circle at the location to represent the obstacle
             pygame.draw.circle(canvas, acolor, (location + 0.5) * pix_square_size, pix_square_size * asize)
+            pygame.draw.circle(canvas, acolor, (location + 0.5) * pix_square_size, pix_square_size * agent.observation_radius, width=1)
 
         for agent in self.pois:
             location = np.array(agent.location) + self.location_offset

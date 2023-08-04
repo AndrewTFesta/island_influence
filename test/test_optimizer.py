@@ -5,6 +5,7 @@
 
 """
 import argparse
+import datetime
 import math
 from functools import partial
 from pathlib import Path
@@ -43,11 +44,18 @@ def main(main_args):
         'pois': poi_locs,
     }
 
-    # todo append exp_dir with date string
-    experiment_dir = Path(project_properties.exps_dir)
+    now = datetime.datetime.now()
+    date_str = now.strftime("%Y_%m_%d_%H_%M_%S")
+    experiment_dir = Path(project_properties.exps_dir, f'harvest_exp_{date_str}')
+    if not experiment_dir.exists():
+        experiment_dir.mkdir(parents=True, exist_ok=True)
+
     num_gens = 10
-    num_sims = 10
-    sen_res = 4
+    # todo  make num_sim keyed to each agent type
+    # to simulate all agents in both populations, choose a number larger than the population sizes of each agent type
+    num_sims = 20
+    # num_sims = {AgentType.Harvester: 20, AgentType.Excavators: 20}
+    sen_res = 8
     delta_time = 1
     render_mode = None
     max_steps = 100

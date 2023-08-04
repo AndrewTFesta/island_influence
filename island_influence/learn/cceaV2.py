@@ -4,6 +4,7 @@
 @description
 
 """
+import json
 import multiprocessing
 from concurrent.futures import ProcessPoolExecutor
 from functools import partial
@@ -103,6 +104,7 @@ def select_hall_of_fame(agent_pops, env, num_sims):
     :param num_sims:
     :return: list with tuple of agents and indices, where the indices are the agents selected for evaluation
     """
+    # todo  limit num_sims to the max number of policies in the populations
     best_policies = select_top_n(agent_pops, select_sizes={name: env.num_agent_types(name) for name, pop in agent_pops.items()})
     all_selected_policies = select_roulette(agent_pops, select_sizes={agent_type: num_sims for agent_type in agent_pops.keys()})
 
@@ -197,19 +199,19 @@ def save_agent_policies(experiment_dir, gen_idx, env, agent_pops, fitnesses):
         gen_path.mkdir(parents=True, exist_ok=True)
 
     env.save_environment(gen_path, tag=f'gen_{gen_idx}')
-    for agent_name, policy_info in agent_pops.items():
+    for agent_name, policies in agent_pops.items():
         network_save_path = Path(gen_path, f'{agent_name}_networks')
         if not network_save_path:
             network_save_path.mkdir(parents=True, exist_ok=True)
 
-        for idx, each_policy in enumerate(policy_info):
-            # fitnesses[agent_name].append(each_policy['fitness'])
-            network = each_policy['network']
-            network.save_model(save_dir=network_save_path, tag=f'{idx}')
+        for idx, each_policy in enumerate(policies):
+            # fitnesses[agent_name].append(each_policy.fitness)
+            each_policy.save_model(save_dir=network_save_path, tag=f'{idx}')
 
     fitnesses_path = Path(gen_path, 'fitnesses.csv')
-    fitnesses_df = pd.DataFrame.from_dict(fitnesses, orient='index')
-    fitnesses_df.to_csv(fitnesses_path, header=True, index_label='agent_name')
+    with open(fitnesses_path, 'w') as fitness_file:
+        json.dump(fitnesses, fitness_file, indent=2)
+        # json.dump(fitnesses, fitness_file)
     return
 
 
@@ -273,16 +275,16 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, num_gens, num_sims, 
     num_cores = multiprocessing.cpu_count()
     mp_pool = ProcessPoolExecutor(max_workers=num_cores - 1)
     for gen_idx in trange(starting_gen, num_gens):
-        print(f'{gen_idx=}')
+        # print(f'{gen_idx=}')
 
         # for agent_type, population in agent_policies.items():
         #     print(f'\t{agent_type}: {len(population)}')
-        for each_obstacle in env.obstacles:
-            print(f'{each_obstacle.value}', end=',')
-        print()
-        for each_poi in env.pois:
-            print(f'{each_poi.value}', end=',')
-        print()
+        # for each_obstacle in env.obstacles:
+        #     print(f'{each_obstacle.value}', end=',')
+        # print()
+        # for each_poi in env.pois:
+        #     print(f'{each_poi.value}', end=',')
+        # print()
 
         selected_policies = selection_func(agent_policies)
 
@@ -327,19 +329,20 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, num_gens, num_sims, 
         # downselect
         agent_policies = downselect_func(agent_policies)
 
-        # top_inds = select_top_n(agent_pops, select_size=1)[0]
-        # _ = rollout(env, top_inds, render=False)
-        # g_reward = env.calc_global()
-        # g_reward = list(g_reward.values())[0]
+        # save generation progress
+        best_policies = select_top_n(agent_policies, select_sizes={name: env.num_agent_types(name) for name, pop in agent_policies.items()})
+        episode_rewards, policy_rewards = rollout(env, best_policies, render=False)
 
-        # fitnesses = {
-        #     agent_name: [each_individual['fitness'] for each_individual in policy_info]
-        #     for agent_name, policy_info in agent_pops.items()
-        # }
-        # fitnesses['G'] = [g_reward for _ in range(population_sizes)]
+        fitnesses = {
+            agent_name: [each_individual.fitness for each_individual in policy]
+            for agent_name, policy in agent_policies.items()
+        }
+        fitnesses['harvest_team'] = episode_rewards['harvest_team']
+        fitnesses['excavator_team'] = episode_rewards['excavator_team']
+        fitnesses['team'] = episode_rewards['team']
 
         # # save all policies of each agent and save fitnesses mapping policies to fitnesses
-        # save_agent_policies(experiment_dir, gen_idx, env, agent_policies, fitnesses)
+        save_agent_policies(experiment_dir, gen_idx, env, agent_policies, fitnesses)
     # mp_pool.shutdown()
 
     best_policies = select_top_n(agent_policies, select_sizes={name: env.num_agent_types(name) for name, pop in agent_policies.items()})
