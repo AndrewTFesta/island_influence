@@ -16,7 +16,7 @@ from island_influence.utils import relative
 
 class AgentType(Enum):
     Harvester = auto()
-    Excavators = auto()
+    Excavator = auto()
     Obstacle = auto()
     StaticPoi = auto()
     MovingPoi = auto()
@@ -25,7 +25,7 @@ class AgentType(Enum):
 class Agent:
     ROW_MAPPING = {
         AgentType.Harvester: 0,
-        AgentType.Excavators: 0,
+        AgentType.Excavator: 0,
         AgentType.Obstacle: 1,
         AgentType.StaticPoi: 2,
         AgentType.MovingPoi: 2
@@ -228,6 +228,16 @@ class Obstacle(Agent):
 
 class Poi(Agent):
 
+    # @property
+    # def observed(self):
+    #     max_seen = 0
+    #     for each_step in self.observation_history:
+    #         # using value allows for different agents to contribute different weights to observing the poi
+    #         curr_seen = sum(each_agent[0].value for each_agent in each_step)
+    #         max_seen = max(max_seen, curr_seen)
+    #     obs = max_seen >= self.coupling
+    #     return obs
+
     def __init__(self, agent_id, agent_type, observation_radius, weight, value):
         """
         The weight of a poi is how many agents it requires to remove it.
@@ -246,6 +256,21 @@ class Poi(Agent):
 
     def __repr__(self):
         return f'({self.name}: {self.agent_type}: {self.weight=}: {self.value=}: {self.location=})'
+
+    def observation_space(self):
+        sensor_range = spaces.Box(low=0, high=self.weight, shape=(1,))
+        return sensor_range
+
+    def action_space(self):
+        # static agents do not move during an episode
+        action_range = spaces.Box(low=0, high=0, shape=(2,), dtype=np.float64)
+        return action_range
+
+    # def observed_idx(self, idx):
+    #     idx_obs = self.observation_history[idx]
+    #     idx_seen = len(idx_obs)
+    #     observed = idx_seen >= self.weight
+    #     return observed
 
     def sense(self, other_agents):
         # sense nearby harvester agents

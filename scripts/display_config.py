@@ -26,7 +26,7 @@ def generate_plot(config_path: Path):
         for idx in range(num_harvesters)
     ]
     excavators = [
-        Agent(idx, AgentType.Excavators, obs_rad, agent_weight, agent_value, max_vel, policy, sense_function='regions')
+        Agent(idx, AgentType.Excavator, obs_rad, agent_weight, agent_value, max_vel, policy, sense_function='regions')
         for idx in range(num_excavators)
     ]
 

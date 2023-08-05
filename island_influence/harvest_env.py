@@ -21,8 +21,52 @@ class HarvestEnv:
         all_agents.extend(self.excavators)
         return all_agents
 
+    @property
+    def harvesters(self):
+        return self._harvesters
+
+    @property
+    def excavators(self):
+        return self._excavators
+
+    @property
+    def obstacles(self):
+        return self._obstacles
+
+    @property
+    def pois(self):
+        return self._pois
+
+    @harvesters.setter
+    def harvesters(self, new_harvesters):
+        self._harvesters = new_harvesters
+        return
+
+    @excavators.setter
+    def excavators(self, new_excavators):
+        self._obstacles = new_excavators
+        return
+
+    @obstacles.setter
+    def obstacles(self, new_obstacles):
+        self._obstacles = new_obstacles
+        return
+
+    @pois.setter
+    def pois(self, new_pois):
+        self._pois = new_pois
+        return
+
+    @property
+    def total_obstacle_value(self):
+        return sum([each_obstacle.value for each_obstacle in self.obstacles])
+
+    @property
+    def total_poi_value(self):
+        return sum([each_poi.value for each_poi in self.pois])
+
     def __init__(self, harvesters: list[Agent], excavators: list[Agent], obstacles: list[Obstacle], pois: list[Poi],
-                 location_funcs: dict, max_steps, delta_time=1, render_mode=None):
+                 location_funcs: dict, max_steps, delta_time=1, normalize_rewards=False, render_mode=None):
         """
         Always make sure to add agents and call `HarvestEnv.reset()` after before using the environment
 
@@ -37,19 +81,21 @@ class HarvestEnv:
         """
         self.num_dims = 2
         self.agent_action_size = 2
-        self._current_step = 0
         self.max_steps = max_steps
         self.delta_time = delta_time
+        self.normalize_rewards = normalize_rewards
+
+        self._current_step = 0
 
         # agents are the harvesters and the supports
-        self.harvesters = harvesters
-        self.excavators = excavators
-        self.obstacles = obstacles
-        self.pois = pois
+        self._harvesters = harvesters
+        self._excavators = excavators
+        self._obstacles = obstacles
+        self._pois = pois
 
         self.type_mapping = {
             AgentType.Harvester: self.harvesters,
-            AgentType.Excavators: self.excavators,
+            AgentType.Excavator: self.excavators,
             AgentType.Obstacle: self.obstacles,
             AgentType.StaticPoi: self.pois,
         }
@@ -90,12 +136,20 @@ class HarvestEnv:
         self.location_offset = None
         return
 
-    def num_agent_types(self, agent_type):
+    def num_agent_types(self, agent_type: AgentType | str):
+        if isinstance(agent_type, str):
+            agent_name = agent_type.split('.')[-1]
+            agent_type = AgentType[agent_name]
+
         agents = self.type_mapping[agent_type]
         num_agents = len(agents)
         return num_agents
 
-    def set_policies(self, agent_type, agent_policies):
+    def set_policies(self, agent_type: AgentType | str, agent_policies):
+        if isinstance(agent_type, str):
+            agent_name = agent_type.split('.')[-1]
+            agent_type = AgentType[agent_name]
+
         agents = self.type_mapping[agent_type]
         assert len(agents) == len(agent_policies)
         for each_agent, policy in zip(agents, agent_policies):
@@ -200,7 +254,7 @@ class HarvestEnv:
         if tag != '':
             tag = f'_{tag}'
 
-        save_path = Path(save_dir, f'discrete_harvest_env{tag}.pkl')
+        save_path = Path(save_dir, f'harvest_env{tag}.pkl')
         if not save_path.parent.exists():
             save_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -250,14 +304,13 @@ class HarvestEnv:
                 agent.reset()
                 agent.location = poi_locs[idx]
 
-        self.set_render_bounds()
-
         self._current_step = 0
         # clear the action, observation, and state histories
         self.state_history = [self.state()]
         self.action_history = []
         self.reward_history = []
 
+        self.set_render_bounds()
         observations = self.get_observations()
         return observations
 
@@ -274,7 +327,6 @@ class HarvestEnv:
             observations[agent.name] = agent_obs
         return observations
 
-    #
     def get_actions(self):
         """
         Returns a dictionary of actions (keyed by the agent name).
@@ -299,7 +351,6 @@ class HarvestEnv:
 
     def cumulative_rewards(self):
         cum_rewards = {each_key: 0 for each_key in self.reward_history[0]}
-        # cum_rewards = {each_agent.name: 0 for each_agent in self.agents}
         for agent_name in cum_rewards:
             step_rewards = []
             for each_reward in self.reward_history:
@@ -364,8 +415,12 @@ class HarvestEnv:
             value_diff = min(excavator.value, self.get_obstacle(obstacle_name).value)
             obstacle = self.get_obstacle(obstacle_name)
             obstacle.value -= value_diff
-            rewards[excavator.name] += value_diff
-            rewards['excavator_team'] += value_diff
+
+            each_reward = value_diff
+            if self.normalize_rewards:
+                each_reward = value_diff / self.total_obstacle_value
+            rewards[excavator.name] += each_reward
+            rewards['excavator_team'] += each_reward
 
         # Compute for harvesters and pois
         rewards['harvest_team'] = 0.0
@@ -378,8 +433,12 @@ class HarvestEnv:
             value_diff = min(harvester.value, self.get_poi(poi_name).value)
             poi = self.get_poi(poi_name)
             poi.value -= value_diff
-            rewards[harvester.name] += value_diff
-            rewards['harvest_team'] += value_diff
+
+            each_reward = value_diff
+            if self.normalize_rewards:
+                each_reward = value_diff / self.total_poi_value
+            rewards[harvester.name] += each_reward
+            rewards['harvest_team'] += each_reward
 
         # Global team reward is the sum of subteam (excavator team and harvest team) rewards
         rewards['team'] = rewards['excavator_team'] + rewards['harvest_team']
@@ -439,10 +498,10 @@ class HarvestEnv:
         # The size of a single grid square in pixels
         pix_square_size = (self.window_size / self.render_bound)
 
-        agent_colors = {AgentType.Harvester: [0, 255, 0], AgentType.Excavators: [0, 0, 255], AgentType.Obstacle: [0, 0, 0], AgentType.StaticPoi: [255, 0, 0]}
+        agent_colors = {AgentType.Harvester: [0, 255, 0], AgentType.Excavator: [0, 0, 255], AgentType.Obstacle: [0, 0, 0], AgentType.StaticPoi: [255, 0, 0]}
         default_color = [128, 128, 128]
 
-        agent_sizes = {AgentType.Harvester: 0.5, AgentType.Excavators: 0.5, AgentType.Obstacle: 0.25, AgentType.StaticPoi: 0.25}
+        agent_sizes = {AgentType.Harvester: 0.5, AgentType.Excavator: 0.5, AgentType.Obstacle: 0.25, AgentType.StaticPoi: 0.25}
         default_size = 0.1
         size_scalar = 2
         # if self.render_mode == 'human':
@@ -458,13 +517,9 @@ class HarvestEnv:
 
         # todo  space out, toggle on/off
         # draw some gridlines
-        for x in range(self.render_bound + 1):
-            pygame.draw.line(
-                canvas, line_color, (0, pix_square_size * x), (self.window_size, pix_square_size * x), width=1,
-            )
-            pygame.draw.line(
-                canvas, line_color, (pix_square_size * x, 0), (pix_square_size * x, self.window_size), width=1,
-            )
+        # for x in range(self.render_bound + 1):
+        #     pygame.draw.line(canvas, line_color, (0, pix_square_size * x), (self.window_size, pix_square_size * x), width=1,)
+        #     pygame.draw.line(canvas, line_color, (pix_square_size * x, 0), (pix_square_size * x, self.window_size), width=1,)
 
         for agent in self.agents:
             location = np.array(agent.location) + self.location_offset

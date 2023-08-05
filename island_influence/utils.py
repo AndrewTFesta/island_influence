@@ -49,30 +49,6 @@ def closest_agent_sets(origin_set, end_set, min_dist=math.inf):
     return closest
 
 
-def dl2ld(dict_of_lists: dict[object, list]):
-    # all lists in the dictionary must be of the same length
-    first_val = list(dict_of_lists.values())[0]
-    num_vals = len(first_val)
-
-    list_of_dicts = [
-        {key: val[idx] for key, val in dict_of_lists.items()}
-        for idx in range(num_vals)
-    ]
-    return list_of_dicts
-
-
-def ld2dl(list_of_dicts: list[dict]):
-    # all lists must contain the same dict keys
-    first_element = list_of_dicts[0]
-    keys = list(first_element.keys())
-
-    dict_of_lists = {
-        [each_element[each_key] for each_element in list_of_dicts]
-        for each_key in keys
-    }
-    return dict_of_lists
-
-
 def pol2cart(angle, radius):
     x = radius * np.cos(angle)
     y = radius * np.sin(angle)

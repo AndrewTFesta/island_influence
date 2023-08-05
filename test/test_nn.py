@@ -20,6 +20,9 @@ def main(main_args):
     model = NeuralNetwork(n_inputs=n_inputs, n_outputs=n_outputs, n_hidden=n_hidden)
     print(f'Using device: {model.device()}\n'
           f'{model}')
+    print(f'{model.fitness=}')
+    model.fitness = 5
+    print(f'{model.fitness=}')
 
     save_name = model.save_model()
     print(f'Saved PyTorch model state to {save_name}')

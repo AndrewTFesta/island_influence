@@ -69,7 +69,7 @@ class NeuralNetwork(nn.Module):
     @fitness.setter
     def fitness(self, value):
         if self.learner:
-            self.fitness = value
+            self._fitness = value
         else:
             raise RuntimeError(f'Can\'t set a fitness value on a non-learning network')
         return
@@ -102,6 +102,8 @@ class NeuralNetwork(nn.Module):
         new_copy = copy.deepcopy(self)
         new_copy.network_id = uuid.uuid1().int
         new_copy.fitness = None
+        # new_copy.parent = self.name
+        new_copy.parent = self
         return new_copy
 
     def mutate_gaussian(self, mutation_scalar=0.1, probability_to_mutate=0.05):
