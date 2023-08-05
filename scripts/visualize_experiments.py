@@ -63,6 +63,9 @@ def plot_fitnesses(fitness_data, save_dir, tag):
     for each_key in agent_keys:
         if each_key in fitness_data:
             stat_runs = fitness_data[each_key]
+            # todo  fix with unequal population sizes
+            # ValueError: setting an array element with a sequence. The requested array has an inhomogeneous shape after 2 dimensions.
+            # The detected shape was (1, 15) + inhomogeneous part.
             fitnesses = np.asarray(stat_runs)
             max_vals = np.max(fitnesses, axis=2)
 

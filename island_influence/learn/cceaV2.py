@@ -51,8 +51,8 @@ def select_roulette(agent_pops, select_sizes: dict[AgentType, int], noise=0.01, 
         fitness_vals = np.asarray([each_policy.fitness for each_policy in policy_population])
 
         # add small amount of noise to each fitness value (help deal with all same value)
-        noise = np.random.uniform(0, noise, len(fitness_vals))
-        fitness_vals += noise
+        fitness_noise = np.random.uniform(0, noise, len(fitness_vals))
+        fitness_vals += fitness_noise
 
         fitness_vals = fitness_vals / sum(fitness_vals)
         select_size = select_sizes[agent_type]
@@ -309,14 +309,14 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, num_gens, num_sims, 
         avg_fitnesses = {each_agent: np.average(fitnesses) for each_agent, fitnesses in results.items()}
 
         if direct_assign_fitness:
-            for agent, fitness in avg_fitnesses.items():
-                if agent.learner:
-                    agent.fitness = fitness
+            for policy, fitness in avg_fitnesses.items():
+                if policy.learner:
+                    policy.fitness = fitness
         else:
-            for agent, fitness in avg_fitnesses.items():
-                if agent.learner:
-                    fitness_delta = fitness - agent.fitness
-                    agent.fitness += fitness_delta * fitness_update_eps
+            for policy, fitness in avg_fitnesses.items():
+                if policy.learner:
+                    fitness_delta = fitness - policy.fitness
+                    policy.fitness += fitness_delta * fitness_update_eps
 
         # downselect
         agent_policies = downselect_func(agent_policies)

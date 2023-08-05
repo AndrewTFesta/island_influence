@@ -15,12 +15,17 @@ from island_influence.learn.neural_network import NeuralNetwork
 from island_influence.utils import random_ring, deterministic_ring
 
 
-def create_agent_policy(agent):
-    obs_space = agent.observation_space()
-    action_space = agent.action_space()
-    num_hidden = math.ceil((obs_space + action_space) / 2)
+def create_agent_policy(agent, learner):
+    obs_space = agent.observation_space().shape
+    action_space = agent.action_space().shape
 
-    policy = NeuralNetwork(n_inputs=action_space, n_outputs=action_space, n_hidden=num_hidden, learner=True)
+    # state_size = agent.sensor_resolution * Agent.NUM_BINS
+    # action_size = 2
+    obs_size = np.prod(obs_space)
+    action_size = action_space[0]
+    num_hidden = math.ceil((obs_size + action_size) / 2)
+
+    policy = NeuralNetwork(n_inputs=obs_size, n_outputs=action_size, n_hidden=num_hidden, learner=learner)
     return policy
 
 

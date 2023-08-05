@@ -350,6 +350,7 @@ class HarvestEnv:
         return agent_dones
 
     def cumulative_rewards(self):
+        # todo  difference rewards
         cum_rewards = {each_key: 0 for each_key in self.reward_history[0]}
         for agent_name in cum_rewards:
             step_rewards = []

@@ -46,7 +46,8 @@ def linear_relu_stack(n_inputs, n_hidden, n_outputs):
         network.append(nn.Linear(hidden_size, hidden_size))
         network.append(nn.ReLU())
 
-    network.append(nn.Linear(hidden_size, n_outputs))
+    output_layer = nn.Linear(hidden_size, n_outputs)
+    network.append(output_layer)
     return network
 
 
@@ -74,8 +75,11 @@ class NeuralNetwork(nn.Module):
             raise RuntimeError(f'Can\'t set a fitness value on a non-learning network')
         return
 
-    def __init__(self, n_inputs, n_outputs, n_hidden=2, learner=True, network_func=linear_layer):
+    def __init__(self, n_inputs, n_outputs, n_hidden=2, learner=True, network_func=linear_relu_stack):
         super(NeuralNetwork, self).__init__()
+        # todo  make network funcs defines layers from ModuleDict or ParameterDict
+        # https://pytorch.org/docs/stable/generated/torch.nn.ModuleDict.html#torch.nn.ModuleDict
+        # https://pytorch.org/docs/stable/generated/torch.nn.ParameterDict.html#torch.nn.ParameterDict
         self.network_id = uuid.uuid1().int
 
         self.network_func = network_func
@@ -85,7 +89,8 @@ class NeuralNetwork(nn.Module):
         self.n_inputs = n_inputs
         self.n_outputs = n_outputs
 
-        self.flatten = nn.Flatten()
+        # https://pytorch.org/docs/stable/generated/torch.flatten.html
+        # self.flatten = nn.Flatten()
         self.network = self.network_func(n_inputs=n_inputs, n_hidden=n_hidden, n_outputs=n_outputs)
 
         self.parent = None
@@ -121,6 +126,27 @@ class NeuralNetwork(nn.Module):
 
             vector_to_parameters(param_vector, self.parameters())
         return
+
+    def replace_layers(self, other_net, layers):
+        # todo  allow swap specific weights in each_layer
+        #       this could allow for a crossover mutation where
+        #       an agent considers a state input the way it considered
+        #       another state input
+        with torch.no_grad():
+            other_children = list(other_net.network.children())
+            for idx, child in enumerate(self.network.children()):
+                if idx in layers:
+                    other_weights = copy.deepcopy(other_children[idx].weight)
+                    child.weight = other_weights
+        return
+
+    def weight_vectors(self):
+        with torch.no_grad():
+            weights = [
+                child.weight.numpy() if hasattr(child, 'weight') else np.asarray([])
+                for child in self.network.children()
+            ]
+        return weights
 
     def device(self):
         dev = next(self.parameters()).device
