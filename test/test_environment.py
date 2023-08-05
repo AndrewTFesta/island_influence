@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from island_influence.harvest_env import HarvestEnv
-from scripts.setup_test import ring_setup
+from scripts.setup_env import rand_ring_env
 
 
 # def display_final_agents(env: DiscreteHarvestEnv):
@@ -233,7 +233,7 @@ def test_reset(env: HarvestEnv, render_mode):
 
 
 def main(main_args):
-    env = ring_setup()
+    env = rand_ring_env()
 
     test_observations(env)
     test_actions(env)
@@ -252,10 +252,10 @@ def main(main_args):
     # test_render(env, render_mode='human')
     # test_reset(env, render_mode='human')
     # test_step(env, render_mode='human')
-    # test_random(env, render_mode='human')
+    test_random(env, render_mode='human')
     # test_rollout(env, render_mode='human')
 
-    # test_persistence(env)
+    test_persistence(env)
     return
 
 

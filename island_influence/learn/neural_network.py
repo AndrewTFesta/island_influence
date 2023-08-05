@@ -60,7 +60,7 @@ class NeuralNetwork(nn.Module):
 
     @property
     def name(self):
-        return f'{self.network_func.__name__}_NN_{str(self.network_id)[-4:]}'
+        return f'{str(self.network_id)}_NN_{self.network_func.__name__}'
 
     @property
     def fitness(self):
@@ -92,7 +92,8 @@ class NeuralNetwork(nn.Module):
         return
 
     def __repr__(self):
-        base_repr = f'{self.name}'
+        name_parts = self.name.split('_')
+        base_repr = f'{name_parts[0][-4:]}_{"_".join(name_parts[1:])}'
         if hasattr(self, 'fitness'):
             base_repr = f'{base_repr}, {self.fitness=}'
         return base_repr
