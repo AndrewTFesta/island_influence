@@ -203,6 +203,12 @@ def test_rollout(env: HarvestEnv, render_mode):
     return
 
 
+def test_collisions(env: HarvestEnv, render_mode):
+    # todo  test collisions of harvesters with pois and obstacles
+    # todo  test collisions of excavators with pois and obstacles
+    return
+
+
 def test_persistence(env: HarvestEnv):
     save_path = env.save_environment()
     test_env = HarvestEnv.load_environment(save_path)
@@ -237,6 +243,9 @@ def main(main_args):
 
     test_observations(env)
     test_actions(env)
+    test_collisions(env, render_mode=None)
+    test_collisions(env, render_mode='rgb_array')
+    test_collisions(env, render_mode='human')
 
     test_reset(env, render_mode=None)
     test_step(env, render_mode=None)

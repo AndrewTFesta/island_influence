@@ -56,7 +56,7 @@ def select_roulette(agent_pops, select_sizes: dict[AgentType, int], noise=0.01, 
         fitness_vals += fitness_noise
 
         fitness_vals = fitness_vals / sum(fitness_vals)
-        select_size = select_sizes[agent_type]
+        select_size = min(len(policy_population), select_sizes[agent_type])
         rand_pop = np.random.choice(policy_population, select_size, replace=True, p=fitness_vals)
         chosen_agent_pops[agent_type] = rand_pop
 
@@ -125,7 +125,6 @@ def select_hall_of_fame(agent_pops, env, num_sims, filter_learners=False):
     :param filter_learners:
     :return: list with tuple of agents and indices, where the indices are the agents selected for evaluation
     """
-    # todo  limit num_sims to the max number of policies in the populations
     best_policies = select_top_n(agent_pops, select_sizes={name: env.num_agent_types(name) for name, pop in agent_pops.items()})
     test_policies = select_roulette(agent_pops, select_sizes={agent_type: num_sims for agent_type in agent_pops.keys()}, filter_learners=filter_learners)
 
@@ -146,9 +145,9 @@ def select_top_n(agent_pops, select_sizes: dict[AgentType, int], filter_learners
         agent_pops = filter_learning_policies(agent_pops)
 
     chosen_agent_pops = {}
-    for agent_type, population in agent_pops.items():
-        sorted_pop = sorted(population, key=lambda x: x.fitness, reverse=True)
-        select_size = select_sizes[agent_type]
+    for agent_type, policy_population in agent_pops.items():
+        sorted_pop = sorted(policy_population, key=lambda x: x.fitness, reverse=True)
+        select_size = min(len(policy_population), select_sizes[agent_type])
         top_pop = sorted_pop[:select_size]
         chosen_agent_pops[agent_type] = top_pop
     return chosen_agent_pops

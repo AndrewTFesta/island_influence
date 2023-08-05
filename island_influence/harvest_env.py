@@ -374,8 +374,6 @@ class HarvestEnv:
         dicts keyed by the agent name
             e.g. {agent_0: observation_0, agent_1: observation_1, ...}
         """
-        # todo  test collisions of harvesters with pois and obstacles
-        # todo  test collisions of excavators with pois and obstacles
         remaining_obstacles = [agent for agent in self.obstacles if agent.value > 0]
         remaining_pois = [agent for agent in self.pois if agent.value > 0]
         closest_obstacles_excavators = closest_agent_sets(remaining_obstacles, self.excavators, min_dist=1)
