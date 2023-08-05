@@ -84,7 +84,7 @@ class NeuralNetwork(nn.Module):
 
         self.network_func = network_func
         self.learner = learner
-        self._fitness = None
+        self._fitness = None if learner else 0.0
 
         self.n_inputs = n_inputs
         self.n_outputs = n_outputs
@@ -98,7 +98,7 @@ class NeuralNetwork(nn.Module):
 
     def __repr__(self):
         name_parts = self.name.split('_')
-        base_repr = f'{name_parts[0][-4:]}_{"_".join(name_parts[1:])}'
+        base_repr = f'{name_parts[0][-8:]}_{"_".join(name_parts[1:])}'
         if hasattr(self, 'fitness'):
             base_repr = f'{base_repr}, {self.fitness=}'
         return base_repr
@@ -120,7 +120,6 @@ class NeuralNetwork(nn.Module):
             for each_val in param_vector:
                 rand_val = rng.random()
                 if rand_val <= probability_to_mutate:
-                    # todo  base proportion on current weight rather than scaled random sample
                     noise = torch.randn(each_val.size()) * mutation_scalar
                     each_val.add_(noise)
 

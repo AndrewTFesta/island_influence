@@ -516,12 +516,6 @@ class HarvestEnv:
 
         write_values = False
 
-        # todo  space out, toggle on/off
-        # draw some gridlines
-        # for x in range(self.render_bound + 1):
-        #     pygame.draw.line(canvas, line_color, (0, pix_square_size * x), (self.window_size, pix_square_size * x), width=1,)
-        #     pygame.draw.line(canvas, line_color, (pix_square_size * x, 0), (pix_square_size * x, self.window_size), width=1,)
-
         for agent in self.agents:
             location = np.array(agent.location) + self.location_offset
             acolor = agent_colors.get(agent.agent_type, default_color)

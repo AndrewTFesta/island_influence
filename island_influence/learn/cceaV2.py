@@ -19,10 +19,11 @@ from island_influence.harvest_env import HarvestEnv
 
 
 def filter_learning_policies(agent_policies):
-    filtered_pops = {
-        agent_type: [individual for individual in population if individual.learner]
-        for agent_type, population in agent_policies.items()
-    }
+    filtered_pops = {}
+    for agent_type, population in agent_policies.items():
+        learners = [individual for individual in population if individual.learner]
+        if len(learners) > 0:
+            filtered_pops[agent_type] = learners
     return filtered_pops
 
 
@@ -236,6 +237,7 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, num_gens, num_sims, 
     :param prob_to_mutate:
     :return:
     """
+    population_sizes = {agent_type: max(pop_size, env.num_agent_types(agent_type)) for agent_type, pop_size in population_sizes.items()}
     # selection_func = partial(select_roulette, **{'select_size': num_simulations, 'noise': 0.01})
     selection_func = partial(select_hall_of_fame, **{'env': env, 'num_sims': num_sims, 'filter_learners': True})
     # sim_func = partial(simulate_subpop, **{'env': env, 'mutate_func': mutate_func})
@@ -266,12 +268,12 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, num_gens, num_sims, 
                 if policy.learner:
                     policy.fitness = reward
     ##########################################################################################
-    best_agent_fitnesses = {agent.name: 0 for agent in env.agents}
-    best_agent_fitnesses['harvest_team'] = 0
-    best_agent_fitnesses['excavator_team'] = 0
-    best_agent_fitnesses['team'] = 0
+    # best_agent_fitnesses = {agent.name: 0 for agent in env.agents}
+    # best_agent_fitnesses['harvest_team'] = 0
+    # best_agent_fitnesses['excavator_team'] = 0
+    team_fitness = {'team': 0}
 
-    pbar = tqdm(total=num_gens, desc=f'Generation:', postfix=best_agent_fitnesses)
+    pbar = tqdm(total=num_gens, desc=f'Generation', postfix=team_fitness)
     pbar.update(starting_gen)
 
     num_cores = multiprocessing.cpu_count()
@@ -332,6 +334,7 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, num_gens, num_sims, 
         fitnesses['harvest_team'] = best_agent_fitnesses['harvest_team']
         fitnesses['excavator_team'] = best_agent_fitnesses['excavator_team']
         fitnesses['team'] = best_agent_fitnesses['team']
+        team_fitness = {'team': best_agent_fitnesses['team']}
 
         # save all policies of each agent and save fitnesses mapping policies to fitnesses
         save_agent_policies(experiment_dir, gen_idx, env, agent_policies, fitnesses)
