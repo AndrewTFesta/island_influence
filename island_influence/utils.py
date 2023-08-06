@@ -32,20 +32,20 @@ def relative(start_loc, end_loc):
     return angle, dist
 
 
-def closest_agent_sets(origin_set, end_set, min_dist=math.inf):
+def observed_agents(observing_set, observed_set):
     closest = {}
-    for origin_agent in origin_set:
-        origin_location = origin_agent.location
+    for observed_agent in observed_set:
+        observed_location = observed_agent.location
         closest_agent = None
         closest_dist = math.inf
-        for end_agent in end_set:
-            end_location = end_agent.location
-            angle, dist = relative(end_location, origin_location)
-            if dist < closest_dist:
+        for observing_agent in observing_set:
+            observing_location = observing_agent.location
+            angle, dist = relative(observing_location, observed_location)
+            if dist < closest_dist and dist <= observing_agent.observation_radius:
                 closest_dist = dist
-                closest_agent = end_agent
-        if closest_dist <= min_dist:
-            closest[origin_agent.name] = (closest_agent, closest_dist)
+                closest_agent = observing_agent
+        if closest_agent is not None:
+            closest[observed_agent.name] = (closest_agent, closest_dist)
     return closest
 
 
@@ -56,7 +56,7 @@ def pol2cart(angle, radius):
 
 
 def deterministic_ring(num_points, center, radius, start_proportion=0):
-    angles = np.linspace(start=start_proportion, stop=1, num=num_points)
+    angles = np.linspace(start=start_proportion, stop=1, num=num_points, endpoint=False)
     angles += start_proportion
     angles *= 2 * np.pi
 

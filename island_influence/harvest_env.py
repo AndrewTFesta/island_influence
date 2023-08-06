@@ -8,7 +8,7 @@ import pygame
 from island_influence import project_properties
 from island_influence.agent import Agent, Obstacle, Poi, AgentType
 from island_influence.learn.neural_network import NeuralNetwork
-from island_influence.utils import euclidean, closest_agent_sets
+from island_influence.utils import euclidean, observed_agents
 
 
 class HarvestEnv:
@@ -376,9 +376,6 @@ class HarvestEnv:
         """
         remaining_obstacles = [agent for agent in self.obstacles if agent.value > 0]
         remaining_pois = [agent for agent in self.pois if agent.value > 0]
-        closest_obstacles_excavators = closest_agent_sets(remaining_obstacles, self.excavators, min_dist=1)
-        closest_pois_harvesters = closest_agent_sets(remaining_pois, self.harvesters, min_dist=1)
-
         # step location and time of all agents
         # should not matter which order they are stepped in as long as dt is small enough
         obstacle_locations = np.asarray([each_obstacle.location for each_obstacle in remaining_obstacles])
@@ -399,13 +396,19 @@ class HarvestEnv:
 
         self._current_step += self.delta_time
 
+        # find the closest pairs of relevant agents after stepping the environment
+        # remaining_obstacles = [agent for agent in self.obstacles if agent.value > 0]
+        # remaining_pois = [agent for agent in self.pois if agent.value > 0]
+        # check closest agents based on observation radii of active agents rather than passive agents
+        observed_obstacles_excavators = observed_agents(self.excavators, remaining_obstacles)
+        observed_pois_harvesters = observed_agents(self.harvesters, remaining_pois)
         # apply the effects of harvesters and excavators on obstacles and pois
         # assign rewards to harvester for observing pois and excavators for removing obstacles
         rewards = {agent.name: 0.0 for agent in self.agents}
 
         # Compute for excavators and obstacles
         rewards['excavator_team'] = 0.0
-        for obstacle_name, excavator_info in closest_obstacles_excavators.items():
+        for obstacle_name, excavator_info in observed_obstacles_excavators.items():
             excavator = excavator_info[0]
             # remove an obstacle if an excavator collides with it
             # assign reward for removing the obstacle to the closest excavator
@@ -423,7 +426,7 @@ class HarvestEnv:
 
         # Compute for harvesters and pois
         rewards['harvest_team'] = 0.0
-        for poi_name, harvester_info in closest_pois_harvesters.items():
+        for poi_name, harvester_info in observed_pois_harvesters.items():
             harvester = harvester_info[0]
             # reduce the value of a poi from self.pois if it is observed
             # assign reward for observing the poi to the closest harvester

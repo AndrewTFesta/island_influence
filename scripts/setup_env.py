@@ -29,7 +29,7 @@ def create_agent_policy(agent, learner):
     return policy
 
 
-def create_base_env(location_funcs):
+def create_base_env(location_funcs, num_harvesters=4, num_excavators=4, num_obstacles=8, num_pois=8):
     obs_rad = 2
     max_vel = 1
 
@@ -45,11 +45,6 @@ def create_base_env(location_funcs):
     delta_time = 1
     render_mode = None
     max_steps = 100
-
-    num_harvesters = 4
-    num_excavators = 4
-    num_obstacles = 8
-    num_pois = 8
 
     state_size = sen_res * Agent.NUM_BINS
     action_size = 2
@@ -84,11 +79,10 @@ def create_base_env(location_funcs):
     return env
 
 
-def rand_ring_env():
-    env_scale_factor = 5
-    agent_bounds = np.asarray([0, 3]) * env_scale_factor
-    obstacle_bounds = np.asarray([5, 8]) * env_scale_factor
-    poi_bounds = np.asarray([10, 13]) * env_scale_factor
+def rand_ring_env(scale_factor=2, num_harvesters=4, num_excavators=4, num_obstacles=8, num_pois=8):
+    agent_bounds = np.asarray([0, 3]) * scale_factor
+    obstacle_bounds = np.asarray([5, 8]) * scale_factor
+    poi_bounds = np.asarray([10, 13]) * scale_factor
     center_loc = (5, 5)
 
     agent_locs = partial(random_ring, **{'center': center_loc, 'min_rad': agent_bounds[0], 'max_rad': agent_bounds[1]})
@@ -104,25 +98,20 @@ def rand_ring_env():
     return enc
 
 
-def det_ring_env():
-    num_agents = 10
-    num_obstacles = 20
-    num_pois = 10
-
-    env_scale_factor = 5
-    agent_bounds = np.asarray([0, 3]) * env_scale_factor
-    obstacle_bounds = np.asarray([5, 8]) * env_scale_factor
-    poi_bounds = np.asarray([10, 13]) * env_scale_factor
+def det_ring_env(scale_factor=2, num_harvesters=4, num_excavators=4, num_obstacles=8, num_pois=8):
+    agent_bounds = np.asarray([0, 3]) * scale_factor
+    obstacle_bounds = np.asarray([5, 8]) * scale_factor
+    poi_bounds = np.asarray([10, 13]) * scale_factor
     center_loc = (5, 5)
 
-    agent_locs = deterministic_ring(num_points=num_agents, center=center_loc, radius=np.average(agent_bounds))
-    obstacle_locs = deterministic_ring(num_points=num_obstacles, center=center_loc, radius=np.average(obstacle_bounds))
-    poi_locs = deterministic_ring(num_points=num_pois, center=center_loc, radius=np.average(poi_bounds))
+    agent_locs = partial(deterministic_ring, center=center_loc, radius=np.average(agent_bounds))
+    obstacle_locs = partial(deterministic_ring, center=center_loc, radius=np.average(obstacle_bounds))
+    poi_locs = partial(deterministic_ring, center=center_loc, radius=np.average(poi_bounds))
     location_funcs = {
         'harvesters': agent_locs,
         'excavators': agent_locs,
         'obstacles': obstacle_locs,
         'pois': poi_locs,
     }
-    env = create_base_env(location_funcs)
+    env = create_base_env(location_funcs, num_harvesters, num_excavators, num_obstacles, num_pois)
     return env

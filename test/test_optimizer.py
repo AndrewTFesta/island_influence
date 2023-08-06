@@ -151,9 +151,10 @@ def test_restart(env, num_gens, policy_funcs, exp_dir):
 
 
 def main(main_args):
+    num_runs = 1
     env = rand_ring_env()
-    num_sims = 5
-    num_gens = 5
+    num_sims = 20
+    num_gens = 100
 
     policy_funcs = {
         AgentType.Harvester: partial(create_agent_policy, env.harvesters[0]),
@@ -168,13 +169,14 @@ def main(main_args):
     if not experiment_dir.exists():
         experiment_dir.mkdir(parents=True, exist_ok=True)
 
-    # todo  make num_sim keyed to each agent type
-    # the tag added to define the type of test essentially acts as the stat run
-    test_base_ccea(env, num_sims, num_gens, policy_funcs, exp_dir=Path(experiment_dir, 'base_ccea'))
-    test_unequal_pops(env, num_sims, num_gens, policy_funcs, exp_dir=Path(experiment_dir, 'unequal_pops'))
-    test_single_training(env, num_sims, num_gens, policy_funcs, exp_dir=Path(experiment_dir, 'single_training'))
-    test_non_learning_pop(env, num_sims, num_gens, policy_funcs, exp_dir=Path(experiment_dir, 'non_learning'))
-    # test_restart(env, num_sims, num_gens, policy_funcs, exp_dir=Path(experiment_dir, 'restart'))
+    for idx in range(num_runs):
+        # todo  make num_sim keyed to each agent type
+        # the tag added to define the type of test essentially acts as the stat run
+        test_base_ccea(env, num_sims, num_gens, policy_funcs, exp_dir=Path(experiment_dir, 'base_ccea', f'stat_run_{idx}'))
+        test_unequal_pops(env, num_sims, num_gens, policy_funcs, exp_dir=Path(experiment_dir, 'unequal_pops', f'stat_run_{idx}'))
+        test_single_training(env, num_sims, num_gens, policy_funcs, exp_dir=Path(experiment_dir, 'single_training', f'stat_run_{idx}'))
+        test_non_learning_pop(env, num_sims, num_gens, policy_funcs, exp_dir=Path(experiment_dir, 'non_learning', f'stat_run_{idx}'))
+        # test_restart(env, num_sims, num_gens, policy_funcs, exp_dir=Path(experiment_dir, 'restart'))
     return
 
 

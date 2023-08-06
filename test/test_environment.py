@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from island_influence.harvest_env import HarvestEnv
-from scripts.setup_env import rand_ring_env
+from scripts.setup_env import rand_ring_env, det_ring_env
 
 
 # def display_final_agents(env: DiscreteHarvestEnv):
@@ -32,6 +32,7 @@ def display_env(env, render_mode, render_delay=1.0):
         plt.pause(render_delay)
     else:
         time.sleep(render_delay)
+    plt.close()
     return
 
 
@@ -98,10 +99,11 @@ def test_step(env: HarvestEnv, render_mode):
     render_delay = 1
 
     # action is (dx, dy)
-    forward_action = np.array((0, 1.5))
-    backwards_action = np.array((0, -1.5))
-    left_action = np.array((-1.5, 0))
-    right_action = np.array((1.5, 0))
+    step_size = 0.5
+    forward_action = np.array((0, step_size))
+    backwards_action = np.array((0, -step_size))
+    left_action = np.array((-step_size, 0))
+    right_action = np.array((step_size, 0))
 
     tests = [
         {agent.name: forward_action for agent in env.agents},
@@ -203,9 +205,56 @@ def test_rollout(env: HarvestEnv, render_mode):
     return
 
 
-def test_collisions(env: HarvestEnv, render_mode):
-    # todo  test collisions of harvesters with pois and obstacles
-    # todo  test collisions of excavators with pois and obstacles
+def test_collisions(render_mode):
+    env_obstacles = det_ring_env(scale_factor=0.5, num_excavators=0)
+    env_pois = det_ring_env(scale_factor=0.5, num_excavators=0, num_obstacles=0)
+
+    env_obstacles.reset()
+    env_obstacles.render_mode = render_mode
+
+    env_pois.reset()
+    env_pois.render_mode = render_mode
+
+    render_delay = 0.5
+
+    # action is (dx, dy)
+    step_size = 0.5
+    forward_action = np.array((0, step_size))
+    backwards_action = np.array((0, -step_size))
+    left_action = np.array((-step_size, 0))
+    right_action = np.array((step_size, 0))
+
+    tests = [
+        {agent.name: right_action for agent in env_obstacles.agents},
+        {agent.name: right_action for agent in env_obstacles.agents},
+        {agent.name: right_action for agent in env_obstacles.agents},
+        {agent.name: right_action for agent in env_obstacles.agents},
+
+        {agent.name: right_action for agent in env_obstacles.agents},
+        {agent.name: right_action for agent in env_obstacles.agents},
+        {agent.name: right_action for agent in env_obstacles.agents},
+        {agent.name: right_action for agent in env_obstacles.agents},
+
+        {agent.name: left_action for agent in env_obstacles.agents},
+        {agent.name: left_action for agent in env_obstacles.agents},
+        {agent.name: left_action for agent in env_obstacles.agents},
+        {agent.name: left_action for agent in env_obstacles.agents},
+
+        {agent.name: right_action for agent in env_obstacles.agents},
+        {agent.name: right_action for agent in env_obstacles.agents},
+        {agent.name: right_action for agent in env_obstacles.agents},
+        {agent.name: right_action for agent in env_obstacles.agents},
+    ]
+
+    for each_action in tests:
+        observations, rewards, terminations, truncs, infos = env_obstacles.step(each_action)
+        if render_mode:
+            display_env(env_obstacles, render_mode, render_delay)
+
+    for each_action in tests:
+        observations, rewards, terminations, truncs, infos = env_pois.step(each_action)
+        if render_mode:
+            display_env(env_pois, render_mode, render_delay)
     return
 
 
@@ -243,28 +292,28 @@ def main(main_args):
 
     test_observations(env)
     test_actions(env)
-    test_collisions(env, render_mode=None)
-    test_collisions(env, render_mode='rgb_array')
-    test_collisions(env, render_mode='human')
+    # test_collisions(render_mode=None)
+    # test_collisions(render_mode='rgb_array')
+    test_collisions(render_mode='human')
 
-    test_reset(env, render_mode=None)
-    test_step(env, render_mode=None)
-    test_random(env, render_mode=None)
-    test_rollout(env, render_mode=None)
+    # test_reset(env, render_mode=None)
+    # test_step(env, render_mode=None)
+    # test_random(env, render_mode=None)
+    # test_rollout(env, render_mode=None)
 
     # test_render(env, render_mode='rgb_array')
     # test_reset(env, render_mode='rgb_array')
     # test_step(env, render_mode='rgb_array')
-    test_random(env, render_mode='rgb_array')
+    # test_random(env, render_mode='rgb_array')
     # test_rollout(env, render_mode='rgb_array')
 
     # test_render(env, render_mode='human')
     # test_reset(env, render_mode='human')
     # test_step(env, render_mode='human')
-    test_random(env, render_mode='human')
+    # test_random(env, render_mode='human')
     # test_rollout(env, render_mode='human')
 
-    test_persistence(env)
+    # test_persistence(env)
     return
 
 
