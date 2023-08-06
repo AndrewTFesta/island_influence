@@ -153,15 +153,11 @@ def select_top_n(agent_pops, select_sizes: dict[AgentType, int], filter_learners
     return chosen_agent_pops
 
 
-# def simulate_subpop(agent_policies, env, mutate_func):
-#     mutated_policies = mutate_func(agent_policies[0])
-#
-#     # rollout and evaluate
-#     agent_rewards = rollout(env, mutated_policies, render=False)
-#     for agent_name, policy_info in mutated_policies.items():
-#         policy_fitness = agent_rewards[agent_name]
-#         policy_info['fitness'] = policy_fitness
-#     return mutated_policies, agent_policies[1]
+def evaluate_agents(agent_team, env):
+    team_members, update_policy_ids = agent_team
+    agent_rewards, policy_rewards = rollout(env, team_members, render=False)
+    eval_policy_rewards = {policy_id: policy_reward for policy_id, policy_reward in policy_rewards.items() if policy_id in update_policy_ids}
+    return eval_policy_rewards
 
 
 def rollout(env: HarvestEnv, agent_policies, render: bool = False):
@@ -216,7 +212,7 @@ def save_agent_policies(experiment_dir, gen_idx, env, agent_pops, fitnesses, hum
     return
 
 
-def ccea(env: HarvestEnv, agent_policies, population_sizes, num_gens, num_sims, experiment_dir,
+def ccea(env: HarvestEnv, agent_policies, population_sizes, max_gens, num_sims, experiment_dir, completion_criteria=None,
          initialize=True, starting_gen=0, direct_assign_fitness=True, fitness_update_eps=1, mutation_scalar=0.1, prob_to_mutate=0.05):
     """
     agents in agent_policies are the actual agents being optimized
@@ -225,9 +221,10 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, num_gens, num_sims, 
     :param env:
     :param agent_policies:
     :param population_sizes:
-    :param num_gens:
+    :param max_gens:
     :param num_sims:
     :param experiment_dir:
+    :param completion_criteria:
     :param initialize:
     :param starting_gen:
     :param direct_assign_fitness:
@@ -239,7 +236,7 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, num_gens, num_sims, 
     population_sizes = {agent_type: max(pop_size, env.num_agent_types(agent_type)) for agent_type, pop_size in population_sizes.items()}
     # selection_func = partial(select_roulette, **{'select_size': num_simulations, 'noise': 0.01})
     selection_func = partial(select_hall_of_fame, **{'env': env, 'num_sims': num_sims, 'filter_learners': True})
-    # sim_func = partial(simulate_subpop, **{'env': env, 'mutate_func': mutate_func})
+    eval_func = partial(evaluate_agents, **{'env': env})
     downselect_func = partial(select_top_n, **{'select_sizes': population_sizes})
     env.save_environment(experiment_dir, tag='initial')
     ##########################################################################################
@@ -272,15 +269,18 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, num_gens, num_sims, 
     # best_agent_fitnesses['excavator_team'] = 0
     team_fitness = {'team': 0}
 
-    pbar = tqdm(total=num_gens, desc=f'Generation', postfix=team_fitness)
+    pbar = tqdm(total=max_gens, desc=f'Generation', postfix=team_fitness)
     pbar.update(starting_gen)
 
     num_cores = multiprocessing.cpu_count()
     mp_pool = ProcessPoolExecutor(max_workers=num_cores - 1)
     # todo  make multiprocessing work with refactor
-    for gen_idx in trange(starting_gen, num_gens):
+    for gen_idx in trange(starting_gen, max_gens):
         selected_policies = selection_func(agent_policies)
 
+        ###############################################################################################
+        # results = map(eval_func, selected_policies)
+        # # results = mp_pool.map(sim_func, selected_policies)
         teams = []
         for individuals, update_fitnesses in selected_policies:
             networks = []
@@ -296,18 +296,25 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, num_gens, num_sims, 
                     individuals[agent_type][each_idx] = model_copy
             teams.append((individuals, networks))
 
-        # results = map(sim_func, selected_policies)
-        # results = mp_pool.map(sim_func, selected_policies)ss)
-        results = {}
-        for individuals, update_fitnesses in teams:
-            agent_rewards, best_policy_rewards = rollout(env, individuals, render=False)
-            for policy_id in update_fitnesses:
-                update_policy_reward = best_policy_rewards[policy_id]
-                if policy_id not in results:
-                    results[policy_id] = []
-                results[policy_id].append(update_policy_reward)
+        ###############################################################################################
+        # todo  test to make sure map implementation works the same as loop implementation
+        rollout_results = map(eval_func, teams)
+        # rollout_results = mp_pool.map(sim_func, selected_policies)
+        # rollout_results = []
+        # for individuals, update_fitnesses in teams:
+        #     agent_rewards, best_policy_rewards = rollout(env, individuals, render=False)
+        #     eval_policy_rewards = {policy_id: policy_reward for policy_id, policy_reward in best_policy_rewards.items() if policy_id in update_fitnesses}
+        #     rollout_results.append(eval_policy_rewards)
+        ###############################################################################################
+        agent_results = {}
+        for each_result in rollout_results:
+            for each_agent, reward in each_result.items():
+                if each_agent not in agent_results:
+                    agent_results[each_agent] = []
+                agent_results[each_agent].append(reward)
+        ###############################################################################################
         # average all fitnesses and assign back to agent
-        avg_fitnesses = {each_agent: np.average(fitnesses) for each_agent, fitnesses in results.items()}
+        avg_fitnesses = {each_agent: np.average(fitnesses) for each_agent, fitnesses in agent_results.items()}
 
         if direct_assign_fitness:
             for policy, fitness in avg_fitnesses.items():
@@ -337,8 +344,10 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, num_gens, num_sims, 
 
         # save all policies of each agent and save fitnesses mapping policies to fitnesses
         save_agent_policies(experiment_dir, gen_idx, env, agent_policies, fitnesses)
+        if completion_criteria:
+            break
     mp_pool.shutdown()
     pbar.close()
 
     best_policies = select_top_n(agent_policies, select_sizes={name: env.num_agent_types(name) for name, pop in agent_policies.items()})
-    return best_policies
+    return agent_policies, best_policies

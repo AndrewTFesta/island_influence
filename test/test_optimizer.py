@@ -36,9 +36,9 @@ def test_base_ccea(env, num_sims, num_gens, policy_funcs, exp_dir):
             print(f'{each_policy}: {each_policy.fitness}')
     print(f'=' * 80)
 
-    top_inds = ccea(
+    trained_pops, top_inds = ccea(
         env, agent_policies=agent_pops, population_sizes=population_sizes,
-        num_gens=num_gens, num_sims=num_sims, experiment_dir=exp_dir
+        max_gens=num_gens, num_sims=num_sims, experiment_dir=exp_dir
     )
     for agent_type, individuals in top_inds.items():
         print(f'{agent_type}')
@@ -68,9 +68,9 @@ def test_unequal_pops(env, num_sims, num_gens, policy_funcs, exp_dir):
             print(f'{each_policy}: {each_policy.fitness}')
     print(f'=' * 80)
 
-    top_inds = ccea(
+    trained_pops, top_inds = ccea(
         env, agent_policies=agent_pops, population_sizes=population_sizes,
-        num_gens=num_gens, num_sims=num_sims, experiment_dir=exp_dir
+        max_gens=num_gens, num_sims=num_sims, experiment_dir=exp_dir
     )
     for agent_type, individuals in top_inds.items():
         print(f'{agent_type}')
@@ -100,9 +100,9 @@ def test_single_training(env, num_sims, num_gens, policy_funcs, exp_dir, agent_t
             print(f'{each_policy}: {each_policy.fitness}')
     print(f'=' * 80)
 
-    top_inds = ccea(
+    trained_pops, top_inds = ccea(
         env, agent_policies=agent_pops, population_sizes=population_sizes,
-        num_gens=num_gens, num_sims=num_sims, experiment_dir=exp_dir
+        max_gens=num_gens, num_sims=num_sims, experiment_dir=exp_dir
     )
     for agent_type, individuals in top_inds.items():
         print(f'{agent_type}')
@@ -133,9 +133,9 @@ def test_non_learning_pop(env, num_sims, num_gens, policy_funcs, exp_dir):
             print(f'{each_policy}: {each_policy.fitness}')
     print(f'=' * 80)
 
-    top_inds = ccea(
+    trained_pops, top_inds = ccea(
         env, agent_policies=agent_pops, population_sizes=population_sizes,
-        num_gens=num_gens, num_sims=num_sims, experiment_dir=exp_dir
+        max_gens=num_gens, num_sims=num_sims, experiment_dir=exp_dir
     )
     for agent_type, individuals in top_inds.items():
         print(f'{agent_type}')
@@ -151,10 +151,15 @@ def test_restart(env, num_gens, policy_funcs, exp_dir):
 
 
 def main(main_args):
+    # todo  implement island migrations
+    # todo  setup experiments to run on laptop
+    # todo  timeline for masters document
+    # todo  go over notes, emails, and conversations to figure out all tests and story to convey
     num_runs = 1
-    env = rand_ring_env()
     num_sims = 20
     num_gens = 100
+    env_func = rand_ring_env()
+    env = env_func()
 
     policy_funcs = {
         AgentType.Harvester: partial(create_agent_policy, env.harvesters[0]),
@@ -165,7 +170,8 @@ def main(main_args):
     date_str = now.strftime("%Y_%m_%d_%H_%M_%S")
     stat_run = 0
     # experiment_dir = Path(project_properties.exps_dir, f'harvest_exp_{date_str}', f'stat_run_{stat_run}')
-    experiment_dir = Path(project_properties.exps_dir, f'harvest_exp_test')
+    # experiment_dir = Path(project_properties.exps_dir, f'harvest_exp_test')
+    experiment_dir = Path(project_properties.exps_dir, f'harvest_exp_test_{date_str}')
     if not experiment_dir.exists():
         experiment_dir.mkdir(parents=True, exist_ok=True)
 

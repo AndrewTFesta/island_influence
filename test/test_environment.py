@@ -206,8 +206,11 @@ def test_rollout(env: HarvestEnv, render_mode):
 
 
 def test_collisions(render_mode):
-    env_obstacles = det_ring_env(scale_factor=0.5, num_excavators=0)
-    env_pois = det_ring_env(scale_factor=0.5, num_excavators=0, num_obstacles=0)
+    env_obstacles_func = det_ring_env(scale_factor=0.5, num_excavators=0)
+    env_pois_func = det_ring_env(scale_factor=0.5, num_excavators=0, num_obstacles=0)
+
+    env_obstacles = env_obstacles_func()
+    env_pois = env_pois_func()
 
     env_obstacles.reset()
     env_obstacles.render_mode = render_mode
@@ -288,7 +291,9 @@ def test_reset(env: HarvestEnv, render_mode):
 
 
 def main(main_args):
-    env = rand_ring_env()
+    env_func = rand_ring_env()
+    env = env_func()
+    env.reset()
 
     test_observations(env)
     test_actions(env)

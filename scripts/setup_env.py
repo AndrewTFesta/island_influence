@@ -71,12 +71,9 @@ def create_base_env(location_funcs, num_harvesters=4, num_excavators=4, num_obst
         for idx in range(num_pois)
     ]
 
-    env = HarvestEnv(
-        harvesters=harvesters, excavators=excavators, obstacles=obstacles, pois=pois,
-        location_funcs=location_funcs, max_steps=max_steps, delta_time=delta_time, render_mode=render_mode
-    )
-    env.reset()
-    return env
+    env_func = partial(HarvestEnv, harvesters=harvesters, excavators=excavators, obstacles=obstacles, pois=pois,
+                       location_funcs=location_funcs, max_steps=max_steps, delta_time=delta_time, render_mode=render_mode)
+    return env_func
 
 
 def rand_ring_env(scale_factor=2, num_harvesters=4, num_excavators=4, num_obstacles=8, num_pois=8):
@@ -94,8 +91,8 @@ def rand_ring_env(scale_factor=2, num_harvesters=4, num_excavators=4, num_obstac
         'obstacles': obstacle_locs,
         'pois': poi_locs,
     }
-    enc = create_base_env(location_funcs)
-    return enc
+    env_func = create_base_env(location_funcs)
+    return env_func
 
 
 def det_ring_env(scale_factor=2, num_harvesters=4, num_excavators=4, num_obstacles=8, num_pois=8):
@@ -113,5 +110,5 @@ def det_ring_env(scale_factor=2, num_harvesters=4, num_excavators=4, num_obstacl
         'obstacles': obstacle_locs,
         'pois': poi_locs,
     }
-    env = create_base_env(location_funcs, num_harvesters, num_excavators, num_obstacles, num_pois)
-    return env
+    env_func = create_base_env(location_funcs, num_harvesters, num_excavators, num_obstacles, num_pois)
+    return env_func

@@ -4,24 +4,16 @@
 @description
 
 """
-import argparse
 import threading
 
 
 class MAIsland:
 
-    @property
-    def evolving_agents(self):
-        return {name: population for name, population in self.agents.items() if name in self.evolving_agent_names}
-
-    def __init__(self, optimizer, env, actors: dict[str, list], evolving_agent_names: list[str]):
+    def __init__(self, optimizer, env_func, agent_populations, evolving_agent_names: list[str]):
         self.optimizer = optimizer
-        self.env = env
+        self.env_func = env_func
 
-        # populations of all the agents (and actors) in the system
-        self.agents = actors
-
-        # list of agents types that this island is evolving
+        self.agent_populations = agent_populations
         self.evolving_agent_names = evolving_agent_names
 
         # neighbors are a list of "neighboring" islands where an island is able to migrate populations to its neighbors
@@ -67,14 +59,3 @@ class MAIsland:
                 if name in neighbor_evolves:
                     each_neighbor.replace_agents(name, population)
         return
-
-
-def main(main_args):
-    return
-
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='')
-
-    args = parser.parse_args()
-    main(vars(args))
