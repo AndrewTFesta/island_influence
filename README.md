@@ -37,6 +37,7 @@ See the [LICENSE file](LICENSE) for license rights and limitations (MIT).
   - Expected: 8/7/23
   - Actual:
 - [ ] Write draft of background
+  - Pull from fitness shaping section in quals
   - Expected: 8/14/23
   - Actual:
 - [ ] Write draft of approach
