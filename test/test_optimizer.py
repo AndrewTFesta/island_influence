@@ -21,7 +21,7 @@ def test_base_ccea(env, num_sims, num_gens, policy_funcs, exp_dir):
     print('Testing base ccea')
     print(f'=' * 80)
     # to simulate all agents in both populations, choose a number larger than the population sizes of each agent type
-    population_sizes = {AgentType.Harvester: 20, AgentType.Excavator: 20}
+    population_sizes = {AgentType.Harvester: 50, AgentType.Excavator: 50}
     num_agents = {AgentType.Harvester: 4, AgentType.Excavator: 4, AgentType.Obstacle: 100, AgentType.StaticPoi: 10}
 
     agent_pops = {
@@ -57,7 +57,7 @@ def test_unequal_pops(env, num_sims, num_gens, policy_funcs, exp_dir):
     print(f'=' * 80)
     print('Testing unequal population sizes')
     print(f'=' * 80)
-    population_sizes = {AgentType.Harvester: 20, AgentType.Excavator: 30}
+    population_sizes = {AgentType.Harvester: 50, AgentType.Excavator: 75}
     num_agents = {AgentType.Harvester: 4, AgentType.Excavator: 4, AgentType.Obstacle: 100, AgentType.StaticPoi: 10}
 
     agent_pops = {
@@ -93,7 +93,7 @@ def test_single_training(env, num_sims, num_gens, policy_funcs, exp_dir, agent_t
     print(f'=' * 80)
     print('Testing single training population')
     print(f'=' * 80)
-    population_sizes = {agent_type: 20}
+    population_sizes = {agent_type: 50}
     num_agents = {AgentType.Harvester: 4, AgentType.Excavator: 4, AgentType.Obstacle: 100, AgentType.StaticPoi: 10}
 
     agent_pops = {
@@ -129,7 +129,7 @@ def test_non_learning_pop(env, num_sims, num_gens, policy_funcs, exp_dir):
     print(f'=' * 80)
     print('Testing training with non-learning population')
     print(f'=' * 80)
-    population_sizes = {AgentType.Harvester: 20, AgentType.Excavator: 1}
+    population_sizes = {AgentType.Harvester: 50, AgentType.Excavator: 1}
     num_agents = {AgentType.Harvester: 4, AgentType.Excavator: 4, AgentType.Obstacle: 100, AgentType.StaticPoi: 10}
 
     agent_pops = {
@@ -170,10 +170,14 @@ def test_restart(env, num_gens, policy_funcs, exp_dir):
 def main(main_args):
     # todo  timeline for masters document
     # todo  go over notes, emails, and conversations to figure out all tests and story to convey
+
+    # todo  test setting num_sims to -1 to signify to select all the agents in each population
+    # todo  test normalizing the reward
     num_runs = 5
-    num_sims = 20
-    num_gens = 25
-    env_func = rand_ring_env()
+    num_sims = 25
+    num_gens = 1000
+    env_func = rand_ring_env(scale_factor=1)
+
     env = env_func()
 
     policy_funcs = {
