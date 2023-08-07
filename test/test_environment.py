@@ -214,9 +214,11 @@ def test_collisions(render_mode):
 
     env_obstacles.reset()
     env_obstacles.render_mode = render_mode
+    env_obstacles.normalize_rewards = True
 
     env_pois.reset()
     env_pois.render_mode = render_mode
+    env_pois.normalize_rewards = True
 
     render_delay = 0.5
 
@@ -294,15 +296,16 @@ def main(main_args):
     env_func = rand_ring_env()
     env = env_func()
     env.reset()
+    env.normalize_rewards = True
 
     test_observations(env)
     test_actions(env)
-    # test_collisions(render_mode=None)
+    test_collisions(render_mode=None)
     # test_collisions(render_mode='rgb_array')
     # test_collisions(render_mode='human')
 
     # test_reset(env, render_mode=None)
-    # test_step(env, render_mode=None)
+    test_step(env, render_mode=None)
     # test_random(env, render_mode=None)
     # test_rollout(env, render_mode=None)
 

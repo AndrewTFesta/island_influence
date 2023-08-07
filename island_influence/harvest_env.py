@@ -58,11 +58,11 @@ class HarvestEnv:
         return
 
     @property
-    def total_obstacle_value(self):
+    def remaining_obstacle_value(self):
         return sum([each_obstacle.value for each_obstacle in self.obstacles])
 
     @property
-    def total_poi_value(self):
+    def remaining_poi_value(self):
         return sum([each_poi.value for each_poi in self.pois])
 
     def __init__(self, harvesters: list[Agent], excavators: list[Agent], obstacles: list[Obstacle], pois: list[Poi],
@@ -101,6 +101,8 @@ class HarvestEnv:
         }
 
         self.location_funcs = location_funcs
+        self.initial_obstacle_value = sum([each_obstacle.value for each_obstacle in self.obstacles])
+        self.initial_poi_value = sum([each_poi.value for each_poi in self.pois])
 
         # note: state/observations history starts at len() == 1
         #       while action/reward history starts at len() == 0
@@ -342,7 +344,7 @@ class HarvestEnv:
         return actions
 
     def done(self):
-        all_obs = sum([each_poi.value for each_poi in self.pois]) == 0
+        all_obs = self.remaining_poi_value == 0
         time_over = self._current_step >= self.max_steps
         episode_done = any([all_obs, time_over])
 
@@ -420,7 +422,7 @@ class HarvestEnv:
 
             each_reward = value_diff
             if self.normalize_rewards:
-                each_reward = value_diff / self.total_obstacle_value
+                each_reward = value_diff / self.initial_obstacle_value
             rewards[excavator.name] += each_reward
             rewards['excavator_team'] += each_reward
 
@@ -438,7 +440,7 @@ class HarvestEnv:
 
             each_reward = value_diff
             if self.normalize_rewards:
-                each_reward = value_diff / self.total_poi_value
+                each_reward = value_diff / self.initial_poi_value
             rewards[harvester.name] += each_reward
             rewards['harvest_team'] += each_reward
 

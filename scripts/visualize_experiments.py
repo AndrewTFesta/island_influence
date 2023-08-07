@@ -62,16 +62,19 @@ def plot_fitnesses(fitness_data, save_dir, tag):
     agent_keys = [f'AgentType.{element.name}' for element in AgentType]
     for each_key in agent_keys:
         if each_key in fitness_data:
-            stat_runs = fitness_data[each_key]
-            # todo  fix with unequal population sizes
-            # ValueError: setting an array element with a sequence. The requested array has an inhomogeneous shape after 2 dimensions.
-            # The detected shape was (1, 15) + inhomogeneous part.
-            fitnesses = np.asarray(stat_runs)
-            max_vals = np.max(fitnesses, axis=2)
+            agent_fitnesses = fitness_data[each_key]
+            # issue arises due to first few generations not necessarily having the max number of policies
+            max_fitnesses = []
+            for each_stat_run in agent_fitnesses:
+                stat_run_maxs = []
+                for each_gen in each_stat_run:
+                    max_fitness = max(each_gen)
+                    stat_run_maxs.append(max_fitness)
+                max_fitnesses.append(stat_run_maxs)
 
-            means = np.mean(max_vals, axis=0)
-            stds = np.std(max_vals, axis=0)
-            stds /= math.sqrt(len(stat_runs))
+            means = np.mean(max_fitnesses, axis=0)
+            stds = np.std(max_fitnesses, axis=0)
+            stds /= math.sqrt(len(agent_fitnesses))
 
             gen_idxs = np.arange(0, len(means))
             axes.plot(gen_idxs, means, label=f'max {each_key}')
@@ -96,7 +99,6 @@ def plot_fitnesses(fitness_data, save_dir, tag):
     plot_name = f'{tag}'
     save_name = Path(save_dir, f'{plot_name}_{tag}')
     plt.savefig(f'{save_name}.png')
-    # plt.show()
     plt.close()
     return
 
@@ -124,7 +126,6 @@ def replay_episode(episode_dir: Path):
 
             # find the best policies for each agent based on fitnesses.json
             agent_fitnesses = fitness_data[agent_name][last_gen_idx]
-            # arg_best_policy = np.argmax(agent_fitnesses)
             num_agent_types = env.num_agent_types(agent_name)
             arg_best_policies = np.argpartition(agent_fitnesses, -num_agent_types)[-num_agent_types:]
 
@@ -152,11 +153,13 @@ def main(main_args):
     experiment_dirs = list(base_dir.glob('harvest_exp_*'))
 
     for each_dir in experiment_dirs:
-        print(f'Processing experiment: {each_dir.stem}')
-        fitness_data = parse_experiment_fitnesses(each_dir)
-        # replay_episode(each_dir)
+        exp_types = list(each_dir.iterdir())
+        for each_type in exp_types:
+            print(f'Processing experiment: {each_dir.stem}: {each_type.stem}')
+            fitness_data = parse_experiment_fitnesses(each_type)
+            # replay_episode(each_dir)
 
-        plot_fitnesses(fitness_data, save_dir=base_save_dir, tag=f'{each_dir.stem}')
+            plot_fitnesses(fitness_data, save_dir=base_save_dir, tag=f'{each_type.stem}')
     return
 
 
