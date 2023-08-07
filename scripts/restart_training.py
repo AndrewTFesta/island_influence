@@ -43,7 +43,6 @@ def restart_stat_run(stat_run_dir):
 
     track_progress = ccea_config['track_progress']
     use_mp = ccea_config['use_mp']
-    use_mp = False
 
     # start neuro_evolve from specified generation
     stat_run = stat_run_dir.stem
