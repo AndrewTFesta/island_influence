@@ -315,10 +315,9 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims,
         ###############################################################################################
         rollout_results = map_func(eval_func, teams)
         # rollout_results = []
-        # for individuals, update_fitnesses in teams:
-        #     agent_rewards, best_policy_rewards = rollout(env, individuals, render=False)
-        #     eval_policy_rewards = {policy_id: policy_reward for policy_id, policy_reward in best_policy_rewards.items() if policy_id in update_fitnesses}
-        #     rollout_results.append(eval_policy_rewards)
+        # for each_entry in teams:
+        #     each_result = eval_func(each_entry)
+        #     rollout_results.append(each_result)
         ###############################################################################################
         agent_results = {}
         for each_result in rollout_results:
@@ -330,6 +329,8 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims,
         # average all fitnesses and assign back to agent
         avg_fitnesses = {each_agent: np.average(fitnesses) for each_agent, fitnesses in agent_results.items()}
 
+        # need to have the eval function pass back the policy name rather than the policy directly because when passing
+        # a network to a new process, it creates a new object and so is no longer the original policy
         for agent_type, population in agent_policies.items():
             for policy in population:
                 if policy.name in avg_fitnesses and policy.learner:
