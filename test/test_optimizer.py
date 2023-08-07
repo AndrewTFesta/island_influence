@@ -168,10 +168,9 @@ def test_restart(env, num_gens, policy_funcs, exp_dir):
 
 
 def main(main_args):
-    # todo  setup experiments to run on laptop
     # todo  timeline for masters document
     # todo  go over notes, emails, and conversations to figure out all tests and story to convey
-    num_runs = 1
+    num_runs = 5
     num_sims = 20
     num_gens = 25
     env_func = rand_ring_env()
