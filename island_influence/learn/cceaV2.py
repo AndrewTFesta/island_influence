@@ -212,8 +212,8 @@ def save_agent_policies(experiment_dir, gen_idx, env, agent_pops, fitnesses, hum
     return
 
 
-def ccea(env: HarvestEnv, agent_policies, population_sizes, max_gens, num_sims, experiment_dir, completion_criteria=None,
-         initialize=True, starting_gen=0, direct_assign_fitness=True, fitness_update_eps=1, mutation_scalar=0.1, prob_to_mutate=0.05):
+def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims, experiment_dir, completion_criteria=lambda: False,
+         starting_gen=0, direct_assign_fitness=True, fitness_update_eps=1, mutation_scalar=0.1, prob_to_mutate=0.05):
     """
     agents in agent_policies are the actual agents being optimized
     the non-learning agents are generally expected to be an inherent part of the environment
@@ -221,11 +221,10 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, max_gens, num_sims, 
     :param env:
     :param agent_policies:
     :param population_sizes:
-    :param max_gens:
+    :param max_iters:
     :param num_sims:
     :param experiment_dir:
     :param completion_criteria:
-    :param initialize:
     :param starting_gen:
     :param direct_assign_fitness:
     :param fitness_update_eps:
@@ -234,20 +233,19 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, max_gens, num_sims, 
     :return:
     """
     population_sizes = {agent_type: max(pop_size, env.num_agent_types(agent_type)) for agent_type, pop_size in population_sizes.items()}
-    # selection_func = partial(select_roulette, **{'select_size': num_simulations, 'noise': 0.01})
     selection_func = partial(select_hall_of_fame, **{'env': env, 'num_sims': num_sims, 'filter_learners': True})
     eval_func = partial(evaluate_agents, **{'env': env})
     downselect_func = partial(select_top_n, **{'select_sizes': population_sizes})
     env.save_environment(experiment_dir, tag='initial')
     ##########################################################################################
-    if initialize:
-        # initial rollout to assign fitnesses of individuals on random teams
-        #   pair first policies in each population together enough times to make a full team
-        #   UCB style selection for networks?
-        filtered_pops = filter_no_fitness(agent_policies)
-        filtered_lens = {agent_type: len(each_pop) for agent_type, each_pop in filtered_pops.items()}
-        max_len = np.max(np.asarray(list(filtered_lens.values())))
-
+    # todo  only run initialize if there are any policies with no fitness assigned
+    # initial rollout to assign fitnesses of individuals on random teams
+    #   pair first policies in each population together enough times to make a full team
+    #   UCB style selection for networks?
+    filtered_pops = filter_no_fitness(agent_policies)
+    filtered_lens = {agent_type: len(each_pop) for agent_type, each_pop in filtered_pops.items()}
+    max_len = np.max(np.asarray(list(filtered_lens.values())))
+    if max_len != 0:
         # if a population has no unassigned fitnesses, add in the best policy from that initial population
         all_teams = [
             {
@@ -264,18 +262,21 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, max_gens, num_sims, 
                 if policy.learner:
                     policy.fitness = reward
     ##########################################################################################
-    # best_agent_fitnesses = {agent.name: 0 for agent in env.agents}
-    # best_agent_fitnesses['harvest_team'] = 0
-    # best_agent_fitnesses['excavator_team'] = 0
+    best_agent_fitnesses = {agent.name: 0 for agent in env.agents}
+    best_agent_fitnesses['harvest_team'] = 0
+    best_agent_fitnesses['excavator_team'] = 0
     team_fitness = {'team': 0}
 
-    pbar = tqdm(total=max_gens, desc=f'Generation', postfix=team_fitness)
+    # pbar = tqdm(total=max_iters, desc=f'Generation', postfix=best_agent_fitnesses)
+    pbar = tqdm(total=max_iters, desc=f'Generation', postfix=team_fitness)
     pbar.update(starting_gen)
 
     num_cores = multiprocessing.cpu_count()
     mp_pool = ProcessPoolExecutor(max_workers=num_cores - 1)
     # todo  make multiprocessing work with refactor
-    for gen_idx in trange(starting_gen, max_gens):
+    # todo  track cpu time
+    gen_idx = 0
+    for gen_idx in trange(starting_gen, max_iters):
         selected_policies = selection_func(agent_policies)
 
         ###############################################################################################
@@ -340,14 +341,14 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, max_gens, num_sims, 
         fitnesses['harvest_team'] = best_agent_fitnesses['harvest_team']
         fitnesses['excavator_team'] = best_agent_fitnesses['excavator_team']
         fitnesses['team'] = best_agent_fitnesses['team']
-        team_fitness = {'team': best_agent_fitnesses['team']}
+        team_fitness['team'] = best_agent_fitnesses['team']
 
         # save all policies of each agent and save fitnesses mapping policies to fitnesses
         save_agent_policies(experiment_dir, gen_idx, env, agent_policies, fitnesses)
-        if completion_criteria:
+        if completion_criteria():
             break
     mp_pool.shutdown()
     pbar.close()
 
     best_policies = select_top_n(agent_policies, select_sizes={name: env.num_agent_types(name) for name, pop in agent_policies.items()})
-    return agent_policies, best_policies
+    return agent_policies, best_policies, gen_idx

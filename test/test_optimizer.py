@@ -6,6 +6,7 @@
 """
 import argparse
 import datetime
+import time
 from functools import partial
 from pathlib import Path
 
@@ -36,10 +37,14 @@ def test_base_ccea(env, num_sims, num_gens, policy_funcs, exp_dir):
             print(f'{each_policy}: {each_policy.fitness}')
     print(f'=' * 80)
 
-    trained_pops, top_inds = ccea(
+    opt_start = time.process_time()
+    trained_pops, top_inds, gens_run = ccea(
         env, agent_policies=agent_pops, population_sizes=population_sizes,
-        max_gens=num_gens, num_sims=num_sims, experiment_dir=exp_dir
+        max_iters=num_gens, num_sims=num_sims, experiment_dir=exp_dir
     )
+    opt_end = time.process_time()
+    opt_time = opt_end - opt_start
+    print(f'Optimization time: {opt_time} for {gens_run} generations')
     for agent_type, individuals in top_inds.items():
         print(f'{agent_type}')
         for each_ind in individuals:
@@ -68,10 +73,14 @@ def test_unequal_pops(env, num_sims, num_gens, policy_funcs, exp_dir):
             print(f'{each_policy}: {each_policy.fitness}')
     print(f'=' * 80)
 
-    trained_pops, top_inds = ccea(
+    opt_start = time.process_time()
+    trained_pops, top_inds, gens_run = ccea(
         env, agent_policies=agent_pops, population_sizes=population_sizes,
-        max_gens=num_gens, num_sims=num_sims, experiment_dir=exp_dir
+        max_iters=num_gens, num_sims=num_sims, experiment_dir=exp_dir
     )
+    opt_end = time.process_time()
+    opt_time = opt_end - opt_start
+    print(f'Optimization time: {opt_time} for {gens_run} generations')
     for agent_type, individuals in top_inds.items():
         print(f'{agent_type}')
         for each_ind in individuals:
@@ -100,10 +109,14 @@ def test_single_training(env, num_sims, num_gens, policy_funcs, exp_dir, agent_t
             print(f'{each_policy}: {each_policy.fitness}')
     print(f'=' * 80)
 
-    trained_pops, top_inds = ccea(
+    opt_start = time.process_time()
+    trained_pops, top_inds, gens_run = ccea(
         env, agent_policies=agent_pops, population_sizes=population_sizes,
-        max_gens=num_gens, num_sims=num_sims, experiment_dir=exp_dir
+        max_iters=num_gens, num_sims=num_sims, experiment_dir=exp_dir
     )
+    opt_end = time.process_time()
+    opt_time = opt_end - opt_start
+    print(f'Optimization time: {opt_time} for {gens_run} generations')
     for agent_type, individuals in top_inds.items():
         print(f'{agent_type}')
         for each_ind in individuals:
@@ -133,10 +146,14 @@ def test_non_learning_pop(env, num_sims, num_gens, policy_funcs, exp_dir):
             print(f'{each_policy}: {each_policy.fitness}')
     print(f'=' * 80)
 
-    trained_pops, top_inds = ccea(
+    opt_start = time.process_time()
+    trained_pops, top_inds, gens_run = ccea(
         env, agent_policies=agent_pops, population_sizes=population_sizes,
-        max_gens=num_gens, num_sims=num_sims, experiment_dir=exp_dir
+        max_iters=num_gens, num_sims=num_sims, experiment_dir=exp_dir
     )
+    opt_end = time.process_time()
+    opt_time = opt_end - opt_start
+    print(f'Optimization time: {opt_time} for {gens_run} generations')
     for agent_type, individuals in top_inds.items():
         print(f'{agent_type}')
         for each_ind in individuals:
