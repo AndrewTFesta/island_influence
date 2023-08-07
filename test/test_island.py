@@ -49,14 +49,14 @@ def create_harvester_island(stat_run):
     }
 
     harvester_opt_kwargs = {
-        'env': harvester_env, 'num_sims': num_sims, 'population_sizes': harvester_pop_sizes,
+        'num_sims': num_sims, 'population_sizes': harvester_pop_sizes,
         'direct_assign_fitness': True, 'fitness_update_eps': 1, 'mutation_scalar': 0.1, 'prob_to_mutate': 0.05,
-        'experiment_dir': Path(experiment_dir, 'harvester_island')
+        'track_progress': False, 'use_mp': True, 'experiment_dir': Path(experiment_dir, 'harvester_island')
     }
     harvester_optimizer = partial(ccea, **harvester_opt_kwargs)
 
     harvester_island = MAIsland(
-        agent_populations=harvester_pops, evolving_agent_names=[AgentType.Harvester], optimizer=harvester_optimizer,
+        agent_populations=harvester_pops, evolving_agent_names=[AgentType.Harvester], env=harvester_env, optimizer=harvester_optimizer,
         max_island_iters=max_island_iters, max_optimizer_iters=max_opt_iters
     )
     return harvester_island
@@ -97,12 +97,12 @@ def create_excavator_island(stat_run):
     excavator_opt_kwargs = {
         'env': excavator_env, 'num_sims': num_sims, 'population_sizes': excavator_pop_sizes,
         'direct_assign_fitness': True, 'fitness_update_eps': 1, 'mutation_scalar': 0.1, 'prob_to_mutate': 0.05,
-        'experiment_dir': Path(experiment_dir, 'excavator_island')
+        'track_progress': False, 'use_mp': True, 'experiment_dir': Path(experiment_dir, 'excavator_island')
     }
     excavator_optimizer = partial(ccea, **excavator_opt_kwargs)
 
     excavator_island = MAIsland(
-        agent_populations=excavator_pops, evolving_agent_names=[AgentType.Excavator], optimizer=excavator_optimizer,
+        agent_populations=excavator_pops, evolving_agent_names=[AgentType.Excavator], env=excavator_env, optimizer=excavator_optimizer,
         max_island_iters=max_island_iters, max_optimizer_iters=max_opt_iters
     )
     return excavator_island

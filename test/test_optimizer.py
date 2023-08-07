@@ -40,7 +40,7 @@ def test_base_ccea(env, num_sims, num_gens, policy_funcs, exp_dir):
     opt_start = time.process_time()
     trained_pops, top_inds, gens_run = ccea(
         env, agent_policies=agent_pops, population_sizes=population_sizes,
-        max_iters=num_gens, num_sims=num_sims, experiment_dir=exp_dir
+        max_iters=num_gens, num_sims=num_sims, experiment_dir=exp_dir, track_progress=True, use_mp=True
     )
     opt_end = time.process_time()
     opt_time = opt_end - opt_start
@@ -76,7 +76,7 @@ def test_unequal_pops(env, num_sims, num_gens, policy_funcs, exp_dir):
     opt_start = time.process_time()
     trained_pops, top_inds, gens_run = ccea(
         env, agent_policies=agent_pops, population_sizes=population_sizes,
-        max_iters=num_gens, num_sims=num_sims, experiment_dir=exp_dir
+        max_iters=num_gens, num_sims=num_sims, experiment_dir=exp_dir, track_progress=True, use_mp=True
     )
     opt_end = time.process_time()
     opt_time = opt_end - opt_start
@@ -112,7 +112,7 @@ def test_single_training(env, num_sims, num_gens, policy_funcs, exp_dir, agent_t
     opt_start = time.process_time()
     trained_pops, top_inds, gens_run = ccea(
         env, agent_policies=agent_pops, population_sizes=population_sizes,
-        max_iters=num_gens, num_sims=num_sims, experiment_dir=exp_dir
+        max_iters=num_gens, num_sims=num_sims, experiment_dir=exp_dir, track_progress=True, use_mp=True
     )
     opt_end = time.process_time()
     opt_time = opt_end - opt_start
@@ -149,7 +149,7 @@ def test_non_learning_pop(env, num_sims, num_gens, policy_funcs, exp_dir):
     opt_start = time.process_time()
     trained_pops, top_inds, gens_run = ccea(
         env, agent_policies=agent_pops, population_sizes=population_sizes,
-        max_iters=num_gens, num_sims=num_sims, experiment_dir=exp_dir
+        max_iters=num_gens, num_sims=num_sims, experiment_dir=exp_dir, track_progress=True, use_mp=True
     )
     opt_end = time.process_time()
     opt_time = opt_end - opt_start
@@ -168,13 +168,12 @@ def test_restart(env, num_gens, policy_funcs, exp_dir):
 
 
 def main(main_args):
-    # todo  implement island migrations
     # todo  setup experiments to run on laptop
     # todo  timeline for masters document
     # todo  go over notes, emails, and conversations to figure out all tests and story to convey
     num_runs = 1
     num_sims = 20
-    num_gens = 100
+    num_gens = 25
     env_func = rand_ring_env()
     env = env_func()
 
@@ -185,9 +184,6 @@ def main(main_args):
 
     now = datetime.datetime.now()
     date_str = now.strftime("%Y_%m_%d_%H_%M_%S")
-    stat_run = 0
-    # experiment_dir = Path(project_properties.exps_dir, f'harvest_exp_{date_str}', f'stat_run_{stat_run}')
-    # experiment_dir = Path(project_properties.exps_dir, f'harvest_exp_test')
     experiment_dir = Path(project_properties.exps_dir, f'harvest_exp_test_{date_str}')
     if not experiment_dir.exists():
         experiment_dir.mkdir(parents=True, exist_ok=True)

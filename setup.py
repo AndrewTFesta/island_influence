@@ -5,7 +5,7 @@ https://packaging.python.org/tutorials/packaging-projects/
 import os
 import setuptools
 
-from leader_follower import project_properties
+from island_influence import project_properties
 
 if os.path.exists('README.md'):
     with open('README.md', 'r') as desc_file:

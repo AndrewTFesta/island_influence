@@ -12,7 +12,7 @@ from pathlib import Path
 
 import numpy as np
 from numpy.random import default_rng
-from tqdm import trange, tqdm
+from tqdm import tqdm
 
 from island_influence.agent import AgentType
 from island_influence.harvest_env import HarvestEnv
@@ -33,6 +33,14 @@ def filter_no_fitness(agent_policies):
         for agent_type, population in agent_policies.items()
     }
     return filtered_pops
+
+
+def find_policy(policy_name, agent_populations):
+    for agent_type, population in agent_populations:
+        for each_policy in population:
+            if each_policy.name == policy_name:
+                return each_policy
+    return None
 
 
 # selection_functions
@@ -156,7 +164,7 @@ def select_top_n(agent_pops, select_sizes: dict[AgentType, int], filter_learners
 def evaluate_agents(agent_team, env):
     team_members, update_policy_ids = agent_team
     agent_rewards, policy_rewards = rollout(env, team_members, render=False)
-    eval_policy_rewards = {policy_id: policy_reward for policy_id, policy_reward in policy_rewards.items() if policy_id in update_policy_ids}
+    eval_policy_rewards = {policy.name: policy_reward for policy, policy_reward in policy_rewards.items() if policy in update_policy_ids}
     return eval_policy_rewards
 
 
@@ -213,7 +221,7 @@ def save_agent_policies(experiment_dir, gen_idx, env, agent_pops, fitnesses, hum
 
 
 def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims, experiment_dir, completion_criteria=lambda: False,
-         starting_gen=0, direct_assign_fitness=True, fitness_update_eps=1, mutation_scalar=0.1, prob_to_mutate=0.05):
+         starting_gen=0, direct_assign_fitness=True, fitness_update_eps=1, mutation_scalar=0.1, prob_to_mutate=0.05, track_progress=True, use_mp=False):
     """
     agents in agent_policies are the actual agents being optimized
     the non-learning agents are generally expected to be an inherent part of the environment
@@ -230,15 +238,16 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims,
     :param fitness_update_eps:
     :param mutation_scalar:
     :param prob_to_mutate:
+    :param track_progress:
+    :param use_mp:
     :return:
     """
     population_sizes = {agent_type: max(pop_size, env.num_agent_types(agent_type)) for agent_type, pop_size in population_sizes.items()}
     selection_func = partial(select_hall_of_fame, **{'env': env, 'num_sims': num_sims, 'filter_learners': True})
-    eval_func = partial(evaluate_agents, **{'env': env})
+    eval_func = partial(evaluate_agents, env=env)
     downselect_func = partial(select_top_n, **{'select_sizes': population_sizes})
-    env.save_environment(experiment_dir, tag='initial')
     ##########################################################################################
-    # todo  only run initialize if there are any policies with no fitness assigned
+    # only run initialize if there are any policies with no fitness assigned
     # initial rollout to assign fitnesses of individuals on random teams
     #   pair first policies in each population together enough times to make a full team
     #   UCB style selection for networks?
@@ -258,25 +267,31 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims,
             for idx in range(max_len)]
         for individuals in all_teams:
             agent_rewards, best_policy_rewards = rollout(env, individuals, render=False)
-            for policy, reward in best_policy_rewards.items():
+            for policy, fitness in best_policy_rewards.items():
                 if policy.learner:
-                    policy.fitness = reward
+                    policy.fitness = fitness
     ##########################################################################################
     best_agent_fitnesses = {agent.name: 0 for agent in env.agents}
     best_agent_fitnesses['harvest_team'] = 0
     best_agent_fitnesses['excavator_team'] = 0
     team_fitness = {'team': 0}
 
-    # pbar = tqdm(total=max_iters, desc=f'Generation', postfix=best_agent_fitnesses)
-    pbar = tqdm(total=max_iters, desc=f'Generation', postfix=team_fitness)
-    pbar.update(starting_gen)
+    map_func = map
+    mp_pool = None
+    if use_mp:
+        num_cores = multiprocessing.cpu_count()
+        max_workers = num_cores - 1
+        mp_pool = ProcessPoolExecutor(max_workers=max_workers)
+        map_func = mp_pool.map
+        print(f'Running mp pool with {max_workers} workers')
 
-    num_cores = multiprocessing.cpu_count()
-    mp_pool = ProcessPoolExecutor(max_workers=num_cores - 1)
-    # todo  make multiprocessing work with refactor
-    # todo  track cpu time
     gen_idx = 0
-    for gen_idx in trange(starting_gen, max_iters):
+    pbar = None
+    if track_progress:
+        pbar = tqdm(total=max_iters, desc=f'Generation', postfix=team_fitness)
+        pbar.update(starting_gen)
+
+    for gen_idx in range(starting_gen, max_iters):
         selected_policies = selection_func(agent_policies)
 
         ###############################################################################################
@@ -298,9 +313,7 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims,
             teams.append((individuals, networks))
 
         ###############################################################################################
-        # todo  test to make sure map implementation works the same as loop implementation
-        rollout_results = map(eval_func, teams)
-        # rollout_results = mp_pool.map(sim_func, selected_policies)
+        rollout_results = map_func(eval_func, teams)
         # rollout_results = []
         # for individuals, update_fitnesses in teams:
         #     agent_rewards, best_policy_rewards = rollout(env, individuals, render=False)
@@ -309,23 +322,23 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims,
         ###############################################################################################
         agent_results = {}
         for each_result in rollout_results:
-            for each_agent, reward in each_result.items():
-                if each_agent not in agent_results:
-                    agent_results[each_agent] = []
-                agent_results[each_agent].append(reward)
+            for each_policy_name, fitness in each_result.items():
+                if each_policy_name not in agent_results:
+                    agent_results[each_policy_name] = []
+                agent_results[each_policy_name].append(fitness)
         ###############################################################################################
         # average all fitnesses and assign back to agent
         avg_fitnesses = {each_agent: np.average(fitnesses) for each_agent, fitnesses in agent_results.items()}
 
-        if direct_assign_fitness:
-            for policy, fitness in avg_fitnesses.items():
-                if policy.learner:
-                    policy.fitness = fitness
-        else:
-            for policy, fitness in avg_fitnesses.items():
-                if policy.learner:
-                    fitness_delta = fitness - policy.fitness
-                    policy.fitness += fitness_delta * fitness_update_eps
+        for agent_type, population in agent_policies.items():
+            for policy in population:
+                if policy.name in avg_fitnesses and policy.learner:
+                    fitness = avg_fitnesses[policy.name]
+                    if direct_assign_fitness:
+                        policy.fitness = fitness
+                    else:
+                        fitness_delta = fitness - policy.fitness
+                        policy.fitness += fitness_delta * fitness_update_eps
 
         # downselect
         agent_policies = downselect_func(agent_policies)
@@ -345,10 +358,14 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims,
 
         # save all policies of each agent and save fitnesses mapping policies to fitnesses
         save_agent_policies(experiment_dir, gen_idx, env, agent_policies, fitnesses)
+        if isinstance(pbar, tqdm):
+            pbar.update(1)
         if completion_criteria():
             break
-    mp_pool.shutdown()
-    pbar.close()
+    if mp_pool:
+        mp_pool.shutdown()
+    if isinstance(pbar, tqdm):
+        pbar.close()
 
     best_policies = select_top_n(agent_policies, select_sizes={name: env.num_agent_types(name) for name, pop in agent_policies.items()})
     return agent_policies, best_policies, gen_idx

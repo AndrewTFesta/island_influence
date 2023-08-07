@@ -299,7 +299,7 @@ def main(main_args):
     test_actions(env)
     # test_collisions(render_mode=None)
     # test_collisions(render_mode='rgb_array')
-    test_collisions(render_mode='human')
+    # test_collisions(render_mode='human')
 
     # test_reset(env, render_mode=None)
     # test_step(env, render_mode=None)
@@ -318,7 +318,7 @@ def main(main_args):
     # test_random(env, render_mode='human')
     # test_rollout(env, render_mode='human')
 
-    # test_persistence(env)
+    test_persistence(env)
     return
 
 

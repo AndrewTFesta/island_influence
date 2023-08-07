@@ -12,4 +12,3 @@ torchvision
 torchaudio
 pandas
 setuptools
-pygmo

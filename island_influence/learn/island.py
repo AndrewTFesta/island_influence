@@ -10,12 +10,13 @@ import time
 
 class MAIsland:
 
-    def __init__(self, agent_populations, evolving_agent_names, optimizer, max_optimizer_iters, max_island_iters, name=None):
+    def __init__(self, agent_populations, evolving_agent_names, env, optimizer, max_optimizer_iters, max_island_iters, name=None):
         if name is None:
             name = ':'.join([str(agent_type) for agent_type in evolving_agent_names])
         self.name = name
         self.agent_populations = agent_populations
         self.evolving_agent_names = evolving_agent_names
+        self.env = env
 
         self.optimizer_func = optimizer
         # self.env_func = env_func
@@ -61,7 +62,7 @@ class MAIsland:
             remaining_possible_gens = self.max_optimizer_iters - running_gen_idx
             opt_start = time.process_time()
             trained_pops, top_inds, gens_run = self.optimizer_func(
-                agent_policies=self.agent_populations, starting_gen=running_gen_idx, max_iters=remaining_possible_gens,
+                agent_policies=self.agent_populations, env=self.env, starting_gen=running_gen_idx, max_iters=remaining_possible_gens,
                 completion_criteria=self.interrupt_criteria
             )
             opt_end = time.process_time()
@@ -83,6 +84,7 @@ class MAIsland:
         return
 
     def replace_agents(self, pop_id, population):
+        # todo  replace agents in islands
         # make sure pop_id is evolved by this island
         if pop_id not in self.evolving_agent_names:
             print(f'{pop_id=} not evolved by island {self}')
@@ -94,6 +96,8 @@ class MAIsland:
         return
 
     def migrate_population(self):
+        # todo  migrate populations to neighboring islands
+        # todo  need to know how many agents are required in the env on other islands to know how many policies to migrate
         for each_neighbor in self.neighbors:
             neighbor_evolves = each_neighbor.evolving_agent_names
             for name, population in self.evolving_agents.items():
