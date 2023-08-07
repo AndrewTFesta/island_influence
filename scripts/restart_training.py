@@ -5,102 +5,67 @@
 
 """
 import argparse
-import json
 import time
 from pathlib import Path
 
-import pandas as pd
-
 from island_influence import project_properties
-from island_influence.agent import Agent, Obstacle, Poi
 from island_influence.harvest_env import HarvestEnv
-from island_influence.learn.cceaV2 import ccea, rollout
+from island_influence.learn.cceaV2 import ccea, load_ccea_config
 from island_influence.learn.neural_network import load_pytorch_model
-from island_influence.utils import load_config
 
 
 def restart_stat_run(stat_run_dir):
-    # load meta file of parameters
-    meta_fname = Path(stat_run_dir, 'meta_vars.json')
-    with open(meta_fname, 'r') as jfile:
-        meta_vars = json.load(jfile)
+    ccea_config = load_ccea_config(stat_run_dir)
 
     gen_dirs = list(stat_run_dir.glob('gen_*'))
-    gen_dirs = sorted(gen_dirs, key=lambda x: int(x.stem.split('_')[1]))
-    last_gen = gen_dirs[-1]
+    gen_dirs = sorted(gen_dirs, key=lambda x: int(x.stem.split('_')[-1]))
+    last_gen_dir = gen_dirs[len(gen_dirs) - 1]
 
-    leader_dirs = list(last_gen.glob('leader_*_networks'))
+    env_path = list(stat_run_dir.glob('harvest_env.pkl'))
+    env_path = env_path[0]
+    env: HarvestEnv = HarvestEnv.load_environment(env_path)
+    env.render_mode = None
+
     agent_pops = {}
-    for each_dir in leader_dirs:
-        leader_name = each_dir.stem.split('_')[:-1]
-        leader_name = '_'.join(leader_name)
-        agent_pops[leader_name] = []
+    policy_dirs = list(last_gen_dir.glob(f'*_networks'))
+    for agent_policy_dir in policy_dirs:
+        agent_name = agent_policy_dir.suffix.split('_')
+        agent_name = f'AgentType{agent_name[0]}'
 
-        # load in leader policies
+        policy_fnames = list(agent_policy_dir.glob(f'*_model*.pt'))
+        policy_fnames = sorted(policy_fnames, key=lambda x: int(x.stem.split('_')[-1])) if len(policy_fnames) == len(gen_dirs) else policy_fnames
+        agent_pops[agent_name] = [load_pytorch_model(each_fname) for each_fname in policy_fnames]
 
-        network_fnames = list(each_dir.glob('*_model_*.pt'))
-        for each_fname in network_fnames:
-            network = load_pytorch_model(each_fname)
-            a_network = {
-                'network': network,
-                'fitness': None
-            }
-            agent_pops[leader_name].append(a_network)
+    population_sizes = ccea_config['population_sizes']
+    max_iters = ccea_config['max_iters']
+    num_sims = ccea_config['num_sims']
+    experiment_dir = Path(ccea_config['experiment_dir'])
 
-    fitnesses_fname = Path(last_gen, 'fitnesses.csv')
-    fitnesses_df = pd.read_csv(fitnesses_fname)
-    # correlate policies to fitnesses
-    for agent_name, policies in agent_pops.items():
-        agent_row = fitnesses_df.loc[fitnesses_df['agent_name'] == agent_name]
-        fitness_values = agent_row.values[0]
-        for idx, each_policy in enumerate(policies):
-            fitness = fitness_values[idx + 1]
-            each_policy['fitness'] = fitness
-
-    # load positions of agents
-    position_fname = Path(project_properties.config_dir, f"{meta_vars['config_name']}.yaml")
-    experiment_config = load_config(position_fname)
-
-    # create agents and environment
-    leaders = [
-        Leader(
-            idx, location=each_pos, sensor_resolution=meta_vars['sensor_resolution'], value=meta_vars['leader_value'],
-            observation_radius=meta_vars['leader_obs_rad'], max_velocity=meta_vars['leader_max_velocity'], policy=None)
-        for idx, each_pos in enumerate(experiment_config['leader_positions'])
-    ]
-    followers = [
-        Follower(
-            agent_id=idx, location=each_pos, sensor_resolution=meta_vars['sensor_resolution'],
-            value=meta_vars['follower_value'], max_velocity=meta_vars['follower_max_velocity'],
-            repulsion_radius=meta_vars['repulsion_rad'], repulsion_strength=meta_vars['repulsion_strength'],
-            attraction_radius=meta_vars['attraction_rad'], attraction_strength=meta_vars['attraction_strength'])
-        for idx, each_pos in enumerate(experiment_config['follower_positions'])
-    ]
-    pois = [
-        Poi(idx, location=each_pos, sensor_resolution=meta_vars['sensor_resolution'], value=meta_vars['poi_value'],
-            observation_radius=meta_vars['poi_obs_rad'], coupling=meta_vars['poi_coupling'])
-        for idx, each_pos in enumerate(experiment_config['poi_positions'])
-    ]
-    env = HarvestEnv(leaders=leaders, followers=followers, pois=pois, max_steps=meta_vars['episode_length'])
+    track_progress = ccea_config['track_progress']
+    use_mp = ccea_config['use_mp']
+    use_mp = False
 
     # start neuro_evolve from specified generation
-    print(f'Restarting experiment: {meta_vars["reward_key"]} | {meta_vars["config_name"]}')
-    last_gen_idx = len(gen_dirs)
-    start_time = time.time()
-    best_solution = ccea(
-        env, agent_pops, meta_vars['population_size'], meta_vars['n_gens'], meta_vars['sim_pop_size'],
-        experiment_dir=meta_vars['experiment_dir'], starting_gen=last_gen_idx
+    stat_run = stat_run_dir.stem
+    print(f'Restarting stat run {stat_run} experiment: {experiment_dir.parent.stem}')
+    opt_start = time.process_time()
+    trained_pops, top_inds, gens_run = ccea(
+        env, agent_policies=agent_pops, population_sizes=population_sizes, starting_gen=len(gen_dirs),
+        max_iters=max_iters, num_sims=num_sims, experiment_dir=experiment_dir, track_progress=track_progress, use_mp=use_mp
     )
-    end_time = time.time()
-    print(f'Time to train: {end_time - start_time}')
-
-    rewards = rollout(env, best_solution)
-    print(f'{rewards=}')
+    opt_end = time.process_time()
+    opt_time = opt_end - opt_start
+    print(f'Optimization time: {opt_time} for {gens_run} generations')
+    for agent_type, individuals in top_inds.items():
+        print(f'{agent_type}')
+        for each_ind in individuals:
+            print(f'{each_ind}: {each_ind.fitness}')
+    print(f'=' * 80)
     return
 
 
 def main(main_args):
-    stat_run_dirs = list(Path(project_properties.cached_dir, 'experiments').rglob('*/stat_run*'))
+    stat_run_dirs = list(Path(project_properties.output_dir, 'exps').rglob('**/stat_run*'))
     for each_dir in stat_run_dirs:
         restart_stat_run(each_dir)
     return

@@ -204,7 +204,7 @@ def save_agent_policies(experiment_dir, gen_idx, env, agent_pops, fitnesses, hum
     if not gen_path:
         gen_path.mkdir(parents=True, exist_ok=True)
 
-    env.save_environment(gen_path, tag=f'gen_{gen_idx}')
+    # env.save_environment(gen_path, tag=f'gen_{gen_idx}')
     for agent_name, policies in agent_pops.items():
         network_save_path = Path(gen_path, f'{agent_name}_networks')
         if not network_save_path:
@@ -218,6 +218,22 @@ def save_agent_policies(experiment_dir, gen_idx, env, agent_pops, fitnesses, hum
     with open(fitnesses_path, 'w') as fitness_file:
         json.dump(fitnesses, fitness_file, indent=indent)
     return
+
+
+def save_ccea_config(ccea_config, save_dir, indent=2):
+    if not save_dir.exists():
+        save_dir.mkdir(exist_ok=True, parents=True)
+    save_path = Path(save_dir, 'ccea_config.json')
+    with open(save_path, 'w') as config_file:
+        json.dump(ccea_config, config_file, indent=indent)
+    return save_path
+
+
+def load_ccea_config(experiment_dir, config_stem='ccea_config.json'):
+    config_fname = Path(experiment_dir, config_stem)
+    with open(config_fname, 'r') as config_file:
+        ccea_config = json.load(config_file)
+    return ccea_config
 
 
 def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims, experiment_dir, completion_criteria=lambda: False,
@@ -246,6 +262,18 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims,
     selection_func = partial(select_hall_of_fame, **{'env': env, 'num_sims': num_sims, 'filter_learners': True})
     eval_func = partial(evaluate_agents, env=env)
     downselect_func = partial(select_top_n, **{'select_sizes': population_sizes})
+    ##########################################################################################
+    ccea_config = {
+        'max_iters': max_iters, 'starting_gen': starting_gen,
+        'num_sims': num_sims,
+        # 'num_sims': {str(agent_type): size for agent_type, size in num_sims.items()},
+        'population_sizes': {str(agent_type): size for agent_type, size in population_sizes.items()},
+        'experiment_dir': str(experiment_dir), 'direct_assign_fitness': direct_assign_fitness, 'fitness_update_eps': fitness_update_eps,
+        'mutation_scalar': mutation_scalar, 'prob_to_mutate': prob_to_mutate, 'track_progress': track_progress, 'use_mp': use_mp
+
+    }
+    save_ccea_config(ccea_config=ccea_config, save_dir=experiment_dir)
+    env.save_environment(experiment_dir)
     ##########################################################################################
     # only run initialize if there are any policies with no fitness assigned
     # initial rollout to assign fitnesses of individuals on random teams
