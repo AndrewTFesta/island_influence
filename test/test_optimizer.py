@@ -167,10 +167,8 @@ def test_non_learning_pop(env, num_sims, num_gens, policy_funcs, exp_dir, base_p
 
 
 def main(main_args):
-    # todo  go over notes, emails, and conversations to figure out all tests and story to convey
-
-    # todo  test setting num_sims to -1 to signify to select all the agents in each population
     num_runs = 3
+    # todo  test setting num_sims to -1 to signify to select all the agents in each population
     # todo  make num_sim keyed to each agent type
     num_sims = 15
     base_pop_size = 15
