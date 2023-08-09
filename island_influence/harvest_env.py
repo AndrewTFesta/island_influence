@@ -66,7 +66,7 @@ class HarvestEnv:
         return sum([each_poi.value for each_poi in self.pois])
 
     def __init__(self, harvesters: list[Agent], excavators: list[Agent], obstacles: list[Obstacle], pois: list[Poi],
-                 location_funcs: dict, max_steps, delta_time=1, normalize_rewards=False, render_mode=None):
+                 location_funcs: dict, max_steps, delta_time=1, normalize_rewards=False, collision_penalty_scalar: int = 0, render_mode=None):
         """
         Always make sure to add agents and call `HarvestEnv.reset()` after before using the environment
 
@@ -83,7 +83,9 @@ class HarvestEnv:
         self.agent_action_size = 2
         self.max_steps = max_steps
         self.delta_time = delta_time
+
         self.normalize_rewards = normalize_rewards
+        self.collision_penalty_scalar = collision_penalty_scalar
 
         self._current_step = 0
 
@@ -378,6 +380,11 @@ class HarvestEnv:
         """
         remaining_obstacles = [agent for agent in self.obstacles if agent.value > 0]
         remaining_pois = [agent for agent in self.pois if agent.value > 0]
+
+        rewards = {agent.name: 0.0 for agent in self.agents}
+        rewards['excavated'] = 0.0
+        rewards['harvested'] = 0.0
+
         # step location and time of all agents
         # should not matter which order they are stepped in as long as dt is small enough
         obstacle_locations = np.asarray([each_obstacle.location for each_obstacle in remaining_obstacles])
@@ -390,26 +397,34 @@ class HarvestEnv:
             new_loc = agent.location + agent_action
             if agent.agent_type == AgentType.Harvester:
                 # Collision detection for obstacles and harvesters
-                obstacle_dists = [euclidean(new_loc, each_loc) for each_loc in obstacle_locations]
-                collision = any((each_dist <= each_size for each_dist, each_size in zip(obstacle_dists, obstacle_radii)))
+                obstacle_dists = np.asarray([euclidean(new_loc, each_loc) for each_loc in obstacle_locations])
+                obstacle_dists -= obstacle_radii
+                collision = np.min(obstacle_dists) <= 0
                 if collision:
                     new_loc = agent.location
+                    colliding_obstacle_idx = np.argmin(obstacle_dists)
+                    colliding_obstacle = remaining_obstacles[colliding_obstacle_idx]
+                    obstacle_weight = colliding_obstacle.weight
+                    # cum_obstacles = [obstacle.weight for obstacle, collision in zip(remaining_obstacles, obs_collisions) if collision]
+                    # obstacle_weight = sum(cum_obstacles)
+                    # todo  consider how to normalize rewards
+                    #       reward based on obstacle and agent weights (analogous to physical impact between objects)
+                    # todo  differentiate between reward sources - positive and negative
+                    collision_reward = agent.weight * obstacle_weight
+                    collision_reward *= -1
+                    collision_reward *= self.collision_penalty_scalar
+                    rewards[agent.name] += collision_reward
             agent.location = new_loc
 
         self._current_step += self.delta_time
 
         # find the closest pairs of relevant agents after stepping the environment
-        # remaining_obstacles = [agent for agent in self.obstacles if agent.value > 0]
-        # remaining_pois = [agent for agent in self.pois if agent.value > 0]
         # check closest agents based on observation radii of active agents rather than passive agents
         observed_obstacles_excavators = observed_agents(self.excavators, remaining_obstacles)
         observed_pois_harvesters = observed_agents(self.harvesters, remaining_pois)
         # apply the effects of harvesters and excavators on obstacles and pois
         # assign rewards to harvester for observing pois and excavators for removing obstacles
-        rewards = {agent.name: 0.0 for agent in self.agents}
-
         # Compute for excavators and obstacles
-        rewards['excavator_team'] = 0.0
         for obstacle_name, excavator_info in observed_obstacles_excavators.items():
             excavator = excavator_info[0]
             # remove an obstacle if an excavator collides with it
@@ -424,10 +439,9 @@ class HarvestEnv:
             if self.normalize_rewards:
                 each_reward = value_diff / self.initial_obstacle_value
             rewards[excavator.name] += each_reward
-            rewards['excavator_team'] += each_reward
+            rewards['excavated'] += each_reward
 
         # Compute for harvesters and pois
-        rewards['harvest_team'] = 0.0
         for poi_name, harvester_info in observed_pois_harvesters.items():
             harvester = harvester_info[0]
             # reduce the value of a poi from self.pois if it is observed
@@ -442,10 +456,10 @@ class HarvestEnv:
             if self.normalize_rewards:
                 each_reward = value_diff / self.initial_poi_value
             rewards[harvester.name] += each_reward
-            rewards['harvest_team'] += each_reward
+            rewards['harvested'] += each_reward
 
         # Global team reward is the sum of subteam (excavator team and harvest team) rewards
-        rewards['team'] = rewards['excavator_team'] + rewards['harvest_team']
+        rewards['team'] = rewards['excavated'] + rewards['harvested']
 
         # check if simulation is done
         dones = self.done()

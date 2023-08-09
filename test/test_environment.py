@@ -14,17 +14,6 @@ from island_influence.harvest_env import HarvestEnv
 from scripts.setup_env import rand_ring_env, det_ring_env
 
 
-# def display_final_agents(env: DiscreteHarvestEnv):
-#     print(f'Remaining agents: {len(env.agents)}')
-#     for agent_name in env.agents:
-#         agent = env.agent_mapping[agent_name]
-#         print(f'{agent_name=}: {agent.location=}')
-#     print(f'Completed agents: {len(env.completed_agents)}')
-#     for agent_name, agent_reward in env.completed_agents.items():
-#         agent = env.agent_mapping[agent_name]
-#         print(f'{agent_name=} | {agent_reward=} | {agent.location=}')
-#     return
-
 def display_env(env, render_mode, render_delay=1.0):
     frame = env.render()
     if render_mode == 'rgb_array':
@@ -206,6 +195,7 @@ def test_rollout(env: HarvestEnv, render_mode):
 
 
 def test_collisions(render_mode):
+    print(f'Running collision tests')
     env_obstacles_func = det_ring_env(scale_factor=0.5, num_excavators=0)
     env_pois_func = det_ring_env(scale_factor=0.5, num_excavators=0, num_obstacles=0)
 
@@ -255,11 +245,31 @@ def test_collisions(render_mode):
         observations, rewards, terminations, truncs, infos = env_obstacles.step(each_action)
         if render_mode:
             display_env(env_obstacles, render_mode, render_delay)
+    cum_rewards = env_obstacles.cumulative_rewards()
+    print(f'Obstacle environment: {env_obstacles.collision_penalty_scalar}: {cum_rewards}')
+    env_obstacles.reset()
+    env_obstacles.collision_penalty_scalar = 1
+    for each_action in tests:
+        observations, rewards, terminations, truncs, infos = env_obstacles.step(each_action)
+        if render_mode:
+            display_env(env_obstacles, render_mode, render_delay)
+    cum_rewards = env_obstacles.cumulative_rewards()
+    print(f'Obstacle environment: {env_obstacles.collision_penalty_scalar}: {cum_rewards}')
+    print(f'=' * 80)
 
     for each_action in tests:
         observations, rewards, terminations, truncs, infos = env_pois.step(each_action)
         if render_mode:
             display_env(env_pois, render_mode, render_delay)
+    cum_rewards = env_pois.cumulative_rewards()
+    print(f'Poi environment: {env_pois.collision_penalty_scalar}: {cum_rewards}')
+    env_pois.reset()
+    env_pois.collision_penalty_scalar = 1
+    for each_action in tests:
+        observations, rewards, terminations, truncs, infos = env_pois.step(each_action)
+        if render_mode:
+            display_env(env_pois, render_mode, render_delay)
+    print(f'=' * 80)
     return
 
 

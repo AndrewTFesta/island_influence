@@ -79,6 +79,16 @@ See the [LICENSE file](LICENSE) for license rights and limitations (MIT).
 # Multiagent Reliance-Based Learning
 
 ## Introduction
+
+[//]: # (Focus on relevance to the field/contribution)
+[//]: # (Frame reliance as a tradeoff of individualized skills and all learning simultaneously)
+[//]: # (Mfl using own behaviors versus relying on others)
+[//]: # (Tell other agents how to act or what to do)
+[//]: # (Shared policies all learn the same thing)
+[//]: # (QD process running on each island with CCEA running on mainland)
+[//]: # (Islands produces sets of initializations for the optimization process running on the mainland)
+[//]: # (EA's prone to local minima based on starting conditions)
+
 ### Questions
 
 1. What is the problem, why do I care?
@@ -194,14 +204,13 @@ Looking further ahead. within the next two weeks, I'd like to have a rough draft
 ## Conclusion
 ## Future Work
 
+
 [//]: # (introduce the actual task)
 
 [//]: # (Consider a task where multiple agents must simultaneously observe a point of interest &#40;POI&#41; in order to receive any reward from the environment.There are multiple POIs scattered throughout the environment, some further awy than others. If a single POI requires three agents to observe it, then three agents would have to pick actions such that they are within the observation radius of the POI at the same time. The further the POI, the less likely a sequence of random actions from multiple agents, each with a different starting location, will bring them to a similar location. For two or three agents, this is unlikely. As this coupling requirement increases, this random coordination to receive any initial positive feedback becomes next to impossible.)
 
-[//]: # ()
 [//]: # (This work introduce multiagent leader-based learning as a method for addressing this necessity of agents having to randomly discover a set of coordinated behaviors for tightly coupled tasks requiring many agents. The method splits agents into two types: leaders and followers. Leaders take on the form of typical learning agents that take the state as input and produce an action as output at every time step. Followers have the same state and action spaces as the leaders, but instead they use a simple preset policy that causes them to move towards nearby agents while maintaining a minimal distance between each other.)
 
-[//]: # ()
 [//]: # (The key insight here is that the follower policy acts as a method of injecting domain knowledge about the task without fully specifying the behavior of the system. In a tightly coupled problem, multiple agents must work in close coordination to accomplish the task. The follower policy pushes some agents towards acting in a manner that is conducive to the agents working closely. Often, designers will shape the fitness functions to try and capture how well a task is performed, and it is this fitness shaping that is meant to drive the manifestation of a desired behavior. However, simple policies themselves can also serve as an effective means of guiding systems of agents to coordinate in complex manners.)
 
 ### Experiments and evaluation
