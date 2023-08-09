@@ -6,6 +6,8 @@
 """
 import argparse
 
+from island_influence.learn.neural_network import NeuralNetwork
+
 
 def harvester_island(env):
     return
