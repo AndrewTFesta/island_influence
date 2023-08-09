@@ -382,8 +382,8 @@ class HarvestEnv:
         remaining_pois = [agent for agent in self.pois if agent.value > 0]
 
         rewards = {agent.name: 0.0 for agent in self.agents}
-        rewards['excavated'] = 0.0
-        rewards['harvested'] = 0.0
+        rewards['excavator_team'] = 0.0
+        rewards['harvest_team'] = 0.0
 
         # step location and time of all agents
         # should not matter which order they are stepped in as long as dt is small enough
@@ -395,7 +395,7 @@ class HarvestEnv:
             agent_action = actions.get(agent.name, default_action)
             # each_action is (dx, dy)
             new_loc = agent.location + agent_action
-            if agent.agent_type == AgentType.Harvester:
+            if len(obstacle_locations) > 0 and agent.agent_type == AgentType.Harvester:
                 # Collision detection for obstacles and harvesters
                 obstacle_dists = np.asarray([euclidean(new_loc, each_loc) for each_loc in obstacle_locations])
                 obstacle_dists -= obstacle_radii
@@ -439,7 +439,7 @@ class HarvestEnv:
             if self.normalize_rewards:
                 each_reward = value_diff / self.initial_obstacle_value
             rewards[excavator.name] += each_reward
-            rewards['excavated'] += each_reward
+            rewards['excavator_team'] += each_reward
 
         # Compute for harvesters and pois
         for poi_name, harvester_info in observed_pois_harvesters.items():
@@ -456,10 +456,10 @@ class HarvestEnv:
             if self.normalize_rewards:
                 each_reward = value_diff / self.initial_poi_value
             rewards[harvester.name] += each_reward
-            rewards['harvested'] += each_reward
+            rewards['harvest_team'] += each_reward
 
         # Global team reward is the sum of subteam (excavator team and harvest team) rewards
-        rewards['team'] = rewards['excavated'] + rewards['harvested']
+        rewards['team'] = rewards['excavator_team'] + rewards['harvest_team']
 
         # check if simulation is done
         dones = self.done()

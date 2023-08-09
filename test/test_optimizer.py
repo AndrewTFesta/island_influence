@@ -10,6 +10,8 @@ import time
 from functools import partial
 from pathlib import Path
 
+from tqdm import tqdm
+
 from island_influence import project_properties
 from island_influence.agent import AgentType
 from island_influence.learn.cceaV2 import ccea

@@ -309,7 +309,7 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims,
             # 'num_sims': {str(agent_type): size for agent_type, size in num_sims.items()},
             'population_sizes': {str(agent_type): size for agent_type, size in population_sizes.items()},
             'experiment_dir': str(experiment_dir), 'direct_assign_fitness': direct_assign_fitness, 'fitness_update_eps': fitness_update_eps,
-            'mutation_scalar': mutation_scalar, 'prob_to_mutate': prob_to_mutate, 'track_progress': track_progress, 'use_mp': use_mp
+            'mutation_scalar': mutation_scalar, 'prob_to_mutate': prob_to_mutate,
 
         }
         save_ccea_config(ccea_config=ccea_config, save_dir=experiment_dir)
@@ -325,12 +325,13 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims,
         map_func = mp_pool.map
         print(f'Running mp pool with {max_workers} workers')
 
-    gen_idx = 0
     pbar = None
     if track_progress:
-        pbar = tqdm(total=max_iters, desc=f'Generation')
-        pbar.update(starting_gen)
+        pbar = track_progress if isinstance(track_progress, tqdm) else tqdm(total=max_iters, desc=f'Generation')
+        if not isinstance(track_progress, tqdm):
+            pbar.update(starting_gen)
 
+    num_iters = 0
     for gen_idx in range(starting_gen, max_iters):
         selected_policies = selection_func(agent_policies)
 
@@ -376,7 +377,9 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims,
                 if policy.name in avg_fitnesses and policy.learner:
                     fitness = avg_fitnesses[policy.name]
                     if direct_assign_fitness:
-                        policy.fitness = fitness
+                        # todo  fix back to actually assigning fitness
+                        policy.fitness = np.random.random()
+                        # policy.fitness = fitness
                     else:
                         fitness_delta = fitness - policy.fitness
                         policy.fitness += fitness_delta * fitness_update_eps
@@ -387,14 +390,15 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims,
         # save generation progress
         # save all policies of each agent and save fitnesses mapping policies to fitnesses
         save_agent_policies(experiment_dir, gen_idx+1, env, agent_policies)
+        num_iters += 1
         if isinstance(pbar, tqdm):
             pbar.update(1)
         if completion_criteria():
             break
     if mp_pool:
         mp_pool.shutdown()
-    if isinstance(pbar, tqdm):
+    if isinstance(pbar, tqdm) and not track_progress:
         pbar.close()
 
     best_policies = select_top_n(agent_policies, select_sizes={name: env.num_agent_types(name) for name, pop in agent_policies.items()})
-    return agent_policies, best_policies, gen_idx
+    return agent_policies, best_policies, num_iters
