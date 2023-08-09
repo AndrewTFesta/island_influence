@@ -198,7 +198,18 @@ def rollout(env: HarvestEnv, agent_policies, render: bool = False):
     return agent_rewards, policy_rewards
 
 
-def save_agent_policies(experiment_dir, gen_idx, env, agent_pops, fitnesses, human_readable=False):
+def save_agent_policies(experiment_dir, gen_idx, env, agent_pops, human_readable=False):
+    best_policies = select_top_n(agent_pops, select_sizes={name: env.num_agent_types(name) for name, pop in agent_pops.items()})
+    best_agent_fitnesses, policy_rewards = rollout(env, best_policies, render=False)
+
+    fitnesses = {
+        str(agent_name): [each_individual.fitness for each_individual in policy]
+        for agent_name, policy in agent_pops.items()
+    }
+    fitnesses['harvest_team'] = best_agent_fitnesses['harvest_team']
+    fitnesses['excavator_team'] = best_agent_fitnesses['excavator_team']
+    fitnesses['team'] = best_agent_fitnesses['team']
+
     indent = 2 if human_readable else None
     gen_path = Path(experiment_dir, f'gen_{gen_idx}')
     if not gen_path:
@@ -263,18 +274,6 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims,
     eval_func = partial(evaluate_agents, env=env)
     downselect_func = partial(select_top_n, **{'select_sizes': population_sizes})
     ##########################################################################################
-    ccea_config = {
-        'max_iters': max_iters, 'starting_gen': starting_gen,
-        'num_sims': num_sims,
-        # 'num_sims': {str(agent_type): size for agent_type, size in num_sims.items()},
-        'population_sizes': {str(agent_type): size for agent_type, size in population_sizes.items()},
-        'experiment_dir': str(experiment_dir), 'direct_assign_fitness': direct_assign_fitness, 'fitness_update_eps': fitness_update_eps,
-        'mutation_scalar': mutation_scalar, 'prob_to_mutate': prob_to_mutate, 'track_progress': track_progress, 'use_mp': use_mp
-
-    }
-    save_ccea_config(ccea_config=ccea_config, save_dir=experiment_dir)
-    env.save_environment(experiment_dir)
-    ##########################################################################################
     # only run initialize if there are any policies with no fitness assigned
     # initial rollout to assign fitnesses of individuals on random teams
     #   pair first policies in each population together enough times to make a full team
@@ -296,16 +295,27 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims,
             }
             for idx in range(max_len)]
         for individuals in all_teams:
-            agent_rewards, best_policy_rewards = rollout(env, individuals, render=False)
-            for policy, fitness in best_policy_rewards.items():
+            agent_rewards, policy_rewards = rollout(env, individuals, render=False)
+            for policy, fitness in policy_rewards.items():
                 if policy.learner:
                     policy.fitness = fitness
     ##########################################################################################
-    best_agent_fitnesses = {agent.name: 0 for agent in env.agents}
-    best_agent_fitnesses['harvest_team'] = 0
-    best_agent_fitnesses['excavator_team'] = 0
-    team_fitness = {'team': 0}
+    ccea_config_fname = Path(experiment_dir, 'ccea_config.json')
+    exp_started = ccea_config_fname.exists() and ccea_config_fname.is_file()
+    if not exp_started:
+        ccea_config = {
+            'max_iters': max_iters, 'starting_gen': starting_gen,
+            'num_sims': num_sims,
+            # 'num_sims': {str(agent_type): size for agent_type, size in num_sims.items()},
+            'population_sizes': {str(agent_type): size for agent_type, size in population_sizes.items()},
+            'experiment_dir': str(experiment_dir), 'direct_assign_fitness': direct_assign_fitness, 'fitness_update_eps': fitness_update_eps,
+            'mutation_scalar': mutation_scalar, 'prob_to_mutate': prob_to_mutate, 'track_progress': track_progress, 'use_mp': use_mp
 
+        }
+        save_ccea_config(ccea_config=ccea_config, save_dir=experiment_dir)
+        env.save_environment(experiment_dir)
+        save_agent_policies(experiment_dir, 0, env, agent_policies)
+    ##########################################################################################
     map_func = map
     mp_pool = None
     if use_mp:
@@ -318,7 +328,7 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims,
     gen_idx = 0
     pbar = None
     if track_progress:
-        pbar = tqdm(total=max_iters, desc=f'Generation', postfix=team_fitness)
+        pbar = tqdm(total=max_iters, desc=f'Generation')
         pbar.update(starting_gen)
 
     for gen_idx in range(starting_gen, max_iters):
@@ -375,20 +385,8 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims,
         agent_policies = downselect_func(agent_policies)
 
         # save generation progress
-        best_policies = select_top_n(agent_policies, select_sizes={name: env.num_agent_types(name) for name, pop in agent_policies.items()})
-        best_agent_fitnesses, best_policy_rewards = rollout(env, best_policies, render=False)
-
-        fitnesses = {
-            str(agent_name): [each_individual.fitness for each_individual in policy]
-            for agent_name, policy in agent_policies.items()
-        }
-        fitnesses['harvest_team'] = best_agent_fitnesses['harvest_team']
-        fitnesses['excavator_team'] = best_agent_fitnesses['excavator_team']
-        fitnesses['team'] = best_agent_fitnesses['team']
-        team_fitness['team'] = best_agent_fitnesses['team']
-
         # save all policies of each agent and save fitnesses mapping policies to fitnesses
-        save_agent_policies(experiment_dir, gen_idx, env, agent_policies, fitnesses)
+        save_agent_policies(experiment_dir, gen_idx+1, env, agent_policies)
         if isinstance(pbar, tqdm):
             pbar.update(1)
         if completion_criteria():
