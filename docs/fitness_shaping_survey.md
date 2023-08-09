@@ -3,40 +3,24 @@ Survey of Current Approaches to Fitness Shaping in Multiagent Evolutionary Learn
 
 # Index
 
-- [Roadmap](#roadmap)
-- [Multiagent Reliance-Based Learning State](#multiagent-reliance-based-learning)
-  - [Introduction](#introduction)
-  - [Background](#background)
-  - [Approach](#approach)
-  - [Results](#results)
-  - [Conclusion](#conclusion)
-  - [Future Work](#future-work)
-- [Environments](#environments)
-  - [HarvestEnv](#harvestenv)
-- [Agents](#agents)
-  - [Harvester](#harvester)
-  - [Excavator](#excavator)
-  - [Obstacle](#obstacle)
-  - [PoI](#poi)
-- [Rewards](#rewards)
-- [CCEA](#ccea)
-  - [Mutation](#mutation)
-  - [Selection](#selection)
+- [How to write a survey paper](#how-to-write-a-survey-paper)
+- [Introduction](#introduction)
+- [Background](#background)
 
 # How to write a survey paper
 
-https://www.researchvoyage.com/how-to-write-better-survey-papers/
-https://academia.stackexchange.com/questions/43371/how-to-write-a-survey-paper
-https://academia.stackexchange.com/questions/150773/is-it-worth-writing-and-publishing-a-survey-paper-while-a-phd-student
-https://academia.stackexchange.com/questions/183553/what-exactly-is-a-survey-article-review-article-in-research
-https://academia.stackexchange.com/questions/167708/what-are-benefits-of-writing-a-survey-paper
-https://academia.stackexchange.com/questions/195960/potential-plagiarism-of-published-papers-when-writing-survey-paper
-https://essaypro.com/blog/how-to-write-a-survey-paper-brief-overview
-http://www.cs.ucf.edu/~lboloni/Teaching/EEL6788_2008/slides/SurveyTutorial.pdf
-https://gradebees.com/writing-survey-paper/
-https://blogs.ubc.ca/cpen542/term-paper/survey-paper/
-https://phdservices.org/survey-paper/
-https://www.researchgate.net/post/How_to_write_a_survey_paper_in_computer_science_related_topics
+- https://www.researchvoyage.com/how-to-write-better-survey-papers/
+- https://academia.stackexchange.com/questions/43371/how-to-write-a-survey-paper
+- https://academia.stackexchange.com/questions/150773/is-it-worth-writing-and-publishing-a-survey-paper-while-a-phd-student
+- https://academia.stackexchange.com/questions/183553/what-exactly-is-a-survey-article-review-article-in-research
+- https://academia.stackexchange.com/questions/167708/what-are-benefits-of-writing-a-survey-paper
+- https://academia.stackexchange.com/questions/195960/potential-plagiarism-of-published-papers-when-writing-survey-paper
+- https://essaypro.com/blog/how-to-write-a-survey-paper-brief-overview
+- http://www.cs.ucf.edu/~lboloni/Teaching/EEL6788_2008/slides/SurveyTutorial.pdf
+- https://gradebees.com/writing-survey-paper/
+- https://blogs.ubc.ca/cpen542/term-paper/survey-paper/
+- https://phdservices.org/survey-paper/
+- https://www.researchgate.net/post/How_to_write_a_survey_paper_in_computer_science_related_topics
 
 # Introduction
 

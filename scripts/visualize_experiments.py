@@ -56,7 +56,7 @@ def parse_experiment_fitnesses(experiment_dir: Path):
     return exp_fitnesses
 
 
-def plot_fitnesses(fitness_data, save_dir, tag):
+def plot_fitnesses(fitness_data, save_dir, tag, save_format='svg'):
     fig, axes = plt.subplots(nrows=1, ncols=1, figsize=(12, 12))
 
     agent_keys = [f'AgentType.{element.name}' for element in AgentType]
@@ -98,7 +98,7 @@ def plot_fitnesses(fitness_data, save_dir, tag):
 
     plot_name = f'{tag}'
     save_name = Path(save_dir, f'{plot_name}_{tag}')
-    plt.savefig(f'{save_name}.png')
+    plt.savefig(f'{save_name}.{save_format}')
     plt.close()
     return
 

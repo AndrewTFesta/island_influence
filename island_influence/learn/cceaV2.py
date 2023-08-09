@@ -283,6 +283,8 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims,
     filtered_lens = {agent_type: len(each_pop) for agent_type, each_pop in filtered_pops.items()}
     max_len = np.max(np.asarray(list(filtered_lens.values())))
     if max_len != 0:
+        # todo  save initial fitnesses
+        #       make sure it doesnt create an additional directory when restarting
         # if a population has no unassigned fitnesses, add in the best policy from that initial population
         all_teams = [
             {
