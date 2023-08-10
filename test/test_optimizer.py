@@ -10,12 +10,10 @@ import time
 from functools import partial
 from pathlib import Path
 
-from tqdm import tqdm
-
 from island_influence import project_properties
 from island_influence.agent import AgentType
 from island_influence.learn.cceaV2 import ccea
-from scripts.setup_env import rand_ring_env, create_agent_policy
+from island_influence.setup_env import rand_ring_env, create_agent_policy
 
 
 def test_base_ccea(env, num_sims, num_gens, policy_funcs, exp_dir, base_pop_size=15):

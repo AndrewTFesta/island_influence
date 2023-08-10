@@ -89,7 +89,9 @@ class HarvestEnv:
 
         self._current_step = 0
 
-        # agents are the harvesters and the supports
+        # agents are the harvesters and the excavators
+        # todo  add more types of harvesters
+        # todo  add more types of supports
         self._harvesters = harvesters
         self._excavators = excavators
         self._obstacles = obstacles
@@ -364,6 +366,9 @@ class HarvestEnv:
             cum_rewards[agent_name] = agent_reward
         return cum_rewards
 
+    def evaluate_reward(self):
+        return
+
     def step(self, actions):
         """
         actions of each agent are always the delta x, delta y
@@ -501,6 +506,22 @@ class HarvestEnv:
         return
 
     def __render_frame(self):
+        black = (0, 0, 0)
+        white = (255, 255, 255)
+
+        # The size of a single grid square in pixels
+        pix_square_size = (self.window_size / self.render_bound)
+
+        agent_colors = {AgentType.Harvester: (0, 255, 0), AgentType.Excavator: (0, 0, 255), AgentType.Obstacle: black, AgentType.StaticPoi: (255, 0, 0)}
+        default_color = (128, 128, 128)
+
+        agent_sizes = {AgentType.Harvester: 0.5, AgentType.Excavator: 0.5, AgentType.Obstacle: 0.25, AgentType.StaticPoi: 0.25}
+        default_size = 0.1
+        size_scalar = 2
+
+        text_size = 14
+        write_values = False
+
         if self.window is None and self.render_mode == 'human':
             pygame.init()
             pygame.display.init()
@@ -511,27 +532,9 @@ class HarvestEnv:
             self.clock = pygame.time.Clock()
 
         canvas = pygame.Surface((self.window_size, self.window_size))
-        canvas.fill((255, 255, 255))
-
-        # The size of a single grid square in pixels
-        pix_square_size = (self.window_size / self.render_bound)
-
-        agent_colors = {AgentType.Harvester: [0, 255, 0], AgentType.Excavator: [0, 0, 255], AgentType.Obstacle: [0, 0, 0], AgentType.StaticPoi: [255, 0, 0]}
-        default_color = [128, 128, 128]
-
-        agent_sizes = {AgentType.Harvester: 0.5, AgentType.Excavator: 0.5, AgentType.Obstacle: 0.25, AgentType.StaticPoi: 0.25}
-        default_size = 0.1
-        size_scalar = 2
-        # if self.render_mode == 'human':
-        #     size_scalar = 2
-
-        line_color = [0, 0, 0]
-        text_color = [255, 255, 255]
-        text_size = 14
+        canvas.fill(white)
         pygame.font.init()
         font = pygame.font.SysFont('arial', text_size)
-
-        write_values = False
 
         for agent in self.agents:
             location = np.array(agent.location) + self.location_offset
@@ -572,7 +575,8 @@ class HarvestEnv:
             acolor = np.divide(acolor, (agent.value + 1))
             # draw circle around poi indicating the observation radius
             # draw a circle at the location to represent the obstacle
-            pygame.draw.circle(canvas, acolor, (location + 0.5) * pix_square_size, pix_square_size * asize)
+            pygame.draw.circle(canvas, black, (location + 0.5) * pix_square_size, pix_square_size * asize)
+            pygame.draw.circle(canvas, acolor, (location + 0.5) * pix_square_size, pix_square_size * asize * 0.75)
             pygame.draw.circle(canvas, acolor, (location + 0.5) * pix_square_size, pix_square_size * agent.observation_radius, width=1)
 
         if write_values:
@@ -580,21 +584,21 @@ class HarvestEnv:
                 location = np.array(agent.location) + self.location_offset
                 # display text of the current value of an agent
                 # do this in a loop after to make sure it displays on all pois, obstacles, and agents
-                text_surface = font.render(f'{agent.value}', False, text_color)
+                text_surface = font.render(f'{agent.value}', False, white)
                 canvas.blit(text_surface, (location + 0.35) * pix_square_size)
 
             for agent in self.obstacles:
                 location = np.array(agent.location) + self.location_offset
                 # display text of the current value of an obstacle
                 # do this in a loop after to make sure it displays on all pois, obstacles, and agents
-                text_surface = font.render(f'{agent.value}', False, text_color)
+                text_surface = font.render(f'{agent.value}', False, white)
                 canvas.blit(text_surface, (location + 0.35) * pix_square_size)
 
             for agent in self.pois:
                 location = np.array(agent.location) + self.location_offset
                 # display text of the current value of a poi
                 # do this in a loop after to make sure it displays on all pois, obstacles, and agents
-                text_surface = font.render(f'{agent.value}', False, text_color)
+                text_surface = font.render(f'{agent.value}', False, white)
                 canvas.blit(text_surface, (location + 0.3) * pix_square_size)
 
         if self.render_mode == 'human':

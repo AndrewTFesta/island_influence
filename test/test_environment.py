@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from island_influence.harvest_env import HarvestEnv
-from scripts.setup_env import rand_ring_env, det_ring_env
+from island_influence.setup_env import rand_ring_env, det_ring_env
 
 
 def display_env(env, render_mode, render_delay=1.0):

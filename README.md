@@ -62,9 +62,8 @@ See the [LICENSE file](LICENSE) for license rights and limitations (MIT).
 - [x] Script to restart a stat run
 - [x] Multiprocessing subpop simulations in each generation
 - [x] Combine multiple stat runs into the same plot
-- [ ] Create trajectory graph visualization tool.
-  - Include circles around POIs to indicate observation radius.
 - [x] Animation to watch rollout of episode
+  - Include circles around POIs to indicate observation radius.
 - [ ] Documentation
   - Agent types
   - Environment dynamics
@@ -75,6 +74,7 @@ See the [LICENSE file](LICENSE) for license rights and limitations (MIT).
 - [ ] Add reward option to be based on average distance of n closest observing agents
 - [x] Add agent weight parameter that affects how much an agent affects the environment (satisfy coupling for harvesters and excavators, coupling requirement for obstacles and pois)
 - [x] Add agent value parameter that affects how much an agent can contribute to the environment (rewards from pois and harvesters)
+- [ ] Implement mfl as a comparison baseline
 
 # Multiagent Reliance-Based Learning
 
@@ -88,6 +88,11 @@ See the [LICENSE file](LICENSE) for license rights and limitations (MIT).
 [//]: # (QD process running on each island with CCEA running on mainland)
 [//]: # (Islands produces sets of initializations for the optimization process running on the mainland)
 [//]: # (EA's prone to local minima based on starting conditions)
+[//]: # (Mfl/options and traditional ccea loop on opposite ends of a spectrum)
+[//]: # (one end optimizes skills and then learns using those skills)
+[//]: # (other end goes in with no learned skills and learns to cooperate while learning skills)
+[//]: # (flexible options are somewhere in the middle)
+[//]: # (but are hindered by a very large joint actions space, as we move towards multiagent systems)
 
 ### Questions
 

@@ -113,6 +113,7 @@ class MAIsland:
         return
 
     def incorporate_migrations(self):
+        # todo  add new agents to current population and keep top N agents of all off original agents and new agents
         with self._update_lock:
             for agent_type, population in self.migrated_from_neighbors.items():
                 num_agents = self.env.num_agent_types(agent_type)
@@ -123,6 +124,9 @@ class MAIsland:
                 print(f'Island {self.name}: {time.time()}: incorporating {len(top_agents)} agents in population {agent_type}')
                 # todo  replace or augment old populations?
                 self.agent_populations[agent_type] = top_agents
+
+            # reset view of migrated agents so that the same populations are not migrated repeatedly
+            self.migrated_from_neighbors = {}
         return
 
     def add_from_neighbor(self, pop_id, population):

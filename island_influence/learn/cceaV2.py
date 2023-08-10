@@ -323,7 +323,6 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims,
         max_workers = num_cores - 1
         mp_pool = ProcessPoolExecutor(max_workers=max_workers)
         map_func = mp_pool.map
-        # print(f'Running mp pool with {max_workers} workers')
 
     pbar = None
     if track_progress:
