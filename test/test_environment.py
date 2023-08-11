@@ -274,6 +274,7 @@ def test_collisions(render_mode):
 
 
 def test_persistence(env: HarvestEnv):
+    print(f'Running persistence tests')
     save_path = env.save_environment()
     test_env = HarvestEnv.load_environment(save_path)
     # todo  inspect object
@@ -289,6 +290,7 @@ def test_persistence(env: HarvestEnv):
 
 
 def test_reset(env: HarvestEnv, render_mode):
+    print(f'Running reset tests')
     render_delay = 1
     env.reset()
     env.render_mode = render_mode
@@ -303,7 +305,8 @@ def test_reset(env: HarvestEnv, render_mode):
 
 
 def main(main_args):
-    env_func = rand_ring_env()
+    env_params = {'scale_factor': 2, 'num_harvesters': 4, 'num_excavators': 4, 'num_obstacles': 16, 'num_pois': 8, 'collision_penalty_scalar': 0}
+    env_func = rand_ring_env(**env_params)
     env = env_func()
     env.reset()
     env.normalize_rewards = True
@@ -314,10 +317,10 @@ def main(main_args):
     # test_collisions(render_mode='rgb_array')
     # test_collisions(render_mode='human')
 
-    test_reset(env, render_mode=None)
-    test_step(env, render_mode=None)
-    test_random(env, render_mode=None)
-    test_rollout(env, render_mode=None)
+    # test_reset(env, render_mode=None)
+    # test_step(env, render_mode=None)
+    # test_random(env, render_mode=None)
+    # test_rollout(env, render_mode=None)
 
     # test_render(env, render_mode='rgb_array')
     # test_reset(env, render_mode='rgb_array')
@@ -325,10 +328,10 @@ def main(main_args):
     # test_random(env, render_mode='rgb_array')
     # test_rollout(env, render_mode='rgb_array')
 
-    # test_render(env, render_mode='human')
-    # test_reset(env, render_mode='human')
-    # test_step(env, render_mode='human')
-    # test_random(env, render_mode='human')
+    test_render(env, render_mode='human')
+    test_reset(env, render_mode='human')
+    test_step(env, render_mode='human')
+    test_random(env, render_mode='human')
     test_rollout(env, render_mode='human')
 
     test_persistence(env)

@@ -86,6 +86,8 @@ class HarvestEnv:
 
         self.normalize_rewards = normalize_rewards
         self.collision_penalty_scalar = collision_penalty_scalar
+        self.reward_func = self._global_reward
+        # self.reward_func = self._difference_reward
 
         self._current_step = 0
 
@@ -222,29 +224,14 @@ class HarvestEnv:
         training decentralized execution methods like QMIX
         :return:
         """
-        # todo  store state as a matrix in environment rather than individually in agents
+        agent_types = list(AgentType)
         # env is the state and agents are how the updates are calculated based on current state
         # note that this may imply non-changing set of agents
-        max_len = max(max(len(self.agents), len(self.obstacles)), len(self.pois))
-        pad_mat = [*[np.NAN for _ in range(self.num_dims)], 0, 0]
-
-        agent_states = [[*agent.location, agent.weight, agent.value] for agent in self.agents]
-        agent_states.extend([pad_mat for _ in range(max_len - len(agent_states))])
-
-        obstacles_states = [[*obstacle.location, obstacle.weight, obstacle.value] for obstacle in self.obstacles]
-        obstacles_states.extend([pad_mat for _ in range(max_len - len(obstacles_states))])
-
-        poi_states = [[*poi.location, poi.weight, poi.value] for poi in self.pois]
-        poi_states.extend([pad_mat for _ in range(max_len - len(poi_states))])
-
-        all_states = np.stack((agent_states, obstacles_states, poi_states), axis=0)
-
-        # agent_states = [agent.location for agent in self.agents]
-        # obstacles_states = [obstacle for obstacle in self.obstacles]
-        # poi_states = [poi for poi in self.pois]
-        #
-        # all_states = np.concatenate((agent_states, obstacles_states), axis=0)
-        # all_states = np.concatenate((all_states, poi_states), axis=0)
+        agent_states = [[*agent.location, agent.weight, agent.value, agent_types.index(agent.agent_type)] for agent in self.agents]
+        obstacles_states = [[*obstacle.location, obstacle.weight, obstacle.value, agent_types.index(obstacle.agent_type)] for obstacle in self.obstacles]
+        poi_states = [[*poi.location, poi.weight, poi.value, agent_types.index(poi.agent_type)] for poi in self.pois]
+        states_lists = [states for states in (agent_states, obstacles_states, poi_states) if len(states) > 0]
+        all_states = np.vstack(states_lists)
         return all_states
 
     def state_transition(self, idx):
@@ -332,6 +319,9 @@ class HarvestEnv:
 
         self.set_render_bounds()
         observations = self.get_observations()
+
+        self.window = None
+        self.clock = None
         return observations
 
     def get_observations(self):
@@ -370,7 +360,6 @@ class HarvestEnv:
         return agent_dones
 
     def cumulative_rewards(self):
-        # todo  difference rewards
         cum_rewards = {each_key: 0 for each_key in self.reward_history[0]}
         for agent_name in cum_rewards:
             step_rewards = []
@@ -381,6 +370,16 @@ class HarvestEnv:
         return cum_rewards
 
     def evaluate_reward(self, state, actions, result_state):
+        rewards = self.reward_func(state, actions, result_state)
+        return rewards
+
+    def _global_reward(self, state, actions, result_state):
+        # todo  global rewards based on (state, action, next_state)
+        rewards = {each_agent.name: 0 for each_agent in self.agents}
+        return rewards
+
+    def _difference_reward(self, state, actions, result_state):
+        # todo  difference rewards based on (state, action, next_state)
         rewards = {each_agent.name: 0 for each_agent in self.agents}
         return rewards
 
@@ -398,12 +397,13 @@ class HarvestEnv:
         dicts keyed by the agent name
             e.g. {agent_0: observation_0, agent_1: observation_1, ...}
         """
+        initial_state = self.state()
         remaining_obstacles = [agent for agent in self.obstacles if agent.value > 0]
         remaining_pois = [agent for agent in self.pois if agent.value > 0]
 
         rewards = {agent.name: 0.0 for agent in self.agents}
-        rewards['excavator_team'] = 0.0
-        rewards['harvest_team'] = 0.0
+        rewards['global_excavator'] = 0.0
+        rewards['global_harvester'] = 0.0
 
         # step location and time of all agents
         # should not matter which order they are stepped in as long as dt is small enough
@@ -459,7 +459,7 @@ class HarvestEnv:
             if self.normalize_rewards:
                 each_reward = value_diff / self.initial_obstacle_value
             rewards[excavator.name] += each_reward
-            rewards['excavator_team'] += each_reward
+            rewards['global_excavator'] += each_reward
 
         # Compute for harvesters and pois
         for poi_name, harvester_info in observed_pois_harvesters.items():
@@ -476,10 +476,10 @@ class HarvestEnv:
             if self.normalize_rewards:
                 each_reward = value_diff / self.initial_poi_value
             rewards[harvester.name] += each_reward
-            rewards['harvest_team'] += each_reward
+            rewards['global_harvester'] += each_reward
 
         # Global team reward is the sum of subteam (excavator team and harvest team) rewards
-        rewards['team'] = rewards['excavator_team'] + rewards['harvest_team']
+        rewards['global'] = rewards['global_excavator'] + rewards['global_harvester']
 
         # check if simulation is done
         dones = self.done()
@@ -487,6 +487,7 @@ class HarvestEnv:
         # The effects of the actions have all been applied to the state
         # No more state changes should occur below this point
         curr_state = self.state()
+        eval_rewards = self.evaluate_reward(initial_state, actions, curr_state)
         self.action_history.append(actions)
         self.state_history.append(curr_state)
         self.reward_history.append(rewards)
@@ -527,6 +528,7 @@ class HarvestEnv:
         # The size of a single grid square in pixels
         pix_square_size = (self.window_size / self.render_bound)
 
+        # todo  add legend showing what each color depicts
         agent_colors = {AgentType.Harvester: (0, 255, 0), AgentType.Excavator: (0, 0, 255), AgentType.Obstacle: black, AgentType.StaticPoi: (255, 0, 0)}
         default_color = (128, 128, 128)
 
@@ -535,7 +537,9 @@ class HarvestEnv:
         size_scalar = 2
 
         text_size = 14
+        text_bg_size = 16
         write_values = False
+        write_legend = True
 
         if self.window is None and self.render_mode == 'human':
             pygame.init()
@@ -549,6 +553,7 @@ class HarvestEnv:
         canvas = pygame.Surface((self.window_size, self.window_size))
         canvas.fill(white)
         pygame.font.init()
+        font_bg = pygame.font.SysFont('arial', text_bg_size)
         font = pygame.font.SysFont('arial', text_size)
 
         for agent in self.agents:
@@ -615,6 +620,38 @@ class HarvestEnv:
                 # do this in a loop after to make sure it displays on all pois, obstacles, and agents
                 text_surface = font.render(f'{agent.value}', False, white)
                 canvas.blit(text_surface, (location + 0.3) * pix_square_size)
+
+        if write_legend:
+            outline = 1
+            legend_offset = 10
+            for idx, (agent_type, color) in enumerate(agent_colors.items()):
+                text = f'{agent_type.name}'
+                text_surface = font.render(text, False, color)
+                if outline > 0:
+                    outline_surface = font.render(text, True, black)
+                    outline_size = outline_surface.get_size()
+
+                    text_surface = pygame.Surface((outline_size[0] + outline * 2, outline_size[1] + 2 * outline))
+                    text_surface.fill(white)
+                    text_rect = text_surface.get_rect()
+                    offsets = [
+                        (ox, oy)
+                        # for ox in range(-outline, 2 * outline, outline)
+                        # for oy in range(-outline, 2 * outline, outline)
+                        for ox in range(-outline, outline, outline)
+                        for oy in range(-outline, outline, outline)
+                        if ox != 0 or ox != 0
+                    ]
+                    for ox, oy in offsets:
+                        px, py = text_rect.center
+                        text_surface.blit(outline_surface, outline_surface.get_rect(center=(px + ox, py + oy)))
+
+                    inner_text = font.render(text, True, color).convert_alpha()
+                    text_surface.blit(inner_text, inner_text.get_rect(center=text_rect.center))
+
+                text_height = text_surface.get_height() + legend_offset
+                text_width = text_surface.get_width() + legend_offset
+                canvas.blit(text_surface, (self.window_size - text_width, text_height*idx))
 
         if self.render_mode == 'human':
             # The following line copies our drawings from `canvas` to the visible window

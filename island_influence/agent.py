@@ -19,19 +19,11 @@ class AgentType(Enum):
     Excavator = auto()
     Obstacle = auto()
     StaticPoi = auto()
-    MovingPoi = auto()
+    # MovingPoi = auto()
 
 
 class Agent:
-    ROW_MAPPING = {
-        AgentType.Harvester: 0,
-        AgentType.Excavator: 0,
-        AgentType.Obstacle: 1,
-        AgentType.StaticPoi: 2,
-        AgentType.MovingPoi: 2
-    }
-
-    NUM_BINS = 3
+    NUM_BINS = len(AgentType)
 
     def __init__(self, agent_id: int, agent_type: AgentType, observation_radius, weight: float, value: float,
                  max_velocity: float = 0.0, policy: NeuralNetwork | None = None, sense_function='regions'):
@@ -145,25 +137,23 @@ class Agent:
         :param offset:
         :return:
         """
-        # todo  ensure min dimensions for policy networks
         layer_obs = np.zeros((Agent.NUM_BINS, self.sensor_resolution))
         counts = np.ones(layer_obs.shape)
-        for layer_idx, each_layer in enumerate(state):
-            # each row in each layer is a list of
-            #   [locations (2d), weight, value]
-            obs_agents = Agent.observable_agents(self, each_layer, self.observation_radius)
 
-            bin_size = 360 / self.sensor_resolution
-            if offset:
-                offset = 360 / (self.sensor_resolution * 2)
-                bin_size = offset * 2
+        # each row in each layer is a list of
+        #   [locations (2d), weight, value]
+        obs_agents = Agent.observable_agents(self, state, self.observation_radius)
+        bin_size = 360 / self.sensor_resolution
+        if offset:
+            offset = 360 / (self.sensor_resolution * 2)
+            bin_size = offset * 2
 
-            for idx, entry in enumerate(obs_agents):
-                agent, angle, dist = entry
-                # agent_type_idx = self.ROW_MAPPING[agent.agent_type]
-                bin_idx = int(np.floor(angle / bin_size) % self.sensor_resolution)
-                layer_obs[layer_idx, bin_idx] += agent[3] / max(dist, 0.01)
-                counts[layer_idx, bin_idx] += 1
+        for idx, entry in enumerate(obs_agents):
+            agent, angle, dist = entry
+            agent_type_idx = int(agent[-1])
+            bin_idx = int(np.floor(angle / bin_size) % self.sensor_resolution)
+            layer_obs[agent_type_idx, bin_idx] += agent[3] / max(dist, 0.01)
+            counts[agent_type_idx, bin_idx] += 1
 
         layer_obs = np.divide(layer_obs, counts)
         layer_obs = np.nan_to_num(layer_obs)

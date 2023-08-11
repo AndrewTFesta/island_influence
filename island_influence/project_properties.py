@@ -15,7 +15,7 @@ from pathlib import Path
 # --------------------------------------------
 # Project versioning and attributes
 # --------------------------------------------
-name = 'leader_follower'
+name = 'island_influence'
 version = '0.1'
 
 # --------------------------------------------

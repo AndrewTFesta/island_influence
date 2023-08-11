@@ -207,9 +207,9 @@ def save_agent_policies(experiment_dir, gen_idx, env, agent_pops, human_readable
         str(agent_name): [each_individual.fitness for each_individual in policy]
         for agent_name, policy in agent_pops.items()
     }
-    fitnesses['harvest_team'] = best_agent_fitnesses['harvest_team']
-    fitnesses['excavator_team'] = best_agent_fitnesses['excavator_team']
-    fitnesses['team'] = best_agent_fitnesses['team']
+    fitnesses['global_harvester'] = best_agent_fitnesses['global_harvester']
+    fitnesses['global_excavator'] = best_agent_fitnesses['global_excavator']
+    fitnesses['global'] = best_agent_fitnesses['global']
 
     indent = 2 if human_readable else None
     gen_path = Path(experiment_dir, f'gen_{gen_idx}')
