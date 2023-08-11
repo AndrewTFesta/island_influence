@@ -110,26 +110,27 @@ class Agent:
         # self._initial_location = copy.copy(location)
         return
 
-    def observable_agents(self, relative_agents, observation_radius):
+    def observable_agents(self, agent_locations, observation_radius, min_distance=0.001):
         """
         observable_agents
 
-        :param relative_agents:
+        :param agent_locations:
         :param observation_radius:
+        :param min_distance:
         :return:
         """
-        bins = []
-        for idx, agent in enumerate(relative_agents):
-            assert isinstance(agent, Agent)
-            if agent == self:
+        obs_bins = []
+        for idx, each_agent in enumerate(agent_locations):
+            if np.isnan(each_agent).any():
                 continue
 
-            angle, dist = relative(self.location, agent.location)
-            if dist <= observation_radius:
-                bins.append((agent, angle, dist))
-        return bins
+            agent_location = each_agent[:2]
+            angle, dist = relative(self.location, agent_location)
+            if min_distance <= dist <= observation_radius:
+                obs_bins.append((each_agent, angle, dist))
+        return obs_bins
 
-    def _sense_regions(self, other_agents, offset=False):
+    def _sense_regions(self, state, offset=False):
         """
         Takes in the state of the worlds and counts how many agents are in each d-hyperoctant around the agent,
         with the agent being at the center of the observation.
@@ -140,31 +141,34 @@ class Agent:
         first set of (sensor_resolution) bins is for leaders/followers
         second set of (sensor_resolution) bins is for pois
 
-        :param other_agents:
+        :param state:
         :param offset:
         :return:
         """
+        # todo  ensure min dimensions for policy networks
+        layer_obs = np.zeros((Agent.NUM_BINS, self.sensor_resolution))
+        counts = np.ones(layer_obs.shape)
+        for layer_idx, each_layer in enumerate(state):
+            # each row in each layer is a list of
+            #   [locations (2d), weight, value]
+            obs_agents = Agent.observable_agents(self, each_layer, self.observation_radius)
 
-        obs_agents = Agent.observable_agents(self, other_agents, self.observation_radius)
+            bin_size = 360 / self.sensor_resolution
+            if offset:
+                offset = 360 / (self.sensor_resolution * 2)
+                bin_size = offset * 2
 
-        bin_size = 360 / self.sensor_resolution
-        if offset:
-            offset = 360 / (self.sensor_resolution * 2)
-            bin_size = offset * 2
+            for idx, entry in enumerate(obs_agents):
+                agent, angle, dist = entry
+                # agent_type_idx = self.ROW_MAPPING[agent.agent_type]
+                bin_idx = int(np.floor(angle / bin_size) % self.sensor_resolution)
+                layer_obs[layer_idx, bin_idx] += agent[3] / max(dist, 0.01)
+                counts[layer_idx, bin_idx] += 1
 
-        observation = np.zeros((self.NUM_BINS, self.sensor_resolution))
-        counts = np.ones(observation.shape)
-        for idx, entry in enumerate(obs_agents):
-            agent, angle, dist = entry
-            agent_type_idx = self.ROW_MAPPING[agent.agent_type]
-            bin_idx = int(np.floor(angle / bin_size) % self.sensor_resolution)
-            observation[agent_type_idx, bin_idx] += agent.value / max(dist, 0.01)
-            counts[agent_type_idx, bin_idx] += 1
-
-        observation = np.divide(observation, counts)
-        observation = np.nan_to_num(observation)
-        observation = observation.flatten()
-        return observation
+        layer_obs = np.divide(layer_obs, counts)
+        layer_obs = np.nan_to_num(layer_obs)
+        layer_obs = layer_obs.flatten()
+        return layer_obs
 
     def _sense_vision(self, other_agents, blur=False):
         """

@@ -6,30 +6,33 @@
 """
 import csv
 import logging
+import pickle
 import threading
 import time
 from pathlib import Path
 
+import dill
 from tqdm import tqdm
 
 
 class MAIsland:
 
     def __init__(self, agent_populations, evolving_agent_names, env, optimizer, max_iters, save_dir, migrate_every=1,
-                 name=None, track_progress=False, threaded=True, logger=None):
+                 name=None, track_progress=False, logger=None):
         if name is None:
-            name = ':'.join([str(agent_type) for agent_type in evolving_agent_names])
+            name = '_'.join([str(agent_type) for agent_type in evolving_agent_names])
             name = f'[{name}]'
         if logger is None:
             logger = logging.getLogger()
 
-        self.name = f'MAIsland: {name}'
+        self.name = f'MAIsland__{name}'
         self.logger = logger
 
         self.agent_populations = agent_populations
         self.evolving_agent_names = evolving_agent_names
         self.env = env
 
+        self.running = True
         self.migrate_every = migrate_every
         self.since_last_migration = 0
         self.optimizer_func = optimizer
@@ -39,18 +42,12 @@ class MAIsland:
         self.times_fname = Path(self.save_dir, 'opt_times.csv')
         # todo  mark where migrations happen
 
-        # neighbors are a list of "neighboring" islands where an island is able to migrate populations to its neighbors
+        # neighbors are a list of "neighboring" island where an island is able to migrate populations to its neighbors
         # able to know which agents to migrate to which island by looking at the agents being evolved on the current island and the neighbor island
         # note that there is no restriction that any given island may be the only island evolving a certain "type" of agent
         #   or that "neighboring" must be symmetric
         self.neighbors: list[MAIsland] = []
         self.migrated_from_neighbors = {}
-
-        self.threaded = threaded
-        self.optimize_thread = threading.Thread(target=self._optimize, daemon=True) if self.threaded else None
-        self.optimize_call = self.optimize_thread.start if self.threaded else self._optimize
-        self.running = False
-        self._update_lock = threading.Lock()
 
         self.num_migrations = 0
         self.total_gens_run = 0
@@ -66,16 +63,13 @@ class MAIsland:
         self.neighbors.append(neighbor)
         return
 
-    def run(self):
-        logging.info(msg=f'{self.name}: Starting optimizer')
-        self.running = True
-        self.optimize_call()
+    def sort_population(self, agent_type):
+        sorted_pop = sorted(self.agent_populations[agent_type], key=lambda x: x.fitness, reverse=True)
+        self.agent_populations[agent_type] = sorted_pop
         return
 
-    def _optimize(self):
+    def optimize(self):
         logging.debug(msg=f'Running island optimizer on thread: {threading.get_native_id()}')
-        # todo  how would this work if it were it's own process?
-        #       have to create a socket communication and then connect to other islands
         # run the optimize function to completion (as defined by the optimize function)
         self.total_gens_run = 0
         self.opt_times = []
@@ -83,8 +77,11 @@ class MAIsland:
         self.top_inds = None
         pbar = tqdm(total=self.max_iters, desc=f'{self.name}') if self.track_progress else None
         self.num_migrations = 0
+        self.running = True
+        self.save_island()
         while self.running and self.total_gens_run < self.max_iters:
             if self.agents_migrated():
+                # todo  add a minimum number of gens that must be run after incorporating a migration before a new migration can be incorporated
                 self.incorporate_migrations()
 
             # todo  check calculating remaining gens
@@ -101,18 +98,18 @@ class MAIsland:
             self.since_last_migration += gens_run
 
             total_time = sum(self.opt_times)
-            iter_time_per_gen = opt_time / (gens_run + 0.001)
-            overall_time_per_gen = total_time / self.total_gens_run
+            time_per_gen_opt = opt_time / (gens_run + 0.001)
+            time_per_gen_overall = total_time / self.total_gens_run
 
             remaining_gens = self.max_iters - self.total_gens_run
-            expected_time_remaining = remaining_gens * overall_time_per_gen
+            remaining_time = remaining_gens * time_per_gen_overall
 
-            max_fitnesses = {agent_type: max([each_policy.fitness for each_policy in policies])for agent_type, policies in self.top_inds.items()}
-            logging.info(msg=f'Island {self.name}:{self.total_gens_run}/{self.max_iters}:{total_time} seconds')
-            logging.debug(msg=f'Island {self.name}:{max_fitnesses}')
-            logging.debug(msg=f'Island {self.name}:{overall_time_per_gen} seconds per generation overall')
-            logging.debug(msg=f'Island {self.name}:{gens_run} generations completed after {opt_time} seconds: {iter_time_per_gen} per generation')
-            logging.debug(msg=f'Island {self.name}:{remaining_gens=}: {expected_time_remaining=}')
+            max_fitnesses = {agent_type: max([each_policy.fitness for each_policy in policies]) for agent_type, policies in self.top_inds.items()}
+            info_message = f'Island {self.name}:{self.total_gens_run}/{self.max_iters}:{remaining_time=}'
+            debug_message = (f'Island {self.name}:{total_time=}:{time_per_gen_overall=}:{remaining_gens=}:'
+                             f'{gens_run=}:{opt_time=}:{time_per_gen_opt=}:{max_fitnesses}')
+            logging.info(msg=info_message)
+            logging.debug(msg=debug_message)
             with open(self.times_fname, 'w+') as times_file:
                 writer = csv.writer(times_file)
                 writer.writerow(self.opt_times)
@@ -122,9 +119,10 @@ class MAIsland:
             if self.since_last_migration >= self.migrate_every:
                 # this guards against an early migration when we stop the optimizer in order
                 # to incorporate a new population that has been migrated from another island
-                self.migrate_to_neighbors()
+                self.send_populations()
                 self.num_migrations += 1
                 self.since_last_migration = 0
+            self.save_island()
         if isinstance(pbar, tqdm):
             pbar.close()
         self.running = False
@@ -148,48 +146,37 @@ class MAIsland:
         # todo  this could also include mcc criteria (criteria to migrate pops to another island)
         return False
 
-    def stop(self):
-        logging.info(msg=f'{self.name}: stopping optimizer')
-        self.running = False
-        return
-
     def incorporate_migrations(self):
-        with self._update_lock:
-            for agent_type, population in self.migrated_from_neighbors.items():
-                # determine how many old policies must be kept to satisfy env requirements
-                # add the new policies with the current population
-                num_agents = self.env.num_agent_types(agent_type)
-                num_agents -= max(len(population), 0)
-                self.sort_population(agent_type)
-                new_agents = self.agent_populations[agent_type]
-                if agent_type not in self.evolving_agent_names:
-                    # keep the top N previous policies if this island is not evolving this type of agent
-                    # this ensures that if integrating a new population, the current populations being
-                    # evolved do not get thrown out and can still have an influence on the learning on this island
-                    new_agents = new_agents[:num_agents]
-                new_agents.extend(population)
+        # todo  make self.migrated_from_neighbors into queue?
+        for agent_type, population in self.migrated_from_neighbors.items():
+            # determine how many old policies must be kept to satisfy env requirements
+            # add the new policies with the current population
+            num_agents = self.env.num_agent_types(agent_type)
+            num_agents -= max(len(population), 0)
+            self.sort_population(agent_type)
+            new_agents = self.agent_populations[agent_type]
+            if agent_type not in self.evolving_agent_names:
+                # keep the top N previous policies if this island is not evolving this type of agent
+                # this ensures that if integrating a new population, the current populations being
+                # evolved do not get thrown out and can still have an influence on the learning on this island
+                new_agents = new_agents[:num_agents]
+            new_agents.extend(population)
 
-                logging.debug(f'Incorporate: {time.time()}: {agent_type}: {len(new_agents)}: Island {self.name}')
-                self.agent_populations[agent_type] = new_agents
+            logging.debug(f'Incorporate: {time.time()}: {agent_type}: {len(new_agents)}: Island {self.name}')
+            self.agent_populations[agent_type] = new_agents
 
-            # reset view of migrated agents so that the same populations are not migrated repeatedly
-            self.migrated_from_neighbors = {}
+        # reset view of migrated agents so that the same populations are not migrated repeatedly
+        self.migrated_from_neighbors = {}
         return
 
-    def add_from_neighbor(self, pop_id, population, from_neighbor):
-        with self._update_lock:
-            if pop_id not in self.migrated_from_neighbors:
-                self.migrated_from_neighbors[pop_id] = []
+    def receive_population(self, pop_id, population, from_neighbor):
+        if pop_id not in self.migrated_from_neighbors:
+            self.migrated_from_neighbors[pop_id] = []
 
-            self.migrated_from_neighbors[pop_id].extend(population)
+        self.migrated_from_neighbors[pop_id].extend(population)
         return
 
-    def sort_population(self, agent_type):
-        sorted_pop = sorted(self.agent_populations[agent_type], key=lambda x: x.fitness, reverse=True)
-        self.agent_populations[agent_type] = sorted_pop
-        return
-
-    def migrate_to_neighbors(self):
+    def send_populations(self):
         for each_neighbor in self.neighbors:
             for agent_type, population in self.agent_populations.items():
                 if agent_type in self.evolving_agent_names:
@@ -199,5 +186,33 @@ class MAIsland:
                     top_agents = top_agents[:num_agents]
 
                     logging.debug(f'Migration: {time.time()}: {len(top_agents)} agents: {self.name} -> {each_neighbor.name}')
-                    each_neighbor.add_from_neighbor(agent_type, top_agents, self)
+                    each_neighbor.receive_population(agent_type, top_agents, self)
         return
+
+    def save_island(self, save_dir=None, tag=''):
+        # todo  use better methods of saving than pickling
+        # https://docs.python.org/3/library/pickle.html#pickling-class-instances
+        # https://stackoverflow.com/questions/37928794/which-is-faster-for-load-pickle-or-hdf5-in-python
+        # https://marshmallow.readthedocs.io/en/stable/
+        # https://developers.google.com/protocol-buffers
+        # https://developers.google.com/protocol-buffers/docs/pythontutorial
+        if save_dir is None:
+            save_dir = self.save_dir
+            # save_dir = project_properties.island_dir
+
+        if tag != '':
+            tag = f'_{tag}'
+
+        save_path = Path(save_dir, f'island_{self.name}{tag}.pkl')
+        if not save_path.parent.exists():
+            save_path.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(save_path, 'wb') as save_file:
+            dill.dump(self, save_file, pickle.HIGHEST_PROTOCOL)
+        return save_path
+
+    @staticmethod
+    def load_environment(island_path):
+        with open(island_path, 'rb') as load_file:
+            island = pickle.load(load_file)
+        return island

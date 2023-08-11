@@ -225,12 +225,26 @@ class HarvestEnv:
         # todo  store state as a matrix in environment rather than individually in agents
         # env is the state and agents are how the updates are calculated based on current state
         # note that this may imply non-changing set of agents
-        agent_states = [agent for agent in self.agents]
-        obstacles_states = [obstacle for obstacle in self.obstacles]
-        poi_states = [poi for poi in self.pois]
+        max_len = max(max(len(self.agents), len(self.obstacles)), len(self.pois))
+        pad_mat = [*[np.NAN for _ in range(self.num_dims)], 0, 0]
 
-        all_states = np.concatenate((agent_states, obstacles_states), axis=0)
-        all_states = np.concatenate((all_states, poi_states), axis=0)
+        agent_states = [[*agent.location, agent.weight, agent.value] for agent in self.agents]
+        agent_states.extend([pad_mat for _ in range(max_len - len(agent_states))])
+
+        obstacles_states = [[*obstacle.location, obstacle.weight, obstacle.value] for obstacle in self.obstacles]
+        obstacles_states.extend([pad_mat for _ in range(max_len - len(obstacles_states))])
+
+        poi_states = [[*poi.location, poi.weight, poi.value] for poi in self.pois]
+        poi_states.extend([pad_mat for _ in range(max_len - len(poi_states))])
+
+        all_states = np.stack((agent_states, obstacles_states, poi_states), axis=0)
+
+        # agent_states = [agent.location for agent in self.agents]
+        # obstacles_states = [obstacle for obstacle in self.obstacles]
+        # poi_states = [poi for poi in self.pois]
+        #
+        # all_states = np.concatenate((agent_states, obstacles_states), axis=0)
+        # all_states = np.concatenate((all_states, poi_states), axis=0)
         return all_states
 
     def state_transition(self, idx):
@@ -272,8 +286,8 @@ class HarvestEnv:
         return save_path
 
     @staticmethod
-    def load_environment(load_path):
-        with open(load_path, 'rb') as load_file:
+    def load_environment(env_path):
+        with open(env_path, 'rb') as load_file:
             env = pickle.load(load_file)
         return env
 
@@ -366,8 +380,9 @@ class HarvestEnv:
             cum_rewards[agent_name] = agent_reward
         return cum_rewards
 
-    def evaluate_reward(self):
-        return
+    def evaluate_reward(self, state, actions, result_state):
+        rewards = {each_agent.name: 0 for each_agent in self.agents}
+        return rewards
 
     def step(self, actions):
         """

@@ -15,14 +15,15 @@ from pathlib import Path
 from island_influence import project_properties
 from island_influence.agent import AgentType
 from island_influence.harvest_env import HarvestEnv
-from island_influence.learn.cceaV2 import ccea
-from island_influence.learn.island import MAIsland
+from island_influence.learn.island.ThreadIsland import ThreadIsland
+from island_influence.learn.optimizer.cceaV2 import ccea
+from island_influence.learn.island.MAIsland import MAIsland
 from island_influence.setup_env import create_agent_policy, rand_ring_env
 from island_influence.utils import save_config
 
 
 def create_harvester_island(
-        experiment_dir, env_type, use_threading=True, use_mp=False, track_progress=False,
+        island_class, experiment_dir, env_type, use_threading=True, use_mp=False, track_progress=False,
         num_harvesters=4, num_excavators=4, num_obstacles=8, num_pois=8, collision_penalty_scalar=0,
         num_sims=2, max_iters=3, migrate_every=1, base_pop_size=15, scale_env=1,
         direct_assign_fitness=True, fitness_update_eps=0.1, mutation_scalar=0.1, prob_to_mutate=0.05,
@@ -65,16 +66,16 @@ def create_harvester_island(
         'max_iters': max_iters, 'scale_env': scale_env, 'migrate_every': migrate_every, 'use_threading': use_threading, 'track_progress': track_progress,
     }
     save_config(island_params, save_dir=experiment_dir, config_name='island_config')
-    harvester_island = MAIsland(
+    harvester_island = island_class(
         agent_populations=harvester_pops, evolving_agent_names=[AgentType.Harvester], env=harvester_env, optimizer=harvester_optimizer,
-        max_iters=max_iters, migrate_every=migrate_every, track_progress=track_progress, threaded=use_threading, name='Harvester', save_dir=experiment_dir,
+        max_iters=max_iters, migrate_every=migrate_every, track_progress=track_progress, name='Harvester', save_dir=experiment_dir,
         logger=logger,
     )
     return harvester_island
 
 
 def create_excavator_island(
-        experiment_dir, env_type, use_threading=True, use_mp=False, track_progress=False,
+        island_class, experiment_dir, env_type, use_threading=True, use_mp=False, track_progress=False,
         num_harvesters=4, num_excavators=4, num_obstacles=8, num_pois=8, collision_penalty_scalar=0,
         num_sims=2, max_iters=3, migrate_every=1, base_pop_size=15, scale_env=1,
         direct_assign_fitness=True, fitness_update_eps=0.1, mutation_scalar=0.1, prob_to_mutate=0.05,
@@ -117,16 +118,16 @@ def create_excavator_island(
         'max_iters': max_iters, 'scale_env': scale_env, 'migrate_every': migrate_every, 'use_threading': use_threading, 'track_progress': track_progress,
     }
     save_config(island_params, save_dir=experiment_dir, config_name='island_config')
-    excavator_island = MAIsland(
+    excavator_island = island_class(
         agent_populations=excavator_pops, evolving_agent_names=[AgentType.Excavator], env=excavator_env, optimizer=excavator_optimizer,
-        max_iters=max_iters, migrate_every=migrate_every, track_progress=track_progress, threaded=use_threading, name='Excavator', save_dir=experiment_dir,
+        max_iters=max_iters, migrate_every=migrate_every, track_progress=track_progress, name='Excavator', save_dir=experiment_dir,
         logger=logger,
     )
     return excavator_island
 
 
 def create_mainland(
-        experiment_dir, env_type, use_threading=True, use_mp=False, track_progress=False,
+        island_class, experiment_dir, env_type, use_threading=True, use_mp=False, track_progress=False,
         num_harvesters=4, num_excavators=4, num_obstacles=8, num_pois=8, collision_penalty_scalar=0,
         num_sims=2, max_iters=3, migrate_every=1, base_pop_size=15, scale_env=1,
         direct_assign_fitness=True, fitness_update_eps=0.1, mutation_scalar=0.1, prob_to_mutate=0.05,
@@ -169,9 +170,9 @@ def create_mainland(
         'max_iters': max_iters, 'scale_env': scale_env, 'migrate_every': migrate_every, 'use_threading': use_threading, 'track_progress': track_progress,
     }
     save_config(island_params, save_dir=experiment_dir, config_name='island_config')
-    mainland = MAIsland(
+    mainland = island_class(
         agent_populations=mainland_pops, evolving_agent_names=[AgentType.Excavator, AgentType.Harvester], env=mainland_env, optimizer=mainland_optimizer,
-        max_iters=max_iters, migrate_every=migrate_every, track_progress=track_progress, threaded=use_threading, name='Mainland', save_dir=experiment_dir,
+        max_iters=max_iters, migrate_every=migrate_every, track_progress=track_progress, name='Mainland', save_dir=experiment_dir,
         logger=logger,
     )
     return mainland
@@ -201,19 +202,24 @@ def run_island_experiment(stat_run):
             'use_threading': False, 'use_mp': False, 'track_progress': True,
             'direct_assign_fitness': True, 'fitness_update_eps': 0.1, 'mutation_scalar': 0.1, 'prob_to_mutate': 0.05,
         }
-    collision_penalty_scalar = 1
+    # todo  fix issue with negative fitnesses
+    collision_penalty_scalar = 0
+    island_class = ThreadIsland if island_params['use_threading'] else MAIsland
 
     # todo  check plotting learning trajectories
-    # todo  create more islands that optimize same agent types but with different parameters (etc size, optimizer, num_agents)
+    # todo  create more island that optimize same agent types but with different parameters (etc size, optimizer, num_agents)
     logging.debug(f'Running island experiment on thread: {threading.get_native_id()}')
     harvester_island = create_harvester_island(
-        experiment_dir=Path(experiment_dir, 'harvester_island'), collision_penalty_scalar=collision_penalty_scalar,logger=logger, **island_params
+        island_class=island_class, experiment_dir=Path(experiment_dir, 'harvester_island'),
+        collision_penalty_scalar=collision_penalty_scalar, logger=logger, **island_params
     )
     excavator_island = create_excavator_island(
-        experiment_dir=Path(experiment_dir, 'excavator_island'), collision_penalty_scalar=collision_penalty_scalar,logger=logger, **island_params
+        island_class=island_class, experiment_dir=Path(experiment_dir, 'excavator_island'),
+        collision_penalty_scalar=collision_penalty_scalar, logger=logger, **island_params
     )
     mainland = create_mainland(
-        experiment_dir=Path(experiment_dir, 'mainland'), collision_penalty_scalar=collision_penalty_scalar, logger=logger, **island_params
+        island_class=island_class, experiment_dir=Path(experiment_dir, 'mainland'),
+        collision_penalty_scalar=collision_penalty_scalar, logger=logger, **island_params
     )
 
     harvester_island.add_neighbor(excavator_island)
@@ -225,9 +231,9 @@ def run_island_experiment(stat_run):
     mainland.add_neighbor(harvester_island)
     mainland.add_neighbor(excavator_island)
 
-    harvester_island.run()
-    excavator_island.run()
-    mainland.run()
+    harvester_island.optimize()
+    excavator_island.optimize()
+    mainland.optimize()
 
     while harvester_island.running or excavator_island.running or mainland.running:
         time.sleep(5)

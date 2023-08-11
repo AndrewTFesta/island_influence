@@ -314,10 +314,10 @@ def main(main_args):
     # test_collisions(render_mode='rgb_array')
     # test_collisions(render_mode='human')
 
-    # test_reset(env, render_mode=None)
+    test_reset(env, render_mode=None)
     test_step(env, render_mode=None)
-    # test_random(env, render_mode=None)
-    # test_rollout(env, render_mode=None)
+    test_random(env, render_mode=None)
+    test_rollout(env, render_mode=None)
 
     # test_render(env, render_mode='rgb_array')
     # test_reset(env, render_mode='rgb_array')
@@ -329,7 +329,7 @@ def main(main_args):
     # test_reset(env, render_mode='human')
     # test_step(env, render_mode='human')
     # test_random(env, render_mode='human')
-    # test_rollout(env, render_mode='human')
+    test_rollout(env, render_mode='human')
 
     test_persistence(env)
     return

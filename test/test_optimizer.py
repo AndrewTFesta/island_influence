@@ -12,7 +12,7 @@ from pathlib import Path
 
 from island_influence import project_properties
 from island_influence.agent import AgentType
-from island_influence.learn.cceaV2 import ccea
+from island_influence.learn.optimizer.cceaV2 import ccea
 from island_influence.setup_env import rand_ring_env, create_agent_policy
 
 

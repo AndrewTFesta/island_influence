@@ -38,6 +38,7 @@ doc_dir = Path(project_path, 'docs')
 output_dir = Path(project_path, 'output')
 model_dir = Path(output_dir, 'models')
 env_dir = Path(output_dir, 'envs')
+island_dir = Path(output_dir, 'island')
 exps_dir = Path(output_dir, 'exps')
 log_dir = Path(output_dir, 'logs')
 

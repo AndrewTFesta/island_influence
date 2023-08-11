@@ -8,16 +8,15 @@ import argparse
 import json
 import time
 from datetime import datetime
-from functools import partial
 from pathlib import Path
 
 import numpy as np
 from tqdm import trange
 
 from island_influence import project_properties
-from island_influence.agent import Agent, Obstacle, Poi, AgentType
+from island_influence.agent import Poi, AgentType
 from island_influence.harvest_env import HarvestEnv
-from island_influence.learn.cceaV2 import ccea, rollout
+from island_influence.learn.optimizer.cceaV2 import ccea, rollout
 from island_influence.learn.neural_network import NeuralNetwork
 from island_influence.utils import load_config
 
