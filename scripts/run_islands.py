@@ -178,17 +178,12 @@ def create_mainland(
     return mainland
 
 
-def run_island_experiment(stat_run):
+def run_island_experiment(experiment_dir):
     debug = False
     log_level = logging.DEBUG if debug else logging.INFO
     logger = logging.getLogger()
     logger.setLevel(log_level)
 
-    now = datetime.datetime.now()
-    date_str = now.strftime("%Y_%m_%d_%H_%M_%S")
-    experiment_dir = Path(project_properties.exps_dir, f'island_exp_test_{date_str}', f'stat_run_{stat_run}')
-    if not experiment_dir.exists():
-        experiment_dir.mkdir(parents=True, exist_ok=True)
     island_params = {
         'env_type': rand_ring_env, 'num_harvesters': 4, 'num_excavators': 4, 'num_obstacles': 50, 'num_pois': 8,
         'num_sims': 15, 'max_iters': 500, 'scale_env': 1, 'migrate_every': 15, 'base_pop_size': 25,
@@ -257,14 +252,24 @@ def run_island_experiment(stat_run):
     for agent_type, each_ind in mainland.top_inds.items():
         print(f'\t{agent_type}: {each_ind.name}: {each_ind.fitness}')
     print(f'=' * 80)
-    # todo  add keyboard interrupt hooks
     return
 
 
 def main(main_args):
     num_runs = 3
+    now = datetime.datetime.now()
+    date_str = now.strftime("%Y_%m_%d_%H_%M_%S")
     for idx in range(num_runs):
-        run_island_experiment(idx)
+        experiment_dir = Path(project_properties.exps_dir, f'island_exp_test_{date_str}', f'stat_run_{idx}')
+        if not experiment_dir.exists():
+            experiment_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            print(f'Starting stat run {idx}')
+            run_island_experiment(experiment_dir)
+        except KeyboardInterrupt:
+            print(f'Stopping stat run: {idx}')
+        except Exception as e:
+            print(f'Unexpected exception: {e}')
     return
 
 
