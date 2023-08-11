@@ -53,7 +53,7 @@ def pol2cart(angle, radius):
     return x, y
 
 
-def deterministic_ring(num_points, center, radius, start_proportion=0):
+def deterministic_ring(num_points, center, radius, start_proportion=0, seed=None):
     angles = np.linspace(start=start_proportion, stop=1, num=num_points, endpoint=False)
     angles += start_proportion
     angles *= 2 * np.pi

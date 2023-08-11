@@ -288,25 +288,25 @@ class HarvestEnv:
         :param seed:
         """
         if len(self.harvesters) > 0:
-            harvester_locs = self.location_funcs['harvesters'](num_points=len(self.harvesters))
+            harvester_locs = self.location_funcs['harvesters'](num_points=len(self.harvesters), seed=seed)
             for idx, agent in enumerate(self.harvesters):
                 agent.reset()
                 agent.location = harvester_locs[idx]
 
         if len(self.excavators) > 0:
-            excavator_locs = self.location_funcs['excavators'](num_points=len(self.excavators))
+            excavator_locs = self.location_funcs['excavators'](num_points=len(self.excavators), seed=seed)
             for idx, agent in enumerate(self.excavators):
                 agent.reset()
                 agent.location = excavator_locs[idx]
 
         if len(self.obstacles) > 0:
-            obstacle_locs = self.location_funcs['obstacles'](num_points=len(self.obstacles))
+            obstacle_locs = self.location_funcs['obstacles'](num_points=len(self.obstacles), seed=seed)
             for idx, agent in enumerate(self.obstacles):
                 agent.reset()
                 agent.location = obstacle_locs[idx]
 
         if len(self.pois) > 0:
-            poi_locs = self.location_funcs['pois'](num_points=len(self.pois))
+            poi_locs = self.location_funcs['pois'](num_points=len(self.pois), seed=seed)
             for idx, agent in enumerate(self.pois):
                 agent.reset()
                 agent.location = poi_locs[idx]
@@ -528,7 +528,6 @@ class HarvestEnv:
         # The size of a single grid square in pixels
         pix_square_size = (self.window_size / self.render_bound)
 
-        # todo  add legend showing what each color depicts
         agent_colors = {AgentType.Harvester: (0, 255, 0), AgentType.Excavator: (0, 0, 255), AgentType.Obstacle: black, AgentType.StaticPoi: (255, 0, 0)}
         default_color = (128, 128, 128)
 
@@ -537,7 +536,6 @@ class HarvestEnv:
         size_scalar = 2
 
         text_size = 14
-        text_bg_size = 16
         write_values = False
         write_legend = True
 
@@ -553,7 +551,6 @@ class HarvestEnv:
         canvas = pygame.Surface((self.window_size, self.window_size))
         canvas.fill(white)
         pygame.font.init()
-        font_bg = pygame.font.SysFont('arial', text_bg_size)
         font = pygame.font.SysFont('arial', text_size)
 
         for agent in self.agents:
@@ -624,7 +621,7 @@ class HarvestEnv:
         if write_legend:
             outline = 1
             legend_offset = 10
-            for idx, (agent_type, color) in enumerate(agent_colors.items()):
+            for idx, agent_type, color in enumerate(agent_colors.items()):
                 text = f'{agent_type.name}'
                 text_surface = font.render(text, False, color)
                 if outline > 0:

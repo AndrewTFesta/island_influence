@@ -15,18 +15,18 @@ from island_influence.learn.neural_network import NeuralNetwork
 from island_influence.utils import random_ring, deterministic_ring
 
 
-# def create_agent_policy(agent, learner):
-#     obs_space = agent.observation_space().shape
-#     action_space = agent.action_space().shape
-#
-#     # state_size = agent.sensor_resolution * Agent.NUM_BINS
-#     # action_size = 2
-#     obs_size = np.prod(obs_space)
-#     action_size = action_space[0]
-#     num_hidden = math.ceil((obs_size + action_size) / 2)
-#
-#     policy = NeuralNetwork(n_inputs=obs_size, n_outputs=action_size, n_hidden=num_hidden, learner=learner)
-#     return policy
+def create_agent_policy(agent, learner):
+    obs_space = agent.observation_space().shape
+    action_space = agent.action_space().shape
+
+    # state_size = agent.sensor_resolution * Agent.NUM_BINS
+    # action_size = 2
+    obs_size = np.prod(obs_space)
+    action_size = action_space[0]
+    num_hidden = math.ceil((obs_size + action_size) / 2)
+
+    policy = NeuralNetwork(n_inputs=obs_size, n_outputs=action_size, n_hidden=num_hidden, learner=learner)
+    return policy
 
 
 def create_base_env(location_funcs, num_harvesters=4, num_excavators=4, num_obstacles=8, num_pois=8, collision_penalty_scalar=0):

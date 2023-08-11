@@ -360,9 +360,7 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims,
                 if policy.name in avg_fitnesses and policy.learner:
                     fitness = avg_fitnesses[policy.name]
                     if direct_assign_fitness:
-                        # todo  fix back to actually assigning fitness
-                        policy.fitness = np.random.random()
-                        # policy.fitness = fitness
+                        policy.fitness = fitness
                     else:
                         fitness_delta = fitness - policy.fitness
                         policy.fitness += fitness_delta * fitness_update_eps
