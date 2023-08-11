@@ -145,6 +145,7 @@ def replay_episode(episode_dir: Path):
 
 
 def main(main_args):
+    # todo  update to work for island experiments
     base_save_dir = Path(project_properties.output_dir, 'experiment_results', 'figs')
     if not base_save_dir.exists():
         base_save_dir.mkdir(parents=True, exist_ok=True)

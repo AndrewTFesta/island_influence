@@ -10,12 +10,13 @@ from pathlib import Path
 
 from island_influence import project_properties
 from island_influence.harvest_env import HarvestEnv
-from island_influence.learn.cceaV2 import ccea, load_ccea_config
+from island_influence.learn.cceaV2 import ccea
 from island_influence.learn.neural_network import load_pytorch_model
+from island_influence.utils import load_config
 
 
 def restart_stat_run(stat_run_dir):
-    ccea_config = load_ccea_config(stat_run_dir)
+    ccea_config = load_config(stat_run_dir, config_stem='ccea_config')
 
     gen_dirs = list(stat_run_dir.glob('gen_*'))
     gen_dirs = sorted(gen_dirs, key=lambda x: int(x.stem.split('_')[-1]))

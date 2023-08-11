@@ -1,4 +1,6 @@
+import json
 import math
+from pathlib import Path
 
 import numpy as np
 
@@ -90,5 +92,28 @@ def random_ring(num_points, center, min_rad, max_rad, seed=None):
 
 
 def euclidean(positions_a: np.ndarray, positions_b: np.ndarray, axis=0):
-    """Calculate the distance between positions A and B"""
+    """
+    Calculate the distance between positions A and positions B
+
+    :param positions_a:
+    :param positions_b:
+    :param axis:
+    :return:
+    """
     return np.linalg.norm(positions_a - positions_b, axis=axis)
+
+
+def save_config(config, save_dir, config_name='config', indent=2):
+    if not save_dir.exists():
+        save_dir.mkdir(exist_ok=True, parents=True)
+    save_path = Path(save_dir, f'{config_name}.json')
+    with open(save_path, 'w') as config_file:
+        json.dump(config, config_file, indent=indent)
+    return save_path
+
+
+def load_config(experiment_dir, config_stem='config'):
+    config_fname = Path(experiment_dir, f'{config_stem}.json')
+    with open(config_fname, 'r') as config_file:
+        ccea_config = json.load(config_file)
+    return ccea_config

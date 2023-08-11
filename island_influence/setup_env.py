@@ -29,7 +29,7 @@ def create_agent_policy(agent, learner):
     return policy
 
 
-def create_base_env(location_funcs, num_harvesters=4, num_excavators=4, num_obstacles=8, num_pois=8):
+def create_base_env(location_funcs, num_harvesters=4, num_excavators=4, num_obstacles=8, num_pois=8, collision_penalty_scalar=0):
     obs_rad = 2
     max_vel = 1
 
@@ -72,11 +72,12 @@ def create_base_env(location_funcs, num_harvesters=4, num_excavators=4, num_obst
     ]
 
     env_func = partial(HarvestEnv, harvesters=harvesters, excavators=excavators, obstacles=obstacles, pois=pois,
-                       location_funcs=location_funcs, max_steps=max_steps, delta_time=delta_time, render_mode=render_mode)
+                       collision_penalty_scalar=collision_penalty_scalar, location_funcs=location_funcs,
+                       max_steps=max_steps, delta_time=delta_time, render_mode=render_mode)
     return env_func
 
 
-def rand_ring_env(scale_factor=2, num_harvesters=4, num_excavators=4, num_obstacles=8, num_pois=8):
+def rand_ring_env(scale_factor=2, num_harvesters=4, num_excavators=4, num_obstacles=8, num_pois=8, collision_penalty_scalar=0):
     agent_bounds = np.asarray([0, 3]) * scale_factor
     obstacle_bounds = np.asarray([5, 8]) * scale_factor
     poi_bounds = np.asarray([10, 13]) * scale_factor
@@ -91,11 +92,12 @@ def rand_ring_env(scale_factor=2, num_harvesters=4, num_excavators=4, num_obstac
         'obstacles': obstacle_locs,
         'pois': poi_locs,
     }
-    env_func = create_base_env(location_funcs)
+    env_func = create_base_env(location_funcs, num_harvesters=num_harvesters, num_excavators=num_excavators, num_obstacles=num_obstacles, num_pois=num_pois,
+                               collision_penalty_scalar=collision_penalty_scalar)
     return env_func
 
 
-def det_ring_env(scale_factor=2, num_harvesters=4, num_excavators=4, num_obstacles=8, num_pois=8):
+def det_ring_env(scale_factor=2, num_harvesters=4, num_excavators=4, num_obstacles=8, num_pois=8, collision_penalty_scalar=0):
     agent_bounds = np.asarray([0, 3]) * scale_factor
     obstacle_bounds = np.asarray([5, 8]) * scale_factor
     poi_bounds = np.asarray([10, 13]) * scale_factor
@@ -110,5 +112,6 @@ def det_ring_env(scale_factor=2, num_harvesters=4, num_excavators=4, num_obstacl
         'obstacles': obstacle_locs,
         'pois': poi_locs,
     }
-    env_func = create_base_env(location_funcs, num_harvesters, num_excavators, num_obstacles, num_pois)
+    env_func = create_base_env(location_funcs, num_harvesters=num_harvesters, num_excavators=num_excavators, num_obstacles=num_obstacles, num_pois=num_pois,
+                               collision_penalty_scalar=collision_penalty_scalar)
     return env_func

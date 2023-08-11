@@ -16,6 +16,7 @@ from tqdm import tqdm
 
 from island_influence.agent import AgentType
 from island_influence.harvest_env import HarvestEnv
+from island_influence.utils import save_config
 
 
 def filter_learning_policies(agent_policies):
@@ -231,22 +232,6 @@ def save_agent_policies(experiment_dir, gen_idx, env, agent_pops, human_readable
     return
 
 
-def save_ccea_config(ccea_config, save_dir, indent=2):
-    if not save_dir.exists():
-        save_dir.mkdir(exist_ok=True, parents=True)
-    save_path = Path(save_dir, 'ccea_config.json')
-    with open(save_path, 'w') as config_file:
-        json.dump(ccea_config, config_file, indent=indent)
-    return save_path
-
-
-def load_ccea_config(experiment_dir, config_stem='ccea_config.json'):
-    config_fname = Path(experiment_dir, config_stem)
-    with open(config_fname, 'r') as config_file:
-        ccea_config = json.load(config_file)
-    return ccea_config
-
-
 def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims, experiment_dir, completion_criteria=lambda: False,
          starting_gen=0, direct_assign_fitness=True, fitness_update_eps=1, mutation_scalar=0.1, prob_to_mutate=0.05, track_progress=True, use_mp=False):
     """
@@ -282,8 +267,6 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims,
     filtered_lens = {agent_type: len(each_pop) for agent_type, each_pop in filtered_pops.items()}
     max_len = np.max(np.asarray(list(filtered_lens.values())))
     if max_len != 0:
-        # todo  save initial fitnesses
-        #       make sure it doesnt create an additional directory when restarting
         # if a population has no unassigned fitnesses, add in the best policy from that initial population
         all_teams = [
             {
@@ -308,12 +291,13 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims,
             'num_sims': num_sims,
             # 'num_sims': {str(agent_type): size for agent_type, size in num_sims.items()},
             'population_sizes': {str(agent_type): size for agent_type, size in population_sizes.items()},
-            'experiment_dir': str(experiment_dir), 'direct_assign_fitness': direct_assign_fitness, 'fitness_update_eps': fitness_update_eps,
+            'direct_assign_fitness': direct_assign_fitness, 'fitness_update_eps': fitness_update_eps,
             'mutation_scalar': mutation_scalar, 'prob_to_mutate': prob_to_mutate,
 
         }
-        save_ccea_config(ccea_config=ccea_config, save_dir=experiment_dir)
+        save_config(config=ccea_config, save_dir=experiment_dir, config_name='ccea_config')
         env.save_environment(experiment_dir)
+        # save initial fitnesses
         save_agent_policies(experiment_dir, 0, env, agent_policies)
     ##########################################################################################
     map_func = map
@@ -388,7 +372,7 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims,
 
         # save generation progress
         # save all policies of each agent and save fitnesses mapping policies to fitnesses
-        save_agent_policies(experiment_dir, gen_idx+1, env, agent_policies)
+        save_agent_policies(experiment_dir, gen_idx + 1, env, agent_policies)
         num_iters += 1
         if isinstance(pbar, tqdm):
             pbar.update(1)
