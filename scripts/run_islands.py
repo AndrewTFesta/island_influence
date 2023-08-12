@@ -5,6 +5,7 @@
 
 """
 import argparse
+import copy
 import datetime
 import logging
 import threading
@@ -14,207 +15,143 @@ from pathlib import Path
 
 from island_influence import project_properties
 from island_influence.agent import AgentType
-from island_influence.harvest_env import HarvestEnv
+from island_influence.learn.island.MAIsland import MAIsland
 from island_influence.learn.island.ThreadIsland import ThreadIsland
 from island_influence.learn.optimizer.cceaV2 import ccea
-from island_influence.learn.island.MAIsland import MAIsland
 from island_influence.setup_env import create_agent_policy, rand_ring_env
-from island_influence.utils import save_config
+
+DEBUG = False
 
 
-def create_harvester_island(
-        island_class, experiment_dir, env_type, use_threading=True, use_mp=False, track_progress=False,
-        num_harvesters=4, num_excavators=4, num_obstacles=8, num_pois=8, collision_penalty_scalar=0,
-        num_sims=2, max_iters=3, migrate_every=1, base_pop_size=15, scale_env=1,
-        direct_assign_fitness=True, fitness_update_eps=0.1, mutation_scalar=0.1, prob_to_mutate=0.05,
-        logger=None,
-):
-    env_func = env_type(
-        scale_factor=scale_env, num_harvesters=num_harvesters, num_excavators=num_excavators, num_obstacles=num_obstacles, num_pois=num_pois,
-        collision_penalty_scalar=collision_penalty_scalar
-    )
-    harvester_env: HarvestEnv = env_func()
-
+def create_harvester_island(island_class, experiment_dir, island_params, ccea_params, env_params):
+    env_type = env_params.pop('env_type')
+    base_pop_size = env_params.pop('base_pop_size')
+    env_func = env_type(**env_params)
+    env = env_func()
+    num_agents = {
+        AgentType.Harvester: env_params['num_harvesters'], AgentType.Excavator: env_params['num_excavators'],
+        AgentType.Obstacle: env_params['num_obstacles'], AgentType.StaticPoi: env_params['num_pois']
+    }
     policy_funcs = {
-        AgentType.Harvester: partial(create_agent_policy, harvester_env.harvesters[0]),
-        AgentType.Excavator: partial(create_agent_policy, harvester_env.excavators[0]),
+        AgentType.Harvester: partial(create_agent_policy, env.harvesters[0]),
+        AgentType.Excavator: partial(create_agent_policy, env.excavators[0]),
     }
-
-    harvester_pop_sizes = {AgentType.Harvester: base_pop_size, AgentType.Excavator: harvester_env.num_agent_types(AgentType.Excavator)}
-    num_agents = {AgentType.Harvester: num_harvesters, AgentType.Excavator: num_excavators, AgentType.Obstacle: num_obstacles, AgentType.StaticPoi: num_pois}
-
-    harvester_pops = {
-        agent_type: [
-            policy_funcs[agent_type](learner=agent_type == AgentType.Harvester)
-            # need a minimum number of policies to satisfy the env requirements
-            for _ in range(max(pop_size // 5, num_agents[agent_type]))
-        ]
-        for agent_type, pop_size in harvester_pop_sizes.items()
-    }
-
-    harvester_opt_kwargs = {
-        'num_sims': num_sims, 'population_sizes': harvester_pop_sizes,
-        'direct_assign_fitness': direct_assign_fitness, 'fitness_update_eps': fitness_update_eps,
-        'mutation_scalar': mutation_scalar, 'prob_to_mutate': prob_to_mutate,
-        'use_mp': use_mp, 'experiment_dir': experiment_dir
-    }
-    harvester_optimizer = partial(ccea, **harvester_opt_kwargs)
-
-    island_params = {
-        'env_type': rand_ring_env.__name__, 'num_harvesters': num_harvesters, 'num_excavators': num_excavators,
-        'num_obstacles': num_obstacles, 'num_pois': num_pois, 'save_dir': str(experiment_dir),
-        'max_iters': max_iters, 'scale_env': scale_env, 'migrate_every': migrate_every, 'use_threading': use_threading, 'track_progress': track_progress,
-    }
-    save_config(island_params, save_dir=experiment_dir, config_name='island_config')
-    harvester_island = island_class(
-        agent_populations=harvester_pops, evolving_agent_names=[AgentType.Harvester], env=harvester_env, optimizer=harvester_optimizer,
-        max_iters=max_iters, migrate_every=migrate_every, track_progress=track_progress, name='Harvester', save_dir=experiment_dir,
-        logger=logger,
-    )
-    return harvester_island
-
-
-def create_excavator_island(
-        island_class, experiment_dir, env_type, use_threading=True, use_mp=False, track_progress=False,
-        num_harvesters=4, num_excavators=4, num_obstacles=8, num_pois=8, collision_penalty_scalar=0,
-        num_sims=2, max_iters=3, migrate_every=1, base_pop_size=15, scale_env=1,
-        direct_assign_fitness=True, fitness_update_eps=0.1, mutation_scalar=0.1, prob_to_mutate=0.05,
-        logger=None,
-):
-    env_func = env_type(
-        scale_factor=scale_env, num_harvesters=num_harvesters, num_excavators=num_excavators, num_obstacles=num_obstacles, num_pois=num_pois,
-        collision_penalty_scalar=collision_penalty_scalar
-    )
-    excavator_env: HarvestEnv = env_func()
-
-    policy_funcs = {
-        AgentType.Harvester: partial(create_agent_policy, excavator_env.harvesters[0]),
-        AgentType.Excavator: partial(create_agent_policy, excavator_env.excavators[0]),
-    }
-
-    excavator_pop_sizes = {AgentType.Harvester: excavator_env.num_agent_types(AgentType.Harvester), AgentType.Excavator: base_pop_size}
-    num_agents = {AgentType.Harvester: num_harvesters, AgentType.Excavator: num_excavators, AgentType.Obstacle: num_obstacles, AgentType.StaticPoi: num_pois}
-
-    excavator_pops = {
+    #############################################################################################################
+    pop_sizes = {AgentType.Harvester: base_pop_size, AgentType.Excavator: env.num_agent_types(AgentType.Excavator)}
+    agent_pops = {
         agent_type: [
             policy_funcs[agent_type](learner=agent_type == AgentType.Excavator)
             # need a minimum number of policies to satisfy the env requirements
             for _ in range(max(pop_size // 5, num_agents[agent_type]))
         ]
-        for agent_type, pop_size in excavator_pop_sizes.items()
+        for agent_type, pop_size in pop_sizes.items()
     }
+    island_params['name'] = 'Harvester'
+    island_params['evolving_agent_names'] = [AgentType.Harvester]
+    #############################################################################################################
+    env_params['env_type'] = env_type.__name__
+    ccea_params['population_sizes'] = pop_sizes
+    island_params['optimizer'] = partial(ccea, **ccea_params)
+    island_params['agent_populations'] = agent_pops
+    island_params['env'] = env
+    island_params['save_dir'] = experiment_dir
 
-    excavator_opt_kwargs = {
-        'num_sims': num_sims, 'population_sizes': excavator_pop_sizes,
-        'direct_assign_fitness': direct_assign_fitness, 'fitness_update_eps': fitness_update_eps,
-        'mutation_scalar': mutation_scalar, 'prob_to_mutate': prob_to_mutate,
-        'use_mp': use_mp, 'experiment_dir': experiment_dir
+    island = island_class(**island_params)
+    return island
+
+
+def create_excavator_island(island_class, experiment_dir, island_params, ccea_params, env_params):
+    env_type = env_params.pop('env_type')
+    base_pop_size = env_params.pop('base_pop_size')
+    env_func = env_type(**env_params)
+    env = env_func()
+    num_agents = {
+        AgentType.Harvester: env_params['num_harvesters'], AgentType.Excavator: env_params['num_excavators'],
+        AgentType.Obstacle: env_params['num_obstacles'], AgentType.StaticPoi: env_params['num_pois']
     }
-    excavator_optimizer = partial(ccea, **excavator_opt_kwargs)
-
-    island_params = {
-        'env_type': rand_ring_env.__name__, 'num_harvesters': num_harvesters, 'num_excavators': num_excavators,
-        'num_obstacles': num_obstacles, 'num_pois': num_pois, 'save_dir': str(experiment_dir),
-        'max_iters': max_iters, 'scale_env': scale_env, 'migrate_every': migrate_every, 'use_threading': use_threading, 'track_progress': track_progress,
-    }
-    save_config(island_params, save_dir=experiment_dir, config_name='island_config')
-    excavator_island = island_class(
-        agent_populations=excavator_pops, evolving_agent_names=[AgentType.Excavator], env=excavator_env, optimizer=excavator_optimizer,
-        max_iters=max_iters, migrate_every=migrate_every, track_progress=track_progress, name='Excavator', save_dir=experiment_dir,
-        logger=logger,
-    )
-    return excavator_island
-
-
-def create_mainland(
-        island_class, experiment_dir, env_type, use_threading=True, use_mp=False, track_progress=False,
-        num_harvesters=4, num_excavators=4, num_obstacles=8, num_pois=8, collision_penalty_scalar=0,
-        num_sims=2, max_iters=3, migrate_every=1, base_pop_size=15, scale_env=1,
-        direct_assign_fitness=True, fitness_update_eps=0.1, mutation_scalar=0.1, prob_to_mutate=0.05,
-        logger=None,
-):
-    env_func = env_type(
-        scale_factor=scale_env, num_harvesters=num_harvesters, num_excavators=num_excavators, num_obstacles=num_obstacles, num_pois=num_pois,
-        collision_penalty_scalar=collision_penalty_scalar
-    )
-    mainland_env = env_func()
-
     policy_funcs = {
-        AgentType.Harvester: partial(create_agent_policy, mainland_env.harvesters[0]),
-        AgentType.Excavator: partial(create_agent_policy, mainland_env.excavators[0]),
+        AgentType.Harvester: partial(create_agent_policy, env.harvesters[0]),
+        AgentType.Excavator: partial(create_agent_policy, env.excavators[0]),
     }
-
-    mainland_pop_sizes = {AgentType.Harvester: base_pop_size, AgentType.Excavator: base_pop_size}
-    num_agents = {AgentType.Harvester: num_harvesters, AgentType.Excavator: num_excavators, AgentType.Obstacle: num_obstacles, AgentType.StaticPoi: num_pois}
-
-    mainland_pops = {
+    #############################################################################################################
+    pop_sizes = {AgentType.Harvester: env.num_agent_types(AgentType.Harvester), AgentType.Excavator: base_pop_size}
+    agent_pops = {
         agent_type: [
             policy_funcs[agent_type](learner=agent_type == AgentType.Excavator)
             # need a minimum number of policies to satisfy the env requirements
             for _ in range(max(pop_size // 5, num_agents[agent_type]))
         ]
-        for agent_type, pop_size in mainland_pop_sizes.items()
+        for agent_type, pop_size in pop_sizes.items()
+    }
+    island_params['name'] = 'Excavator'
+    island_params['evolving_agent_names'] = [AgentType.Excavator]
+    #############################################################################################################
+    env_params['env_type'] = env_type.__name__
+    ccea_params['population_sizes'] = pop_sizes
+    island_params['optimizer'] = partial(ccea, **ccea_params)
+    island_params['agent_populations'] = agent_pops
+    island_params['env'] = env
+    island_params['save_dir'] = experiment_dir
+
+    island = island_class(**island_params)
+    return island
+
+
+def create_mainland(island_class, experiment_dir, island_params, ccea_params, env_params):
+    env_type = env_params.pop('env_type')
+    base_pop_size = env_params.pop('base_pop_size')
+    env_func = env_type(**env_params)
+    env = env_func()
+    num_agents = {
+        AgentType.Harvester: env_params['num_harvesters'], AgentType.Excavator: env_params['num_excavators'],
+        AgentType.Obstacle: env_params['num_obstacles'], AgentType.StaticPoi: env_params['num_pois']
+    }
+    policy_funcs = {
+        AgentType.Harvester: partial(create_agent_policy, env.harvesters[0]),
+        AgentType.Excavator: partial(create_agent_policy, env.excavators[0]),
+    }
+    #############################################################################################################
+    pop_sizes = {AgentType.Harvester: base_pop_size, AgentType.Excavator: base_pop_size}
+    agent_pops = {
+        agent_type: [
+            policy_funcs[agent_type](learner=agent_type == AgentType.Excavator)
+            # need a minimum number of policies to satisfy the env requirements
+            for _ in range(max(pop_size // 5, num_agents[agent_type]))
+        ]
+        for agent_type, pop_size in pop_sizes.items()
     }
 
-    mainland_opt_kwargs = {
-        'num_sims': num_sims, 'population_sizes': mainland_pop_sizes,
-        'direct_assign_fitness': direct_assign_fitness, 'fitness_update_eps': fitness_update_eps,
-        'mutation_scalar': mutation_scalar, 'prob_to_mutate': prob_to_mutate,
-        'use_mp': use_mp, 'experiment_dir': experiment_dir
-    }
-    mainland_optimizer = partial(ccea, **mainland_opt_kwargs)
+    island_params['name'] = 'Mainland'
+    island_params['evolving_agent_names'] = [AgentType.Excavator, AgentType.Harvester]
+    #############################################################################################################
+    env_params['env_type'] = env_type.__name__
+    ccea_params['population_sizes'] = pop_sizes
+    island_params['optimizer'] = partial(ccea, **ccea_params)
+    island_params['agent_populations'] = agent_pops
+    island_params['env'] = env
+    island_params['save_dir'] = experiment_dir
 
-    island_params = {
-        'env_type': rand_ring_env.__name__, 'num_harvesters': num_harvesters, 'num_excavators': num_excavators,
-        'num_obstacles': num_obstacles, 'num_pois': num_pois, 'save_dir': str(experiment_dir),
-        'max_iters': max_iters, 'scale_env': scale_env, 'migrate_every': migrate_every, 'use_threading': use_threading, 'track_progress': track_progress,
-    }
-    save_config(island_params, save_dir=experiment_dir, config_name='island_config')
-    mainland = island_class(
-        agent_populations=mainland_pops, evolving_agent_names=[AgentType.Excavator, AgentType.Harvester], env=mainland_env, optimizer=mainland_optimizer,
-        max_iters=max_iters, migrate_every=migrate_every, track_progress=track_progress, name='Mainland', save_dir=experiment_dir,
-        logger=logger,
-    )
-    return mainland
+    island = island_class(**island_params)
+    return island
 
 
-def run_island_experiment(experiment_dir):
-    debug = False
-    log_level = logging.DEBUG if debug else logging.INFO
-    logger = logging.getLogger()
-    logger.setLevel(log_level)
-
-    island_params = {
-        'env_type': rand_ring_env, 'num_harvesters': 4, 'num_excavators': 4, 'num_obstacles': 15, 'num_pois': 8,
-        'num_sims': 15, 'max_iters': 500, 'scale_env': 1, 'migrate_every': 15, 'base_pop_size': 25,
-        'use_threading': True, 'use_mp': True, 'track_progress': True,
-        'direct_assign_fitness': True, 'fitness_update_eps': 0.1, 'mutation_scalar': 0.1, 'prob_to_mutate': 0.05,
-    }
-    if debug:
-        island_params = {
-            'env_type': rand_ring_env, 'num_harvesters': 4, 'num_excavators': 4, 'num_obstacles': 8, 'num_pois': 8,
-            'num_sims': 5, 'max_iters': 500, 'scale_env': 1, 'migrate_every': 5, 'base_pop_size': 10,
-            'use_threading': False, 'use_mp': False, 'track_progress': True,
-            'direct_assign_fitness': True, 'fitness_update_eps': 0.1, 'mutation_scalar': 0.1, 'prob_to_mutate': 0.05,
-        }
-    # todo  fix issue with negative fitnesses
-    collision_penalty_scalar = 0
-    island_class = ThreadIsland if island_params['use_threading'] else MAIsland
-
+def run_island_experiment(experiment_dir, island_params, ccea_params, env_params):
+    use_threading = island_params.pop('use_threading')
+    island_class = ThreadIsland if use_threading else MAIsland
     # todo  check plotting learning trajectories
     # todo  create more island that optimize same agent types but with different parameters (etc size, optimizer, num_agents)
     logging.debug(f'Running island experiment on thread: {threading.get_native_id()}')
     harvester_island = create_harvester_island(
         island_class=island_class, experiment_dir=Path(experiment_dir, 'harvester_island'),
-        collision_penalty_scalar=collision_penalty_scalar, logger=logger, **island_params
+        island_params=copy.deepcopy(island_params), ccea_params=copy.deepcopy(ccea_params), env_params=copy.deepcopy(env_params)
     )
     excavator_island = create_excavator_island(
         island_class=island_class, experiment_dir=Path(experiment_dir, 'excavator_island'),
-        collision_penalty_scalar=collision_penalty_scalar, logger=logger, **island_params
+        island_params=copy.deepcopy(island_params), ccea_params=copy.deepcopy(ccea_params), env_params=copy.deepcopy(env_params)
     )
     mainland = create_mainland(
         island_class=island_class, experiment_dir=Path(experiment_dir, 'mainland'),
-        collision_penalty_scalar=collision_penalty_scalar, logger=logger, **island_params
+        island_params=copy.deepcopy(island_params), ccea_params=copy.deepcopy(ccea_params), env_params=copy.deepcopy(env_params)
     )
 
     harvester_island.add_neighbor(excavator_island)
@@ -256,6 +193,20 @@ def run_island_experiment(experiment_dir):
 
 
 def main(main_args):
+    log_level = logging.DEBUG if DEBUG else logging.INFO
+    logger = logging.getLogger()
+    logger.setLevel(log_level)
+    island_params = {'max_iters': 500, 'migrate_every': 15, 'use_threading': True, 'track_progress': True, 'logger': logger}
+    ccea_params = {
+        'num_sims': 15, 'starting_gen': 0, 'direct_assign_fitness': True, 'fitness_update_eps': 1, 'mutation_scalar': 0.1,
+        'prob_to_mutate': 0.05, 'track_progress': True, 'use_mp': False,
+    }
+    env_params = {
+        'env_type': rand_ring_env, 'scale_factor': 1, 'num_harvesters': 4, 'num_excavators': 4, 'num_obstacles': 8, 'num_pois': 8, 'obs_rad': 2,
+        'collision_penalty_scalar': 0, 'max_vel': 1, 'agent_weight': 1, 'obs_weight': 1, 'poi_weight': 1, 'agent_value': 1, 'obstacle_value': 1,
+        'poi_value': 1, 'sen_res': 8, 'delta_time': 1, 'render_mode': None, 'max_steps': 100,  'base_pop_size': 25,
+    }
+
     num_runs = 3
     now = datetime.datetime.now()
     date_str = now.strftime("%Y_%m_%d_%H_%M_%S")
@@ -265,7 +216,7 @@ def main(main_args):
             experiment_dir.mkdir(parents=True, exist_ok=True)
         try:
             print(f'Starting stat run {idx}')
-            run_island_experiment(experiment_dir)
+            run_island_experiment(experiment_dir, island_params, ccea_params, env_params)
         except KeyboardInterrupt:
             print(f'Stopping stat run: {idx}')
         except Exception as e:

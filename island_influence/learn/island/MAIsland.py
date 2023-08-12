@@ -5,6 +5,7 @@
 
 """
 import csv
+import dataclasses
 import logging
 import pickle
 import threading
@@ -12,77 +13,75 @@ import time
 import uuid
 from pathlib import Path
 
-import dill
 from tqdm import tqdm
+
+from island_influence.utils import save_config
+
+
+@dataclasses.dataclass
+class IslandState(dict):
+
+    def __init__(self):
+        super().__init__()
+        # todo  implement island state dataclass
+        # todo  store important state vars in island_state
+        return
 
 
 class MAIsland:
 
-    def __init__(self, agent_populations, evolving_agent_names, env, optimizer, max_iters, save_dir, migrate_every=1,
-                 name=None, track_progress=False, logger=None):
+    def __init__(
+            self, agent_populations, evolving_agent_names, env, optimizer, max_iters, save_dir, migrate_every=1,
+            name=None, track_progress=False, logger=None
+    ):
+        """
+        neighbors are a list of "neighboring" island where an island is able to migrate populations to its neighbors
+        able to know which agents to migrate to which island by looking at the agents being evolved on the current island and the neighbor island
+        note that there is no restriction that any given island may be the only island evolving a certain "type" of agent
+          or that "neighboring" must be symmetric
+
+        :param agent_populations:
+        :param evolving_agent_names:
+        :param env:
+        :param optimizer:
+        :param max_iters:
+        :param save_dir:
+        :param migrate_every:
+        :param name:
+        :param track_progress:
+        :param logger:
+        """
         if name is None:
             name = '_'.join([str(agent_type) for agent_type in evolving_agent_names])
             name = f'MAIsland__[{name}]'
         if logger is None:
             logger = logging.getLogger()
 
-        self.name = f'{name}_{str(uuid.uuid4())[-4:]}'
+        # todo  mark where migrations happen
         self.logger = logger
-
-        self.agent_populations = agent_populations
-        self.evolving_agent_names = evolving_agent_names
-        self.env = env
-
         self.running = True
+        self.track_progress = track_progress
+        self.optimizer_func = optimizer
+        self.env = env
+        self.neighbors: list[MAIsland] = []
+        self.agent_populations = agent_populations
+
+        self.name = f'{name}_{str(uuid.uuid4())[-4:]}'
+        self.evolving_agent_names = evolving_agent_names
         self.migrate_every = migrate_every
         self.since_last_migration = 0
-        self.optimizer_func = optimizer
         self.max_iters = max_iters
-        self.track_progress = track_progress
         self.save_dir = save_dir
         self.times_fname = Path(self.save_dir, 'opt_times.csv')
-        # todo  mark where migrations happen
-
-        # neighbors are a list of "neighboring" island where an island is able to migrate populations to its neighbors
-        # able to know which agents to migrate to which island by looking at the agents being evolved on the current island and the neighbor island
-        # note that there is no restriction that any given island may be the only island evolving a certain "type" of agent
-        #   or that "neighboring" must be symmetric
-        self.neighbors: list[MAIsland] = []
         self.migrated_from_neighbors = {}
-
         self.num_migrations = 0
         self.total_gens_run = 0
         self.opt_times = None
         self.final_pops = None
         self.top_inds = None
-        return
 
-    def __getstate__(self):
-        state = self.__dict__.copy()
-        keep_fields = {
-            'name',
-            'agent_populations',
-            'evolving_agent_names',
-            'env',
-            'migrate_every',
-            'since_last_migration',
-            'optimizer_func',
-            'max_iters',
-            'track_progress',
-            'save_dir',
-            'times_fname',
-            'neighbors',
-            'migrated_from_neighbors',
-            'num_migrations',
-            'total_gens_run',
-            'opt_times',
-            'final_pops',
-            'top_inds'
-        }
-        remove_fields = set(state.keys()).difference(keep_fields)
-        for each_field in remove_fields:
-            state.pop(each_field)
-        return state
+        self.island_state = IslandState()
+        return
 
     def __repr__(self):
         return f'{self.name}'
@@ -175,7 +174,6 @@ class MAIsland:
         return False
 
     def incorporate_migrations(self):
-        # todo  make self.migrated_from_neighbors into queue?
         for agent_type, population in self.migrated_from_neighbors.items():
             # determine how many old policies must be kept to satisfy env requirements
             # add the new policies with the current population
@@ -222,26 +220,13 @@ class MAIsland:
         return
 
     def save_island(self, save_dir=None, tag=''):
-        # todo  use better methods of saving than pickling
-        # https://docs.python.org/3/library/pickle.html#pickling-class-instances
-        # https://stackoverflow.com/questions/37928794/which-is-faster-for-load-pickle-or-hdf5-in-python
-        # https://marshmallow.readthedocs.io/en/stable/
-        # https://developers.google.com/protocol-buffers
-        # https://developers.google.com/protocol-buffers/docs/pythontutorial
-        if save_dir is None:
-            save_dir = self.save_dir
-            # save_dir = project_properties.island_dir
+        save_dir = self.save_dir if save_dir is None else save_dir
+        tag = f'_{tag}' if tag != '' else tag
 
-        if tag != '':
-            tag = f'_{tag}'
-
-        save_path = Path(save_dir, f'island_{self.name}{tag}.pkl')
+        save_path = Path(save_dir, f'island_{self.name}{tag}.json')
         if not save_path.parent.exists():
             save_path.parent.mkdir(parents=True, exist_ok=True)
-
-        # todo  can I get around this in some way?
-        # with open(save_path, 'wb') as save_file:
-        #     dill.dump(self, save_file, pickle.HIGHEST_PROTOCOL)
+        save_config(self.island_state, save_dir=self.save_dir)
         return save_path
 
     @staticmethod

@@ -29,23 +29,11 @@ def create_agent_policy(agent, learner):
     return policy
 
 
-def create_base_env(location_funcs, num_harvesters=4, num_excavators=4, num_obstacles=8, num_pois=8, collision_penalty_scalar=0):
-    obs_rad = 2
-    max_vel = 1
-
-    agent_weight = 1
-    obs_weight = 1
-    poi_weight = 1
-
-    agent_value = 1
-    obstacle_value = 1
-    poi_value = 1
-
-    sen_res = 8
-    delta_time = 1
-    render_mode = None
-    max_steps = 100
-
+def create_base_env(
+        location_funcs, num_harvesters=4, num_excavators=4, num_obstacles=8, num_pois=8, collision_penalty_scalar=0, obs_rad=2, max_vel=1,
+        agent_weight=1, obs_weight=1, poi_weight=1, agent_value=1, obstacle_value=1, poi_value=1, sen_res=8, delta_time=1, render_mode=None,
+        max_steps=100
+):
     state_size = sen_res * Agent.NUM_BINS
     action_size = 2
     n_hidden = math.ceil((state_size + action_size) / 2)
@@ -77,7 +65,11 @@ def create_base_env(location_funcs, num_harvesters=4, num_excavators=4, num_obst
     return env_func
 
 
-def rand_ring_env(scale_factor=2, num_harvesters=4, num_excavators=4, num_obstacles=8, num_pois=8, collision_penalty_scalar=0):
+def rand_ring_env(
+        scale_factor=1, num_harvesters=4, num_excavators=4, num_obstacles=8, num_pois=8, collision_penalty_scalar=0, obs_rad=2, max_vel=1,
+        agent_weight=1, obs_weight=1, poi_weight=1, agent_value=1, obstacle_value=1, poi_value=1, sen_res=8, delta_time=1, render_mode=None,
+        max_steps=100
+):
     agent_bounds = np.asarray([0, 3]) * scale_factor
     obstacle_bounds = np.asarray([5, 8]) * scale_factor
     poi_bounds = np.asarray([10, 13]) * scale_factor
@@ -92,12 +84,20 @@ def rand_ring_env(scale_factor=2, num_harvesters=4, num_excavators=4, num_obstac
         'obstacles': obstacle_locs,
         'pois': poi_locs,
     }
-    env_func = create_base_env(location_funcs, num_harvesters=num_harvesters, num_excavators=num_excavators, num_obstacles=num_obstacles, num_pois=num_pois,
-                               collision_penalty_scalar=collision_penalty_scalar)
+    env_func = create_base_env(
+        location_funcs, num_harvesters=num_harvesters, num_excavators=num_excavators, num_obstacles=num_obstacles, num_pois=num_pois,
+        collision_penalty_scalar=collision_penalty_scalar, obs_rad=obs_rad, max_vel=max_vel, agent_weight=agent_weight, obs_weight=obs_weight,
+        poi_weight=poi_weight, agent_value=agent_value, obstacle_value=obstacle_value, poi_value=poi_value, sen_res=sen_res, delta_time=delta_time,
+        render_mode=render_mode, max_steps=max_steps
+    )
     return env_func
 
 
-def det_ring_env(scale_factor=2, num_harvesters=4, num_excavators=4, num_obstacles=8, num_pois=8, collision_penalty_scalar=0):
+def det_ring_env(
+        scale_factor=1, num_harvesters=4, num_excavators=4, num_obstacles=8, num_pois=8, collision_penalty_scalar=0, obs_rad=2, max_vel=1,
+        agent_weight=1, obs_weight=1, poi_weight=1, agent_value=1, obstacle_value=1, poi_value=1, sen_res=8, delta_time=1, render_mode=None,
+        max_steps=100
+):
     agent_bounds = np.asarray([0, 3]) * scale_factor
     obstacle_bounds = np.asarray([5, 8]) * scale_factor
     poi_bounds = np.asarray([10, 13]) * scale_factor
@@ -112,6 +112,10 @@ def det_ring_env(scale_factor=2, num_harvesters=4, num_excavators=4, num_obstacl
         'obstacles': obstacle_locs,
         'pois': poi_locs,
     }
-    env_func = create_base_env(location_funcs, num_harvesters=num_harvesters, num_excavators=num_excavators, num_obstacles=num_obstacles, num_pois=num_pois,
-                               collision_penalty_scalar=collision_penalty_scalar)
+    env_func = create_base_env(
+        location_funcs, num_harvesters=num_harvesters, num_excavators=num_excavators, num_obstacles=num_obstacles, num_pois=num_pois,
+        collision_penalty_scalar=collision_penalty_scalar, obs_rad=obs_rad, max_vel=max_vel, agent_weight=agent_weight, obs_weight=obs_weight,
+        poi_weight=poi_weight, agent_value=agent_value, obstacle_value=obstacle_value, poi_value=poi_value, sen_res=sen_res, delta_time=delta_time,
+        render_mode=render_mode, max_steps=max_steps
+    )
     return env_func
