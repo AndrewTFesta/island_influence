@@ -22,8 +22,7 @@ class ThreadIsland(MAIsland):
         return
 
     # def __getstate__(self):
-    #     state = self.__dict__.copy()
-    #     del state['lock']
+    #     # state = self.__dict__.copy()
     #     return state
 
     def optimize(self):

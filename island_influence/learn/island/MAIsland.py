@@ -9,6 +9,7 @@ import logging
 import pickle
 import threading
 import time
+import uuid
 from pathlib import Path
 
 import dill
@@ -21,11 +22,11 @@ class MAIsland:
                  name=None, track_progress=False, logger=None):
         if name is None:
             name = '_'.join([str(agent_type) for agent_type in evolving_agent_names])
-            name = f'[{name}]'
+            name = f'MAIsland__[{name}]'
         if logger is None:
             logger = logging.getLogger()
 
-        self.name = f'MAIsland__{name}'
+        self.name = f'{name}_{str(uuid.uuid4())[-4:]}'
         self.logger = logger
 
         self.agent_populations = agent_populations
@@ -55,6 +56,33 @@ class MAIsland:
         self.final_pops = None
         self.top_inds = None
         return
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        keep_fields = {
+            'name',
+            'agent_populations',
+            'evolving_agent_names',
+            'env',
+            'migrate_every',
+            'since_last_migration',
+            'optimizer_func',
+            'max_iters',
+            'track_progress',
+            'save_dir',
+            'times_fname',
+            'neighbors',
+            'migrated_from_neighbors',
+            'num_migrations',
+            'total_gens_run',
+            'opt_times',
+            'final_pops',
+            'top_inds'
+        }
+        remove_fields = set(state.keys()).difference(keep_fields)
+        for each_field in remove_fields:
+            state.pop(each_field)
+        return state
 
     def __repr__(self):
         return f'{self.name}'
@@ -189,6 +217,10 @@ class MAIsland:
                     each_neighbor.receive_population(agent_type, top_agents, self)
         return
 
+    def close(self):
+        self.env.close()
+        return
+
     def save_island(self, save_dir=None, tag=''):
         # todo  use better methods of saving than pickling
         # https://docs.python.org/3/library/pickle.html#pickling-class-instances
@@ -207,8 +239,9 @@ class MAIsland:
         if not save_path.parent.exists():
             save_path.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(save_path, 'wb') as save_file:
-            dill.dump(self, save_file, pickle.HIGHEST_PROTOCOL)
+        # todo  can I get around this in some way?
+        # with open(save_path, 'wb') as save_file:
+        #     dill.dump(self, save_file, pickle.HIGHEST_PROTOCOL)
         return save_path
 
     @staticmethod

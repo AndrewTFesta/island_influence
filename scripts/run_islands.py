@@ -185,9 +185,9 @@ def run_island_experiment(experiment_dir):
     logger.setLevel(log_level)
 
     island_params = {
-        'env_type': rand_ring_env, 'num_harvesters': 4, 'num_excavators': 4, 'num_obstacles': 50, 'num_pois': 8,
+        'env_type': rand_ring_env, 'num_harvesters': 4, 'num_excavators': 4, 'num_obstacles': 15, 'num_pois': 8,
         'num_sims': 15, 'max_iters': 500, 'scale_env': 1, 'migrate_every': 15, 'base_pop_size': 25,
-        'use_threading': True, 'use_mp': True, 'track_progress': False,
+        'use_threading': True, 'use_mp': True, 'track_progress': True,
         'direct_assign_fitness': True, 'fitness_update_eps': 0.1, 'mutation_scalar': 0.1, 'prob_to_mutate': 0.05,
     }
     if debug:

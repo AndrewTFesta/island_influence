@@ -9,34 +9,33 @@ import logging
 import socket
 import threading
 import time
-from collections import namedtuple
 from json import JSONDecodeError
 
 from island_influence.learn.island.MAIsland import MAIsland
+from island_influence.learn.island.ThreadIsland import ThreadIsland
 
-Message = namedtuple('Message', ['msg_type', 'msg', 'time'])
 
+class MpIsland(ThreadIsland):
 
-# class MpIsland(MAIsland):
-class MpIsland:
-
-    def __init__(self, island_name, host='127.0.0.1', server_port=0):
-        # def __init__(self, agent_populations, evolving_agent_names, env, optimizer, max_iters, save_dir, migrate_every=1,
-        #              name=None, track_progress=False, logger=None, host='0.0.0.9', port=0):
-        # super().__init__(agent_populations, evolving_agent_names, env, optimizer, max_iters, save_dir, migrate_every=migrate_every,
-        #                  name=name, track_progress=track_progress, logger=logger)
-        self.name = island_name
+    def __init__(self, agent_populations, evolving_agent_names, env, optimizer, max_iters, save_dir, migrate_every=1,
+                 name=None, track_progress=False, logger=None, host='127.0.0.1', server_port=0):
+        super().__init__(agent_populations, evolving_agent_names, env, optimizer, max_iters, save_dir, migrate_every=migrate_every,
+                         name=name, track_progress=track_progress, logger=logger)
         self.accept_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.host = host
         # server socket is only ever used to accept new connections
         # each connection accepted by the server socket starts its socket with a thread that listens for, and sends, messages
         self.server_port = server_port
 
+        self.socket_timeout = 1
+        self.connection_dead_time = 60
         self._listening = False
         self.neighbors = {}
 
         self._listen_connection_thread = threading.Thread(target=self._listen_connections, daemon=True)
         self._listen_neighbors_thread = threading.Thread(target=self._listen_neighbors, daemon=True)
+        # todo  fix rollouts are significantly slower when using the mp module
+        #       because the entire rollout is moved to another thread?
         return
 
     def debug_message(self, message):
@@ -53,6 +52,7 @@ class MpIsland:
         return
 
     def close(self):
+        super().close()
         self.accept_socket.close()
         return
 
@@ -66,12 +66,13 @@ class MpIsland:
         if recipients is None:
             recipients = list(self.neighbors.keys())
 
+        # todo  RuntimeError: dictionary changed size during iteration
         for island_id, neighbor in self.neighbors.items():
             connection = neighbor['connection']
             if island_id in recipients:
                 try:
                     if isinstance(data, str):
-                        data = Message(msg_type='data', msg=data, time=time.time())
+                        data = dict(msg_type='data', msg=data, time=time.time())
                     if isinstance(data, dict):
                         data = json.dumps(data)
                     data = data.encode('utf-8')
@@ -82,18 +83,20 @@ class MpIsland:
 
     @staticmethod
     def format_message(message_type, message):
-        formatted_msg = Message(msg_type=message_type, msg=message, time=time.time())
+        formatted_msg = dict(msg_type=message_type, msg=message, time=time.time())
         return formatted_msg
 
     def _handle_neighbor(self, island_id):
-        heartbeat = HeartBeat(parent=self, island_name=island_id, dead_time=5)
+        heartbeat = HeartBeat(parent=self, island_name=island_id, beat_interval=5)
         heartbeat.run()
-        client_socket = self.neighbors[island_id]['connection']
+        client_socket = self.neighbors[island_id]
+        client_socket = client_socket['connection']
+        client_socket.settimeout(self.socket_timeout)
         self.neighbors[island_id]['alive'] = True
-        self.debug_message(f'Handling neighbor connection: {client_socket=}')
+        self.debug_message(f'Handling neighbor connection: {client_socket=} | {client_socket.gettimeout()}')
         while self._listening and self.neighbors[island_id]['alive']:
             try:
-                data = client_socket.recv(1024)
+                data = client_socket.recv(4096)
                 if not data:
                     # client has closed the connection
                     break
@@ -104,6 +107,11 @@ class MpIsland:
                     self._handle_message(island_id, data)
                 except JSONDecodeError as jde:
                     self.debug_message(f'Received a malformed message from {island_id}: {client_socket}')
+            except socket.timeout as te:
+                time_since_last = time.time() - self.neighbors[island_id]['last_message']
+                self.debug_message(f'{time_since_last=}')
+                if time_since_last > self.connection_dead_time:
+                    self.neighbors[island_id]['alive'] = False
             except ConnectionResetError as cre:
                 self.debug_message(f'Socket has been closed remotely: {cre}')
                 break
@@ -120,10 +128,14 @@ class MpIsland:
         self.debug_message(f'Listening for connections on {self.host}:{self.port}')
 
         while self._listening:
-            conn, raddr = self.accept_socket.accept()
-            island_id = conn.recv(2048).decode('utf-8')
-            conn.send(self.name.encode('utf-8'))
-            self.add_neighbor((island_id, conn))
+            try:
+                conn, raddr = self.accept_socket.accept()
+                island_id = conn.recv(2048).decode('utf-8')
+                conn.send(self.name.encode('utf-8'))
+                self.add_neighbor((island_id, conn))
+            except socket.timeout as te:
+                # self.debug_message('No connection attempts')
+                pass
         return
 
     def _listen_neighbors(self):
@@ -134,9 +146,8 @@ class MpIsland:
 
     def _handle_message(self, sender, message):
         msg_type = message['msg_type']
+        self.neighbors[sender]['last_message'] = time.time()
         if msg_type == 'keep_alive':
-            # todo  not receiving a heartbeat N times in a row means that the other node has silently died
-            self.neighbors[sender]['last_heartbeat'] = time.time()
             return
         self.debug_message(f'Received message from {sender}: {message}')
         return
@@ -159,8 +170,8 @@ class MpIsland:
         elif island_id not in self.neighbors.keys():
             self.debug_message(f'Accepted connection from {island_id}: {connection}')
             client_thread = threading.Thread(target=self._handle_neighbor, args=(island_id,), daemon=True)
+            self.neighbors[island_id] = {'connection': connection, 'alive': True, 'last_message': time.time()}
             client_thread.start()
-            self.neighbors[island_id] = {'connection': connection, 'alive': True, 'last_heartbeat': time.time()}
         else:
             self.debug_message(f'{island_id} already in list on connections')
         return
@@ -188,29 +199,27 @@ class MpIsland:
 
 class HeartBeat:
 
-    def __init__(self, parent, island_name, dead_time=30):
+    def __init__(self, parent, island_name, beat_interval=5):
         self.alive = False
         self.parent = parent
         self.island_name = island_name
-        self.dead_time = dead_time  # time to disconnect from node if not pinged
+        self.beat_interval = beat_interval
         self.beat_thread = threading.Thread(target=self.beat, daemon=True)
         return
 
     def stop(self):
-        self.alive = False
+        self.parent.neighbors[self.island_name]['alive'] = False
         return
 
     def run(self):
         self.beat_thread.start()
-        self.alive = True
         return
 
     def beat(self):
-        self.alive = True
         keep_alive_message = {'msg_type': 'keep_alive', 'time': time.time()}
-        self.parent.debug_message(f'Pinger Started')
-        while self.alive:
+        self.parent.debug_message(f'Heartbeat started')
+        while self.parent.neighbors[self.island_name]['alive']:
             self.parent.send_data(keep_alive_message, [self.island_name])
-            time.sleep(self.dead_time / 2)
-        self.parent.debug_message(f'Pinger stopped')
+            time.sleep(self.beat_interval)
+        self.parent.debug_message(f'Heartbeat stopped')
         return

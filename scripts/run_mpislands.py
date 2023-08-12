@@ -5,13 +5,24 @@
 
 """
 import argparse
+import datetime
+import logging
 import time
 import uuid
+from pathlib import Path
 
+from island_influence import project_properties
 from island_influence.learn.island.MpIsland import MpIsland
+from island_influence.setup_env import rand_ring_env
+from scripts.run_islands import create_mainland
 
 
-def add_neighbor(mp_island):
+def quit_script(mp_island: MpIsland):
+    mp_island.close()
+    return
+
+
+def add_neighbor(mp_island: MpIsland):
     exit_code = 0
     valid = False
     while not valid:
@@ -33,7 +44,7 @@ def add_neighbor(mp_island):
     return exit_code
 
 
-def remove_neighbor(mp_island):
+def remove_neighbor(mp_island: MpIsland):
     exit_code = 0
     valid = False
     while not valid:
@@ -52,15 +63,17 @@ def remove_neighbor(mp_island):
     return exit_code
 
 
-def start_optimizer(mp_island):
-    return 0
+def start_optimizer(mp_island: MpIsland):
+    mp_island.optimize()
+    return 1
 
 
-def stop_optimizer(mp_island):
-    return 0
+def stop_optimizer(mp_island: MpIsland):
+    mp_island.stop()
+    return 1
 
 
-def display_state(mp_island):
+def display_state(mp_island: MpIsland):
     neighbor_ids = list(mp_island.neighbors.keys())
     str_end = '' if len(neighbor_ids) == 1 else 's'
     print(f'Island {mp_island.name} is connected to {len(neighbor_ids)} island{str_end}')
@@ -75,11 +88,11 @@ def send_data(mp_island):
 
 
 options = {
-    'quit': None,
+    'quit': quit_script,
     'Add neighbor': add_neighbor,
     'Remove neighbor': remove_neighbor,
-    'Start optimizer': stop_optimizer,
-    'Stop optimizer': start_optimizer,
+    'Start optimizer': start_optimizer,
+    'Stop optimizer': stop_optimizer,
     'Display state': display_state,
     'Send data': send_data
 }
@@ -92,23 +105,54 @@ def print_menu():
 
 
 def main(main_args):
+    debug = False
+    log_level = logging.DEBUG if debug else logging.INFO
+    logger = logging.getLogger()
+    logger.setLevel(log_level)
+
+    island_params = {
+        'env_type': rand_ring_env, 'num_harvesters': 4, 'num_excavators': 4, 'num_obstacles': 15, 'num_pois': 8,
+        'num_sims': 15, 'max_iters': 500, 'scale_env': 1, 'migrate_every': 15, 'base_pop_size': 25,
+        'use_threading': True, 'use_mp': True, 'track_progress': True,
+        'direct_assign_fitness': True, 'fitness_update_eps': 0.1, 'mutation_scalar': 0.1, 'prob_to_mutate': 0.05,
+    }
+    collision_penalty_scalar = 0
+
+    now = datetime.datetime.now()
+    date_str = now.strftime("%Y_%m_%d_%H_%M_%S")
     island_id = str(uuid.uuid4())[-4:]
-    mp_island = MpIsland(f'island {island_id}')
+    experiment_dir = Path(project_properties.exps_dir, f'mpisland_exp_test_{date_str}', f'mpisland_{island_id}')
+    if not experiment_dir.exists():
+        experiment_dir.mkdir(parents=True, exist_ok=True)
+
+    mp_island = create_mainland(
+        island_class=MpIsland, experiment_dir=Path(experiment_dir, 'mpisland'),
+        collision_penalty_scalar=collision_penalty_scalar, logger=logger, **island_params
+    )
     mp_island.start_listeners()
     time.sleep(2)
+    ########################################################################################
 
     # todo  implement communicating between socket-based islands
     running = True
     while running:
-        print_menu()
-        user_in = input(f'Select desired option: ')
-        user_in = int(user_in)
-        print(f'You entered: {user_in}: {list(options.keys())[user_in]}')
-        if user_in == 0:
-            running = False
-        else:
+        try:
+            print_menu()
+            user_in = input(f'Select desired option: ')
+            user_in = int(user_in)
+            print(f'You entered: {user_in}: {list(options.keys())[user_in]}')
             func = list(options.values())[user_in]
             return_val = func(mp_island)
+            # print(f'Results of {func.__name__}: {return_val}')
+            if user_in == 0:
+                running = False
+            time.sleep(2)
+        except KeyboardInterrupt as ki:
+            print(f'Keyboard interrupt received: closing connections')
+            quit_script(mp_island)
+            running = False
+        except Exception as e:
+            print(f'Unexpected exception: {e}')
     return
 
 
