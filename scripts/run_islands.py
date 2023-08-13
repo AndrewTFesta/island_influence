@@ -46,7 +46,6 @@ def create_harvester_island(island_class, experiment_dir, island_params, ccea_pa
     island_params['name'] = 'Harvester'
     island_params['evolving_agent_names'] = [AgentType.Harvester]
     #############################################################################################################
-    env_params['env_type'] = env_type.__name__
     ccea_params['population_sizes'] = pop_sizes
     island_params['optimizer'] = partial(ccea, **ccea_params)
     island_params['agent_populations'] = agent_pops
@@ -81,7 +80,6 @@ def create_excavator_island(island_class, experiment_dir, island_params, ccea_pa
     island_params['name'] = 'Excavator'
     island_params['evolving_agent_names'] = [AgentType.Excavator]
     #############################################################################################################
-    env_params['env_type'] = env_type.__name__
     ccea_params['population_sizes'] = pop_sizes
     island_params['optimizer'] = partial(ccea, **ccea_params)
     island_params['agent_populations'] = agent_pops
@@ -117,7 +115,6 @@ def create_mainland(island_class, experiment_dir, island_params, ccea_params, en
     island_params['name'] = 'Mainland'
     island_params['evolving_agent_names'] = [AgentType.Excavator, AgentType.Harvester]
     #############################################################################################################
-    env_params['env_type'] = env_type.__name__
     ccea_params['population_sizes'] = pop_sizes
     island_params['optimizer'] = partial(ccea, **ccea_params)
     island_params['agent_populations'] = agent_pops
@@ -206,7 +203,7 @@ def main(main_args):
     env_params = {
         'scale_factor': 1, 'num_harvesters': 4, 'num_excavators': 4, 'num_obstacles': 8, 'num_pois': 8, 'obs_rad': 2,
         'collision_penalty_scalar': 0, 'max_vel': 1, 'agent_weight': 1, 'obs_weight': 1, 'poi_weight': 1, 'agent_value': 1, 'obstacle_value': 1,
-        'poi_value': 1, 'sen_res': 8, 'delta_time': 1, 'render_mode': None, 'max_steps': 100
+        'poi_value': 1, 'sen_res': 8, 'delta_time': 1, 'render_mode': None, 'max_steps': 100, 'reward_type': 'global'
     }
 
     num_runs = 3

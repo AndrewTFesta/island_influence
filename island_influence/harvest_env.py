@@ -13,6 +13,7 @@ from island_influence.utils import euclidean, observed_agents
 
 class HarvestEnv:
     metadata = {'render_modes': ['human', 'rgb_array', 'none'], 'render_fps': 4, 'name': 'DiscreteHarvestEnvironment'}
+    REWARD_TYPES = ['global', 'difference']
 
     @property
     def agents(self):
@@ -65,8 +66,8 @@ class HarvestEnv:
     def remaining_poi_value(self):
         return sum([each_poi.value for each_poi in self.pois])
 
-    def __init__(self, harvesters: list[Agent], excavators: list[Agent], obstacles: list[Obstacle], pois: list[Poi],
-                 location_funcs: dict, max_steps, delta_time=1, normalize_rewards=False, collision_penalty_scalar: int = 0, render_mode=None):
+    def __init__(self, harvesters: list[Agent], excavators: list[Agent], obstacles: list[Obstacle], pois: list[Poi], location_funcs: dict, max_steps,
+                 delta_time=1, normalize_rewards=False, collision_penalty_scalar: int = 0, reward_type='global', render_mode=None):
         """
         Always make sure to add agents and call `HarvestEnv.reset()` after before using the environment
 
@@ -79,17 +80,20 @@ class HarvestEnv:
         :param delta_time:
         :param render_mode:
         """
+        self.reward_map = {
+            'global': self._global_reward,
+            'difference': self._difference_reward,
+        }
+        self._current_step = 0
+        self.max_steps = max_steps
         self.num_dims = 2
         self.agent_action_size = 2
-        self.max_steps = max_steps
         self.delta_time = delta_time
 
         self.normalize_rewards = normalize_rewards
         self.collision_penalty_scalar = collision_penalty_scalar
         self.reward_func = self._global_reward
-        # self.reward_func = self._difference_reward
-
-        self._current_step = 0
+        self.reward_func = self.reward_map.get(reward_type, self._global_reward)
 
         # agents are the harvesters and the excavators
         # todo  add more types of harvesters
@@ -116,15 +120,6 @@ class HarvestEnv:
         self.action_history = []
         self.reward_history = []
 
-        # network for learning state transitions
-        #   input   num_agents * (num_dimensions (2) + action_size (2))
-        #   output  num_agents * num_dimensions (2)
-        num_agents = len(self.harvesters) + len(self.excavators)
-        n_inputs = num_agents * (self.num_dims + self.agent_action_size)
-        n_outputs = num_agents * self.num_dims
-        n_hidden = math.ceil((n_inputs + n_outputs) / 2)
-        self.env_model = NeuralNetwork(n_inputs=n_inputs, n_outputs=n_outputs, n_hidden=n_hidden)
-
         """
         If human-rendering is used, `self.window` will be a reference
         to the window that we draw to. `self.clock` will be a clock that is used
@@ -143,6 +138,29 @@ class HarvestEnv:
         self.render_bound = None
         self.location_offset = None
         return
+
+    def create_env_model(self):
+        # check agent locations to make sure all are set
+        locations_set = True
+        all_agents = self.agents
+        all_agents.extend(self.obstacles)
+        all_agents.extend(self.pois)
+        for each_agent in all_agents:
+            agent_loc = each_agent.location
+            if agent_loc is None:
+                locations_set = False
+                break
+        if not locations_set:
+            self.reset()
+        # network for learning state transitions
+        #   input   num_agents * (num_dimensions (2) + action_size (2))
+        #   output  num_agents * num_dimensions (2)
+        state = self.state()
+        state_size = state.flatten().size
+        n_outputs = len(self.agents) * self.num_dims
+        n_hidden = math.ceil((state_size + n_outputs) / 2)
+        env_model = NeuralNetwork(n_inputs=state_size, n_outputs=n_outputs, n_hidden=n_hidden)
+        return env_model
 
     def num_agent_types(self, agent_type: AgentType | str):
         if isinstance(agent_type, str):
@@ -369,16 +387,17 @@ class HarvestEnv:
             cum_rewards[agent_name] = agent_reward
         return cum_rewards
 
-    def evaluate_reward(self, state, actions, result_state):
+    def evaluate_reward(self, state: np.ndarray, actions: np.ndarray, result_state: np.ndarray):
+        # noinspection PyArgumentList
         rewards = self.reward_func(state, actions, result_state)
         return rewards
 
-    def _global_reward(self, state, actions, result_state):
+    def _global_reward(self, state: np.ndarray, actions: np.ndarray, result_state: np.ndarray):
         # todo  global rewards based on (state, action, next_state)
         rewards = {each_agent.name: 0 for each_agent in self.agents}
         return rewards
 
-    def _difference_reward(self, state, actions, result_state):
+    def _difference_reward(self, state: np.ndarray, actions: np.ndarray, result_state: np.ndarray):
         # todo  difference rewards based on (state, action, next_state)
         rewards = {each_agent.name: 0 for each_agent in self.agents}
         return rewards
@@ -488,6 +507,8 @@ class HarvestEnv:
         # No more state changes should occur below this point
         curr_state = self.state()
         eval_rewards = self.evaluate_reward(initial_state, actions, curr_state)
+        eval_rewards = self._difference_reward(initial_state, actions, curr_state)
+        eval_rewards = self._global_reward(initial_state, actions, curr_state)
         self.action_history.append(actions)
         self.state_history.append(curr_state)
         self.reward_history.append(rewards)
@@ -648,7 +669,7 @@ class HarvestEnv:
 
                 text_height = text_surface.get_height() + legend_offset
                 text_width = text_surface.get_width() + legend_offset
-                canvas.blit(text_surface, (self.window_size - text_width, text_height*idx))
+                canvas.blit(text_surface, (self.window_size - text_width, text_height * idx))
 
         if self.render_mode == 'human':
             # The following line copies our drawings from `canvas` to the visible window
