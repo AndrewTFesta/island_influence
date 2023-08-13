@@ -59,7 +59,7 @@ class MAIsland:
 
         # todo  mark where migrations happen
         self.logger = logger
-        self.running = True
+        self.running = False
         self.track_progress = track_progress
         self.optimizer_func = optimizer
         self.env = env

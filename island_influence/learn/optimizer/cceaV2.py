@@ -12,6 +12,7 @@ from pathlib import Path
 
 import numpy as np
 from numpy.random import default_rng
+from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 from island_influence.agent import AgentType
@@ -233,7 +234,8 @@ def save_agent_policies(experiment_dir, gen_idx, env, agent_pops, human_readable
 
 
 def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims, experiment_dir, completion_criteria=lambda: False,
-         starting_gen=0, direct_assign_fitness=True, fitness_update_eps=1, mutation_scalar=0.1, prob_to_mutate=0.05, track_progress=True, use_mp=False):
+         starting_gen=0, direct_assign_fitness=True, fitness_update_eps=1, mutation_scalar=0.1, prob_to_mutate=0.05, track_progress=True,
+         use_mp=False, tb_writer=None):
     """
     agents in agent_policies are the actual agents being optimized
     the non-learning agents are generally expected to be an inherent part of the environment
@@ -252,6 +254,7 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims,
     :param prob_to_mutate:
     :param track_progress:
     :param use_mp:
+    :param tb_writer:
     :return:
     """
     population_sizes = {agent_type: max(pop_size, env.num_agent_types(agent_type)) for agent_type, pop_size in population_sizes.items()}
@@ -314,6 +317,10 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims,
         if not isinstance(track_progress, tqdm):
             pbar.update(starting_gen)
 
+    writer = tb_writer
+    if tb_writer is None:
+        writer = SummaryWriter(log_dir=experiment_dir)
+
     num_iters = 0
     for gen_idx in range(starting_gen, max_iters):
         selected_policies = selection_func(agent_policies)
@@ -364,9 +371,14 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims,
                     else:
                         fitness_delta = fitness - policy.fitness
                         policy.fitness += fitness_delta * fitness_update_eps
-
         # downselect
         agent_policies = downselect_func(agent_policies)
+
+        best_policies = select_top_n(agent_policies, select_sizes={name: env.num_agent_types(name) for name, pop in agent_policies.items()})
+        for each_agent, policies in best_policies.items():
+            for idx, each_policy in enumerate(policies):
+                writer.add_scalar(f'{each_agent}_{idx}.fitness', each_policy.fitness, gen_idx)
+        writer.flush()
 
         # save generation progress
         # save all policies of each agent and save fitnesses mapping policies to fitnesses
@@ -380,6 +392,8 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims,
         mp_pool.shutdown()
     if isinstance(pbar, tqdm) and not track_progress:
         pbar.close()
+    if tb_writer is None:
+        writer.close()
 
     best_policies = select_top_n(agent_policies, select_sizes={name: env.num_agent_types(name) for name, pop in agent_policies.items()})
     return agent_policies, best_policies, num_iters
