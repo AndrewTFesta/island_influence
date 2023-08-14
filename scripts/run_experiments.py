@@ -72,8 +72,8 @@ def main(main_args):
         'num_pois': [4, 8],
         'sen_res': [8],
         'base_pop_size': [25],
+        'fitness_update_eps': [0, 1, 2],
         'env_type': [rand_ring_env, det_ring_env]
-        # 'env_type': [det_ring_env]
     }
     ############################################################################
     now = datetime.now()
