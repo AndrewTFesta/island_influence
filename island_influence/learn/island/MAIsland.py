@@ -14,8 +14,6 @@ from pathlib import Path
 
 from tqdm import tqdm
 
-from island_influence.utils import save_config
-
 
 class MAIsland:
 
@@ -72,6 +70,16 @@ class MAIsland:
 
     def __repr__(self):
         return f'{self.name}'
+
+    def __getstate__(self):
+        island_state = {
+            'neighbors': self.neighbors, 'agent_populations': self.agent_populations, 'name': self.name,
+            'evolving_agent_names': self.evolving_agent_names, 'migrate_every': self.migrate_every,
+            'since_last_migration': self.since_last_migration, 'max_iters': self.max_iters, 'save_dir': self.save_dir,
+            'times_fname': self.times_fname, 'migrated_from_neighbors': self.migrated_from_neighbors, 'num_migrations': self.num_migrations,
+            'total_gens_run': self.total_gens_run, 'final_pops': self.final_pops, 'top_inds': self.top_inds
+        }
+        return island_state
 
     def add_neighbor(self, neighbor):
         self.neighbors.append(neighbor)
@@ -210,16 +218,12 @@ class MAIsland:
         save_dir = self.save_dir if save_dir is None else save_dir
         tag = f'_{tag}' if tag != '' else tag
 
-        save_path = Path(save_dir, f'island_{self.name}{tag}.json')
+        save_path = Path(save_dir, f'island_{self.name}{tag}.pkl')
         if not save_path.parent.exists():
             save_path.parent.mkdir(parents=True, exist_ok=True)
 
-        island_state = {'neighbors': [each_neighbor.name for each_neighbor in self.neighbors], 'agent_populations': self.agent_populations, 'name': self.name,
-                        'evolving_agent_names': self.evolving_agent_names, 'migrate_every': self.migrate_every,
-                        'since_last_migration': self.since_last_migration, 'max_iters': self.max_iters, 'save_dir': self.save_dir,
-                        'times_fname': self.times_fname, 'migrated_from_neighbors': self.migrated_from_neighbors, 'num_migrations': self.num_migrations,
-                        'total_gens_run': self.total_gens_run, 'final_pops': self.final_pops, 'top_inds': self.top_inds}
-        save_config(island_state, save_dir=self.save_dir, config_name='island_config')
+        with open(save_path, 'wb') as save_file:
+            pickle.dump(self, save_file, pickle.HIGHEST_PROTOCOL)
         return save_path
 
     @staticmethod

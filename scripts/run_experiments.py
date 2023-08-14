@@ -53,9 +53,9 @@ def main(main_args):
     logger = logging.getLogger()
     logger.setLevel(log_level)
     #############################################################
-    island_params = {'max_iters': 15, 'track_progress': True, 'logger': logger, 'migrate_every': 5}
+    island_params = {'max_iters': 500, 'track_progress': True, 'logger': logger, 'migrate_every': 5}
     ccea_params = {
-        'starting_gen': 0, 'mutation_scalar': 0.1, 'prob_to_mutate': 0.05, 'track_progress': True, 'use_mp': False, 'num_sims': 5, 'fitness_update_eps': 0
+        'starting_gen': 0, 'mutation_scalar': 0.1, 'prob_to_mutate': 0.05, 'track_progress': True, 'use_mp': True, 'num_sims': 5, 'fitness_update_eps': 0
     }
     env_params = {
         'scale_factor': 0.5, 'num_harvesters': 4, 'num_excavators': 4, 'num_obstacles': 50, 'num_pois': 8, 'sen_res': 8,
