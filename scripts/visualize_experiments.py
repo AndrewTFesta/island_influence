@@ -19,8 +19,8 @@ from island_influence.learn.optimizer.cceaV2 import rollout
 from island_influence.learn.neural_network import load_pytorch_model
 
 
-def parse_stat_run(stat_run_dir):
-    gen_dirs = list(stat_run_dir.glob('gen_*'))
+def parse_generations(generations_dir):
+    gen_dirs = list(generations_dir.glob('gen_*'))
     gen_dirs = sorted(gen_dirs, key=lambda x: int(x.stem.split('_')[-1]))
     generations = []
     for each_dir in gen_dirs:
@@ -41,12 +41,12 @@ def parse_stat_run(stat_run_dir):
     return np_gens
 
 
-def parse_experiment_fitnesses(experiment_dir: Path):
+def parse_harvest_fitnesses(experiment_dir: Path):
     stat_dirs = list(experiment_dir.glob('stat_run_*'))
     stat_dirs = sorted(stat_dirs, key=lambda x: int(x.stem.split('_')[-1]))
     stat_runs = []
     for each_dir in stat_dirs:
-        fitness_data = parse_stat_run(each_dir)
+        fitness_data = parse_generations(each_dir)
         stat_runs.append(fitness_data)
     stat_keys = list(stat_runs[0].keys())
     exp_fitnesses = {each_key: [] for each_key in stat_keys}
@@ -54,6 +54,41 @@ def parse_experiment_fitnesses(experiment_dir: Path):
         for agent_type, fitnessses in each_run.items():
             exp_fitnesses[agent_type].append(fitnessses)
     return exp_fitnesses
+
+
+def parse_harvest_exp(exp_dir, base_dir):
+    exp_name = exp_dir.stem
+    save_dir = Path(base_dir, f'harvest_{exp_name}')
+    exp_types = list(exp_dir.iterdir())
+    for each_type in exp_types:
+        fitness_data = parse_harvest_fitnesses(each_type)
+        # replay_episode(each_dir)
+        plot_fitnesses(fitness_data, save_dir=save_dir, tag=f'{each_type.stem}')
+    return
+
+
+def parse_island_exp(exp_dir, base_dir):
+    exp_name = exp_dir.stem
+    stat_dirs = list(exp_dir.glob('stat_run_*'))
+    islands = {}
+    for each_stat_run in stat_dirs:
+        island_dirs = list(each_stat_run.iterdir())
+        for each_dir in island_dirs:
+            island_type = each_dir.stem
+            fitness_data = parse_generations(each_dir)
+            if island_type not in islands:
+                islands[island_type] = {agent_type: [] for agent_type in fitness_data}
+
+            island_fitnesses = islands[island_type]
+            for agent_type, fitnesses in fitness_data.items():
+                agent_fitnesses = island_fitnesses[agent_type]
+                agent_fitnesses.append(fitnesses)
+
+    for each_island, fitnesses in islands.items():
+        save_dir = Path(base_dir, f'island_{exp_name}')
+        # replay_episode(each_dir)
+        plot_fitnesses(fitnesses, save_dir=save_dir, tag=f'{each_island}')
+    return
 
 
 def plot_fitnesses(fitness_data, save_dir, tag, save_format='svg'):
@@ -107,7 +142,7 @@ def replay_episode(episode_dir: Path):
     stat_dirs = list(episode_dir.glob('stat_run_*'))
     stat_dirs = sorted(stat_dirs, key=lambda x: int(x.stem.split('_')[-1]))
     for idx, each_dir in enumerate(stat_dirs):
-        fitness_data = parse_stat_run(each_dir)
+        fitness_data = parse_generations(each_dir)
         gen_dirs = list(each_dir.glob('gen_*'))
         gen_dirs = sorted(gen_dirs, key=lambda x: int(x.stem.split('_')[-1]))
         last_gen_idx = len(gen_dirs) - 1
@@ -151,16 +186,13 @@ def main(main_args):
         base_save_dir.mkdir(parents=True, exist_ok=True)
 
     base_dir = Path(project_properties.output_dir, 'exps')
-    experiment_dirs = list(base_dir.glob('harvest_exp_*'))
-
-    for each_dir in experiment_dirs:
-        exp_types = list(each_dir.iterdir())
-        for each_type in exp_types:
-            print(f'Processing experiment: {each_dir.stem}: {each_type.stem}')
-            fitness_data = parse_experiment_fitnesses(each_type)
-            # replay_episode(each_dir)
-
-            plot_fitnesses(fitness_data, save_dir=base_save_dir, tag=f'{each_type.stem}')
+    exp_dirs = list(base_dir.glob('*_exp_*'))
+    for each_exp in exp_dirs:
+        exp_type = each_exp.stem.split('_')[0]
+        if exp_type == 'island':
+            parse_island_exp(each_exp, base_dir=base_save_dir)
+        elif exp_type == 'harvest':
+            parse_harvest_exp(each_exp, base_dir=base_save_dir)
     return
 
 

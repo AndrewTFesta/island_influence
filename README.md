@@ -105,6 +105,8 @@ See the [LICENSE file](LICENSE) for license rights and limitations (MIT).
 7. What were your key results?
 8. What is the key contribution of this paper?
 
+In this work, we present a peer-to-peer network architecture for large-scale distributed learning in complex multiagent settings that require joint coordination between asymmetric agents.
+
 ## First week
 
 This past week, I mainly focused on two things. The upcoming quals re-do and the effort with Gaurav on training skills that benefit when training under the expectation that an agent will have other agents supporting their efforts.

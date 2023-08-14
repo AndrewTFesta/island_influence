@@ -48,6 +48,7 @@ def create_harvester_island(island_class, experiment_dir, island_params, ccea_pa
     #############################################################################################################
     ccea_params['population_sizes'] = pop_sizes
     island_params['optimizer'] = partial(ccea, **ccea_params)
+    island_params['optimizer'] = partial(ccea, **ccea_params)
     island_params['agent_populations'] = agent_pops
     island_params['env'] = env
     island_params['save_dir'] = experiment_dir
@@ -187,26 +188,28 @@ def run_island_experiment(experiment_dir, island_params, ccea_params, env_params
 
 
 def main(main_args):
+    # todo  reduce how much is saved for each experiment
     use_threading = True
     base_pop_size = 25
     env_type = rand_ring_env
-    #############################################################################################
+
     island_class = ThreadIsland if use_threading else MAIsland
     log_level = logging.DEBUG if DEBUG else logging.INFO
     logger = logging.getLogger()
     logger.setLevel(log_level)
-    island_params = {'max_iters': 500, 'migrate_every': 15, 'track_progress': True, 'logger': logger}
+    island_params = {'max_iters': 1000, 'migrate_every': 15, 'track_progress': True, 'logger': logger}
     ccea_params = {
-        'num_sims': 15, 'starting_gen': 0, 'direct_assign_fitness': True, 'fitness_update_eps': 1, 'mutation_scalar': 0.1,
+        'num_sims': (base_pop_size // 3) * 2, 'starting_gen': 0, 'fitness_update_eps': False, 'mutation_scalar': 0.1,
         'prob_to_mutate': 0.05, 'track_progress': True, 'use_mp': False,
     }
     env_params = {
-        'scale_factor': 1, 'num_harvesters': 4, 'num_excavators': 4, 'num_obstacles': 8, 'num_pois': 8, 'obs_rad': 2,
+        'scale_factor': 0.5, 'num_harvesters': 4, 'num_excavators': 4, 'num_obstacles': 50, 'num_pois': 8, 'obs_rad': 1,
         'collision_penalty_scalar': 0, 'max_vel': 1, 'agent_weight': 1, 'obs_weight': 1, 'poi_weight': 1, 'agent_value': 1, 'obstacle_value': 1,
         'poi_value': 1, 'sen_res': 8, 'delta_time': 1, 'render_mode': None, 'max_steps': 100, 'reward_type': 'global'
     }
+    #############################################################################################
 
-    num_runs = 3
+    num_runs = 5
     now = datetime.datetime.now()
     date_str = now.strftime("%Y_%m_%d_%H_%M_%S")
     for idx in range(num_runs):

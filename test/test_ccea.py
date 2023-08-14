@@ -180,10 +180,10 @@ def main(main_args):
     num_runs = 3
     # todo  test setting num_sims to -1 to signify to select all the agents in each population
     # todo  make num_sim keyed to each agent type
-    num_sims = 15
-    base_pop_size = 15
-    num_gens = 1000
-    env_func = rand_ring_env(scale_factor=1)
+    num_sims = 5
+    base_pop_size = 5
+    num_gens = 50
+    env_func = rand_ring_env(scale_factor=0.5)
     env = env_func()
 
     policy_funcs = {
@@ -203,9 +203,9 @@ def main(main_args):
     non_learning_dir = Path(experiment_dir, 'non_learning')
     for idx in range(num_runs):
         test_base_ccea(env_func(), num_sims, num_gens, policy_funcs, base_pop_size=base_pop_size, exp_dir=Path(base_ccea_dir, f'stat_run_{idx}'))
-        # test_unequal_pops(env_func(), num_sims, num_gens, policy_funcs, base_pop_size=base_pop_size, exp_dir=Path(unequal_pops_dir, f'stat_run_{idx}'))
-        # test_single_training(env_func(), num_sims, num_gens, policy_funcs,base_pop_size=base_pop_size,exp_dir=Path(single_training_dir, f'stat_run_{idx}'))
-        # test_non_learning_pop(env_func(), num_sims, num_gens, policy_funcs, base_pop_size=base_pop_size, exp_dir=Path(non_learning_dir, f'stat_run_{idx}'))
+        test_unequal_pops(env_func(), num_sims, num_gens, policy_funcs, base_pop_size=base_pop_size, exp_dir=Path(unequal_pops_dir, f'stat_run_{idx}'))
+        test_single_training(env_func(), num_sims, num_gens, policy_funcs, base_pop_size=base_pop_size, exp_dir=Path(single_training_dir, f'stat_run_{idx}'))
+        test_non_learning_pop(env_func(), num_sims, num_gens, policy_funcs, base_pop_size=base_pop_size, exp_dir=Path(non_learning_dir, f'stat_run_{idx}'))
     return
 
 

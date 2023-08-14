@@ -234,7 +234,7 @@ def save_agent_policies(experiment_dir, gen_idx, env, agent_pops, human_readable
 
 
 def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims, experiment_dir, completion_criteria=lambda: False,
-         starting_gen=0, direct_assign_fitness=True, fitness_update_eps=1, mutation_scalar=0.1, prob_to_mutate=0.05, track_progress=True,
+         starting_gen=0, fitness_update_eps: None | float =False, mutation_scalar=0.1, prob_to_mutate=0.05, track_progress=True,
          use_mp=False, tb_writer=None):
     """
     agents in agent_policies are the actual agents being optimized
@@ -248,7 +248,6 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims,
     :param experiment_dir:
     :param completion_criteria:
     :param starting_gen:
-    :param direct_assign_fitness:
     :param fitness_update_eps:
     :param mutation_scalar:
     :param prob_to_mutate:
@@ -294,8 +293,7 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims,
             'num_sims': num_sims,
             # 'num_sims': {str(agent_type): size for agent_type, size in num_sims.items()},
             'population_sizes': {str(agent_type): size for agent_type, size in population_sizes.items()},
-            'direct_assign_fitness': direct_assign_fitness, 'fitness_update_eps': fitness_update_eps,
-            'mutation_scalar': mutation_scalar, 'prob_to_mutate': prob_to_mutate,
+            'fitness_update_eps': fitness_update_eps, 'mutation_scalar': mutation_scalar, 'prob_to_mutate': prob_to_mutate,
 
         }
         save_config(config=ccea_config, save_dir=experiment_dir, config_name='ccea_config')
@@ -366,7 +364,7 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims,
             for policy in population:
                 if policy.name in avg_fitnesses and policy.learner:
                     fitness = avg_fitnesses[policy.name]
-                    if direct_assign_fitness:
+                    if fitness_update_eps is None:
                         policy.fitness = fitness
                     else:
                         fitness_delta = fitness - policy.fitness
