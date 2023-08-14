@@ -62,9 +62,10 @@ def select_roulette(agent_pops, select_sizes: dict[AgentType, int], noise=0.01, 
         fitness_vals = np.asarray([each_policy.fitness for each_policy in policy_population])
 
         # add small amount of noise to each fitness value (help deal with all same value)
-        fitness_noise = np.random.uniform(0, noise, len(fitness_vals))
+        fitness_noise = np.random.uniform(-noise / 2, noise / 2, len(fitness_vals))
         fitness_vals += fitness_noise
 
+        fitness_vals -= np.min(fitness_vals)
         fitness_vals = fitness_vals / sum(fitness_vals)
         select_size = min(len(policy_population), select_sizes[agent_type])
         rand_pop = np.random.choice(policy_population, select_size, replace=True, p=fitness_vals)

@@ -44,7 +44,7 @@ def run_ccea(env, num_sims, num_gens, policy_funcs, exp_dir, base_pop_size=15, m
     opt_start = time.process_time()
     trained_pops, top_inds, gens_run = ccea(
         env, agent_policies=agent_pops, population_sizes=population_sizes,
-        max_iters=num_gens, num_sims=num_sims, experiment_dir=exp_dir, track_progress=True, use_mp=True,
+        max_iters=num_gens, num_sims=num_sims, experiment_dir=exp_dir, track_progress=True, use_mp=False,
         mutation_scalar=mutation_scalar, prob_to_mutate=prob_to_mutate, fitness_update_eps=fitness_update_eps
     )
     opt_end = time.process_time()
@@ -61,12 +61,11 @@ def run_ccea(env, num_sims, num_gens, policy_funcs, exp_dir, base_pop_size=15, m
 
 def main(main_args):
     num_runs = 3
-    # todo  test setting num_sims to -1 to signify to select all the agents in each population
-    # todo  make num_sim keyed to each agent type
+    collision_penalty_scalar = 1
     num_sims = 15
     base_pop_size = 15
     num_gens = 1000
-    env_func = rand_ring_env(scale_factor=1)
+    env_func = rand_ring_env(scale_factor=1, collision_penalty_scalar=collision_penalty_scalar)
     env = env_func()
 
     policy_funcs = {
