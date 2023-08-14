@@ -44,7 +44,8 @@ def test_base_ccea(env, num_sims, num_gens, policy_funcs, exp_dir, base_pop_size
     opt_start = time.process_time()
     trained_pops, top_inds, gens_run = ccea(
         env, agent_policies=agent_pops, population_sizes=population_sizes,
-        max_iters=num_gens, num_sims=num_sims, experiment_dir=exp_dir, track_progress=True, use_mp=True
+        max_iters=num_gens, num_sims=num_sims, experiment_dir=exp_dir, track_progress=True, use_mp=False,
+        mutation_scalar=0.1, prob_to_mutate=0.05, fitness_update_eps=0
     )
     opt_end = time.process_time()
     writer.close()
@@ -75,7 +76,7 @@ def main(main_args):
 
     now = datetime.datetime.now()
     date_str = now.strftime("%Y_%m_%d_%H_%M_%S")
-    experiment_dir = Path(project_properties.exps_dir, f'harvest_exp_test_{date_str}')
+    experiment_dir = Path(project_properties.exps_dir, f'harvest_exp_{date_str}')
     if not experiment_dir.exists():
         experiment_dir.mkdir(parents=True, exist_ok=True)
 

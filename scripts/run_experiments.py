@@ -10,15 +10,13 @@ import logging
 from datetime import datetime
 from pathlib import Path
 
-import numpy as np
-
 from island_influence import project_properties
 from island_influence.learn.island.MAIsland import MAIsland
 from island_influence.learn.island.ThreadIsland import ThreadIsland
 from island_influence.setup_env import det_ring_env, rand_ring_env
 from scripts.run_islands import run_island_experiment
 
-DEBUG = False
+DEBUG = True
 
 
 def run_parameter_sweep(base_dir, island_params, ccea_params, env_params, param_ranges, island_class):
@@ -37,7 +35,7 @@ def run_parameter_sweep(base_dir, island_params, ccea_params, env_params, param_
             if each_param in env_params:
                 env_params[each_param] = param_val
 
-        experiment_dir = Path(base_dir, f'param_sweep_{idx}')
+        experiment_dir = Path(base_dir, f'param_sweep_exp_{idx}')
         if not experiment_dir.exists():
             experiment_dir.mkdir(parents=True, exist_ok=True)
 
@@ -46,16 +44,16 @@ def run_parameter_sweep(base_dir, island_params, ccea_params, env_params, param_
 
 
 def main(main_args):
-    stat_runs = 3
+    stat_runs = 1
     use_threading = True
     island_class = ThreadIsland if use_threading else MAIsland
     log_level = logging.DEBUG if DEBUG else logging.INFO
     logger = logging.getLogger()
     logger.setLevel(log_level)
     #############################################################
-    island_params = {'max_iters': 100, 'track_progress': True, 'logger': logger, 'migrate_every': 5}
+    island_params = {'max_iters': 15, 'track_progress': True, 'logger': logger, 'migrate_every': 5}
     ccea_params = {
-        'starting_gen': 0, 'mutation_scalar': 0.1, 'prob_to_mutate': 0.05, 'track_progress': True, 'use_mp': False, 'num_sims': 5, 'fitness_update_eps': False
+        'starting_gen': 0, 'mutation_scalar': 0.1, 'prob_to_mutate': 0.05, 'track_progress': True, 'use_mp': False, 'num_sims': 5, 'fitness_update_eps': 0
     }
     env_params = {
         'scale_factor': 0.5, 'num_harvesters': 4, 'num_excavators': 4, 'num_obstacles': 50, 'num_pois': 8, 'sen_res': 8,
@@ -74,8 +72,8 @@ def main(main_args):
         'num_pois': [4, 8],
         'sen_res': [8],
         'base_pop_size': [25],
-        # 'env_type': [rand_ring_env, det_ring_env]
-        'env_type': [det_ring_env]
+        'env_type': [rand_ring_env, det_ring_env]
+        # 'env_type': [det_ring_env]
     }
     ############################################################################
     now = datetime.now()

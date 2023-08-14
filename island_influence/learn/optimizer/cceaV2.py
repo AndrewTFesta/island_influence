@@ -234,7 +234,7 @@ def save_agent_policies(experiment_dir, gen_idx, env, agent_pops, human_readable
 
 
 def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims, experiment_dir, completion_criteria=lambda: False,
-         starting_gen=0, fitness_update_eps: None | float =False, mutation_scalar=0.1, prob_to_mutate=0.05, track_progress=True,
+         starting_gen=0, fitness_update_eps: float = 0, mutation_scalar=0.1, prob_to_mutate=0.05, track_progress=True,
          use_mp=False, tb_writer=None):
     """
     agents in agent_policies are the actual agents being optimized
@@ -364,7 +364,9 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims,
             for policy in population:
                 if policy.name in avg_fitnesses and policy.learner:
                     fitness = avg_fitnesses[policy.name]
-                    if fitness_update_eps is None:
+                    # if fitness update eps is 0, then evaluating a fitness would have no change on the current fitness of the agent
+                    # can also pass a negative value to force the evaluated fitness to replace the fitness value of the policy
+                    if fitness_update_eps <= 0:
                         policy.fitness = fitness
                     else:
                         fitness_delta = fitness - policy.fitness

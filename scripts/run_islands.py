@@ -213,7 +213,7 @@ def main(main_args):
     now = datetime.datetime.now()
     date_str = now.strftime("%Y_%m_%d_%H_%M_%S")
     for idx in range(num_runs):
-        experiment_dir = Path(project_properties.exps_dir, f'island_exp_test_{date_str}', f'stat_run_{idx}')
+        experiment_dir = Path(project_properties.exps_dir, f'island_exp_{date_str}', f'stat_run_{idx}')
         if not experiment_dir.exists():
             experiment_dir.mkdir(parents=True, exist_ok=True)
         try:

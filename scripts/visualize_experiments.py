@@ -91,6 +91,10 @@ def parse_island_exp(exp_dir, base_dir):
     return
 
 
+def parse_param_sweep_exp(exp_dir, base_dir):
+    return
+
+
 def plot_fitnesses(fitness_data, save_dir, tag, save_format='svg'):
     fig, axes = plt.subplots(nrows=1, ncols=1, figsize=(12, 12))
 
@@ -189,10 +193,12 @@ def main(main_args):
     exp_dirs = list(base_dir.glob('*_exp_*'))
     for each_exp in exp_dirs:
         exp_type = each_exp.stem.split('_')[0]
-        if exp_type == 'island':
+        if exp_type == 'island_exp':
             parse_island_exp(each_exp, base_dir=base_save_dir)
-        elif exp_type == 'harvest':
+        elif exp_type == 'harvest_exp':
             parse_harvest_exp(each_exp, base_dir=base_save_dir)
+        elif exp_type == 'param_sweep_exp':
+            parse_param_sweep_exp(each_exp, base_dir=base_save_dir)
     return
 
 
