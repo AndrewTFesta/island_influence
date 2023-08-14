@@ -5,7 +5,6 @@
 
 """
 import csv
-import dataclasses
 import logging
 import pickle
 import threading
@@ -16,16 +15,6 @@ from pathlib import Path
 from tqdm import tqdm
 
 from island_influence.utils import save_config
-
-
-@dataclasses.dataclass
-class IslandState(dict):
-
-    def __init__(self):
-        super().__init__()
-        # todo  implement island state dataclass
-        # todo  store important state vars in island_state
-        return
 
 
 class MAIsland:
@@ -63,9 +52,9 @@ class MAIsland:
         self.track_progress = track_progress
         self.optimizer_func = optimizer
         self.env = env
+
         self.neighbors: list[MAIsland] = []
         self.agent_populations = agent_populations
-
         self.name = f'{name}_{str(uuid.uuid4())[-4:]}'
         self.evolving_agent_names = evolving_agent_names
         self.migrate_every = migrate_every
@@ -79,8 +68,6 @@ class MAIsland:
         self.opt_times = None
         self.final_pops = None
         self.top_inds = None
-
-        self.island_state = IslandState()
         return
 
     def __repr__(self):
@@ -226,7 +213,13 @@ class MAIsland:
         save_path = Path(save_dir, f'island_{self.name}{tag}.json')
         if not save_path.parent.exists():
             save_path.parent.mkdir(parents=True, exist_ok=True)
-        save_config(self.island_state, save_dir=self.save_dir)
+
+        island_state = {'neighbors': [each_neighbor.name for each_neighbor in self.neighbors], 'agent_populations': self.agent_populations, 'name': self.name,
+                        'evolving_agent_names': self.evolving_agent_names, 'migrate_every': self.migrate_every,
+                        'since_last_migration': self.since_last_migration, 'max_iters': self.max_iters, 'save_dir': self.save_dir,
+                        'times_fname': self.times_fname, 'migrated_from_neighbors': self.migrated_from_neighbors, 'num_migrations': self.num_migrations,
+                        'total_gens_run': self.total_gens_run, 'final_pops': self.final_pops, 'top_inds': self.top_inds}
+        save_config(island_state, save_dir=self.save_dir, config_name='island_config')
         return save_path
 
     @staticmethod
