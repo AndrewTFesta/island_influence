@@ -17,8 +17,6 @@ from island_influence.setup_env import det_ring_env, rand_ring_env
 from scripts.run_ccea import run_ccea
 from scripts.run_islands import run_island_experiment
 
-DEBUG = False
-
 
 def run_parameter_sweep(base_dir, island_params, ccea_params, env_params, param_ranges, island_class):
     keys, values = zip(*param_ranges.items())
@@ -46,10 +44,11 @@ def run_parameter_sweep(base_dir, island_params, ccea_params, env_params, param_
 
 
 def main(main_args):
+    debug = False
     stat_runs = 1
     use_threading = True
     island_class = ThreadIsland if use_threading else MAIsland
-    log_level = logging.DEBUG if DEBUG else logging.INFO
+    log_level = logging.DEBUG if debug else logging.INFO
     logger = logging.getLogger()
     logger.setLevel(log_level)
     #############################################################
