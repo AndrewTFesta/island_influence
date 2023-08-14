@@ -14,9 +14,10 @@ from island_influence import project_properties
 from island_influence.learn.island.MAIsland import MAIsland
 from island_influence.learn.island.ThreadIsland import ThreadIsland
 from island_influence.setup_env import det_ring_env, rand_ring_env
+from scripts.run_ccea import run_ccea
 from scripts.run_islands import run_island_experiment
 
-DEBUG = True
+DEBUG = False
 
 
 def run_parameter_sweep(base_dir, island_params, ccea_params, env_params, param_ranges, island_class):
@@ -40,6 +41,7 @@ def run_parameter_sweep(base_dir, island_params, ccea_params, env_params, param_
             experiment_dir.mkdir(parents=True, exist_ok=True)
 
         run_island_experiment(experiment_dir, island_params, ccea_params, env_params, base_pop_size=base_pop_size, env_type=env_type, island_class=island_class)
+        run_ccea(env_type, env_params, ccea_params, base_pop_size=base_pop_size, experiment_dir=experiment_dir, max_iters=island_params['max_iters'])
     return
 
 
@@ -59,7 +61,7 @@ def main(main_args):
         'scale_factor': 0.5, 'num_harvesters': 4, 'num_excavators': 4, 'num_obstacles': 50, 'num_pois': 8, 'sen_res': 8,
         'obs_rad': 1, 'max_vel': 1, 'agent_weight': 1, 'obs_weight': 1, 'poi_weight': 1,
         'agent_value': 1, 'obstacle_value': 1, 'poi_value': 1, 'delta_time': 1, 'render_mode': None, 'max_steps': 100,
-        'reward_type': 'global', 'collision_penalty_scalar': 0,
+        'reward_type': 'global', 'collision_penalty_scalar': 0, 'normalize_rewards': True
     }
 
     param_ranges = {

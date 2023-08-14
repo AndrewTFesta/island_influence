@@ -31,7 +31,7 @@ def create_agent_policy(agent, learner):
 
 def create_base_env(
         location_funcs, num_harvesters, num_excavators, num_obstacles, num_pois, collision_penalty_scalar, obs_rad, max_vel, agent_weight, obs_weight,
-        poi_weight, agent_value, obstacle_value, poi_value, sen_res, delta_time, render_mode, max_steps, reward_type
+        poi_weight, agent_value, obstacle_value, poi_value, sen_res, delta_time, render_mode, max_steps, reward_type, normalize_rewards
 ):
     state_size = sen_res * Agent.NUM_BINS
     action_size = 2
@@ -58,16 +58,17 @@ def create_base_env(
         for idx in range(num_pois)
     ]
 
-    env_func = partial(HarvestEnv, harvesters=harvesters, excavators=excavators, obstacles=obstacles, pois=pois,
-                       collision_penalty_scalar=collision_penalty_scalar, location_funcs=location_funcs,
-                       max_steps=max_steps, delta_time=delta_time, render_mode=render_mode, reward_type=reward_type)
+    # normalize_rewards
+    env_func = partial(HarvestEnv, harvesters=harvesters, excavators=excavators, obstacles=obstacles, pois=pois, location_funcs=location_funcs,
+                       max_steps=max_steps, delta_time=delta_time, collision_penalty_scalar=collision_penalty_scalar, reward_type=reward_type,
+                       normalize_rewards=normalize_rewards, render_mode=render_mode)
     return env_func
 
 
 def rand_ring_env(
         scale_factor=1, num_harvesters=4, num_excavators=4, num_obstacles=8, num_pois=8, collision_penalty_scalar=0, obs_rad=2, max_vel=1,
         agent_weight=1, obs_weight=1, poi_weight=1, agent_value=1, obstacle_value=1, poi_value=1, sen_res=8, delta_time=1, render_mode=None,
-        max_steps=100, reward_type='global'
+        max_steps=100, reward_type='global', normalize_rewards=True
 ):
     agent_bounds = np.asarray([0, 3]) * scale_factor
     obstacle_bounds = np.asarray([5, 8]) * scale_factor
@@ -87,7 +88,7 @@ def rand_ring_env(
         location_funcs, num_harvesters=num_harvesters, num_excavators=num_excavators, num_obstacles=num_obstacles, num_pois=num_pois,
         collision_penalty_scalar=collision_penalty_scalar, obs_rad=obs_rad, max_vel=max_vel, agent_weight=agent_weight, obs_weight=obs_weight,
         poi_weight=poi_weight, agent_value=agent_value, obstacle_value=obstacle_value, poi_value=poi_value, sen_res=sen_res, delta_time=delta_time,
-        render_mode=render_mode, max_steps=max_steps, reward_type=reward_type
+        render_mode=render_mode, max_steps=max_steps, reward_type=reward_type, normalize_rewards=normalize_rewards
     )
     return env_func
 
@@ -95,7 +96,7 @@ def rand_ring_env(
 def det_ring_env(
         scale_factor=1, num_harvesters=4, num_excavators=4, num_obstacles=8, num_pois=8, collision_penalty_scalar=0, obs_rad=2, max_vel=1,
         agent_weight=1, obs_weight=1, poi_weight=1, agent_value=1, obstacle_value=1, poi_value=1, sen_res=8, delta_time=1, render_mode=None,
-        max_steps=100, reward_type='global'
+        max_steps=100, reward_type='global', normalize_rewards=True
 ):
     agent_bounds = np.asarray([0, 3]) * scale_factor
     obstacle_bounds = np.asarray([5, 8]) * scale_factor
@@ -115,6 +116,6 @@ def det_ring_env(
         location_funcs, num_harvesters=num_harvesters, num_excavators=num_excavators, num_obstacles=num_obstacles, num_pois=num_pois,
         collision_penalty_scalar=collision_penalty_scalar, obs_rad=obs_rad, max_vel=max_vel, agent_weight=agent_weight, obs_weight=obs_weight,
         poi_weight=poi_weight, agent_value=agent_value, obstacle_value=obstacle_value, poi_value=poi_value, sen_res=sen_res, delta_time=delta_time,
-        render_mode=render_mode, max_steps=max_steps, reward_type=reward_type
+        render_mode=render_mode, max_steps=max_steps, reward_type=reward_type, normalize_rewards=normalize_rewards
     )
     return env_func
