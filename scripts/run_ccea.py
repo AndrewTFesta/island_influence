@@ -89,7 +89,8 @@ def main(main_args):
     }
 
     for idx in range(num_runs):
-        run_ccea(env_type, env_params, ccea_params, base_pop_size=base_pop_size, experiment_dir=experiment_dir, max_iters=max_iters)
+        stat_dir = Path(experiment_dir, f'stat_run_{idx}')
+        run_ccea(env_type, env_params, ccea_params, base_pop_size=base_pop_size, experiment_dir=stat_dir, max_iters=max_iters)
     return
 
 

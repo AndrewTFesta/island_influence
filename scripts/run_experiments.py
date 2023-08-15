@@ -19,6 +19,20 @@ from scripts.run_islands import run_island_experiment
 
 
 def run_parameter_sweep(base_dir, island_params, ccea_params, env_params, param_ranges, island_class):
+    remove_keys = []
+    for each_key, each_params in param_ranges.items():
+        if len(each_params) == 1:
+            each_value = each_params[0]
+            if each_key in island_params:
+                island_params[each_key] = each_value
+            if each_key in ccea_params:
+                ccea_params[each_key] = each_value
+            if each_key in env_params:
+                env_params[each_key] = each_value
+            remove_keys.append(each_key)
+    for each_key in remove_keys:
+        param_ranges.pop(each_key)
+    #####################################################################
     keys, values = zip(*param_ranges.items())
     exp_configs = [dict(zip(keys, v)) for v in itertools.product(*values)]
     print(f'{len(exp_configs)=}')
@@ -78,7 +92,8 @@ def main(main_args):
         'base_pop_size': [25],
         'collision_penalty_scalar': [0, 1],
         'fitness_update_eps': [0],
-        'env_type': [rand_ring_env, det_ring_env]
+        'env_type': [det_ring_env]
+        # 'env_type': [rand_ring_env, det_ring_env]
     }
     ############################################################################
     now = datetime.now()

@@ -66,6 +66,12 @@ def restart_stat_run(stat_run_dir):
 
 def main(main_args):
     # todo  update for env and experiment changes
+    exp_dirs = list(Path(project_properties.output_dir, 'exps').iterdir())
+    for each_dir in exp_dirs:
+        # todo  branch based on the type of experiment
+        #       most experiments have
+        # todo  check if complete
+        pass
     stat_run_dirs = list(Path(project_properties.output_dir, 'exps').rglob('**/stat_run*'))
     for each_dir in stat_run_dirs:
         restart_stat_run(each_dir)
