@@ -470,7 +470,6 @@ class HarvestEnv:
         dicts keyed by the agent name
             e.g. {agent_0: observation_0, agent_1: observation_1, ...}
         """
-        initial_state = self.state()
         remaining_obstacles = [agent for agent in self.obstacles if agent.value > 0]
         remaining_pois = [agent for agent in self.pois if agent.value > 0]
 
@@ -569,6 +568,7 @@ class HarvestEnv:
                     # look at the number of nearby harvesters vs the N closest
                     # if there is at least one additional harvester, then this
                     # agent did not need to be present to observe the poi
+                    # todo  Note that in this case, the difference rewards are symmetric
                     num_extra = len(obs_harvesters) - len(harvester_info)
                     reward = min(-num_extra + 1, 1)
                 rewards[harvester.name] += reward
