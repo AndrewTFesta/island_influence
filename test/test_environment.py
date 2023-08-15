@@ -17,13 +17,8 @@ from island_influence.setup_env import rand_ring_env, det_ring_env
 
 
 def display_env(env, render_mode, render_delay=1.0):
-    frame = env.render()
-    if render_mode == 'rgb_array':
-        plt.imshow(frame)
-        plt.pause(render_delay)
-    else:
-        time.sleep(render_delay)
-    plt.close()
+    env.render()
+    time.sleep(render_delay)
     return
 
 
@@ -62,6 +57,61 @@ def test_actions(env: HarvestEnv):
         agent = env.get_agent(agent_name)
         action = agent.get_action(obs)
         print(f'{agent_name=}: {obs=} | {action=}')
+    print(f'=' * 80)
+    return
+
+
+def test_rewards(env: HarvestEnv, render_mode):
+    render_delay = 1
+
+    # action is (dx, dy)
+    step_size = 0.5
+    forward_action = np.array((0, step_size))
+    backwards_action = np.array((0, -step_size))
+    left_action = np.array((-step_size, 0))
+    right_action = np.array((step_size, 0))
+
+    tests = [
+        {agent.name: forward_action for agent in env.agents},
+        {agent.name: backwards_action for agent in env.agents},
+        {agent.name: right_action for agent in env.agents},
+        {agent.name: left_action for agent in env.agents},
+
+        {agent.name: forward_action for agent in env.agents},
+        {agent.name: forward_action for agent in env.agents},
+        {agent.name: forward_action for agent in env.agents},
+        {agent.name: forward_action for agent in env.agents},
+
+        {agent.name: right_action for agent in env.agents},
+        {agent.name: right_action for agent in env.agents},
+        {agent.name: right_action for agent in env.agents},
+        {agent.name: right_action for agent in env.agents},
+    ]
+
+    print(f'=' * 80)
+    env.reset()
+    env.reward_type = 'global'
+    env.render_mode = render_mode
+    print(f'Running step tests')
+    first_agent = env.agents[0]
+    obs_space = env.observation_space(first_agent)
+    act_space = env.action_space(first_agent)
+    print(f'{obs_space=}')
+    print(f'{act_space=}')
+
+    for each_action in tests:
+        observations, rewards, terminations, truncs, infos = env.step(each_action)
+        if render_mode:
+            display_env(env, render_mode, render_delay)
+
+    # reset and do it again with difference rewards
+    env.reset()
+    env.reward_type = 'difference'
+    for each_action in tests:
+        observations, rewards, terminations, truncs, infos = env.step(each_action)
+        if render_mode:
+            display_env(env, render_mode, render_delay)
+    # display_final_agents(env)
     print(f'=' * 80)
     return
 
@@ -184,6 +234,7 @@ def test_random(env: HarvestEnv, render_mode):
 def test_rollout(env: HarvestEnv, render_mode):
     render_delay = 1
     env.reset()
+    env.render_mode = render_mode
     agent_dones = env.done()
     done = all(agent_dones.values())
 
@@ -340,25 +391,21 @@ def main(main_args):
     test_save_transitions(env)
 
     # test_collisions(render_mode=None)
-    # test_collisions(render_mode='rgb_array')
     # test_collisions(render_mode='human')
+
+    # test_rewards(env, render_mode=None)
+    # test_rewards(env, render_mode='human')
 
     # test_reset(env, render_mode=None)
     # test_step(env, render_mode=None)
     # test_random(env, render_mode=None)
-    test_rollout(env, render_mode=None)
-
-    # test_render(env, render_mode='rgb_array')
-    # test_reset(env, render_mode='rgb_array')
-    # test_step(env, render_mode='rgb_array')
-    # test_random(env, render_mode='rgb_array')
-    # test_rollout(env, render_mode='rgb_array')
+    # test_rollout(env, render_mode=None)
 
     # test_render(env, render_mode='human')
     # test_reset(env, render_mode='human')
-    # test_step(env, render_mode='human')
-    test_random(env, render_mode='human')
-    # test_rollout(env, render_mode='human')
+    test_step(env, render_mode='human')
+    # test_random(env, render_mode='human')
+    test_rollout(env, render_mode='human')
     return
 
 

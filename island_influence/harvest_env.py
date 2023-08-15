@@ -11,7 +11,7 @@ from island_influence.utils import relative
 
 
 class HarvestEnv:
-    metadata = {'render_modes': ['human', 'rgb_array', 'none'], 'render_fps': 4, 'name': 'DiscreteHarvestEnvironment'}
+    metadata = {'render_modes': ['human', 'none'], 'render_fps': 4, 'name': 'DiscreteHarvestEnvironment'}
     REWARD_TYPES = ['global', 'difference']
 
     @property
@@ -88,6 +88,7 @@ class HarvestEnv:
         :param delta_time:
         :param render_mode:
         """
+        self._reward_type = ['global', 'difference']
         self._current_step = 0
         self.max_steps = max_steps
         self.num_dims = 2
@@ -96,7 +97,7 @@ class HarvestEnv:
 
         self.normalize_rewards = normalize_rewards
         self.collision_penalty_scalar = collision_penalty_scalar
-        self.reward_type = reward_type
+        self.reward_type = reward_type if reward_type in self._reward_type else 'global'
         self.save_dir = save_dir
 
         # agents are the harvesters and the excavators
@@ -516,53 +517,73 @@ class HarvestEnv:
         # assign rewards to harvester for observing pois and excavators for removing obstacles
         # Compute for excavators and obstacles
         for obstacle, excavator_info in observed_obstacles_excavators.items():
-            # todo  add coupling - need at least N excavators in excavator_info before reducing the obstacle's value and
-            #       assigning rewards to any of the excavators
-            #       only assign to N closest harvesters
-            closest_info = excavator_info[0]
-            excavator = closest_info['agent']
-            # remove an obstacle if an excavator collides with it
-            # assign reward for removing the obstacle to the closest excavator
-            #       the reward for an agent is based on the current value of the obstacle
-            #       this value cannot exceed the remaining value of the obstacle being removed
-            value_diff = min(excavator.value, obstacle.value)
-            obstacle.value -= value_diff
+            # need at least N excavators in excavator_info before reducing the obstacle's value and assigning rewards to any of the excavators
+            coupling_req = obstacle.size
+            if len(excavator_info) < coupling_req:
+                continue
 
-            each_reward = value_diff
+            # the reward for removing an obstacle is based on the current value of the obstacle
+            each_reward = obstacle.value
             if self.normalize_rewards:
-                each_reward = value_diff / self.initial_obstacle_value
-            rewards[excavator.name] += each_reward
+                each_reward = each_reward / self.initial_obstacle_value
+            # todo  consider if an obstacle takes longer to fully remove
+            obstacle.value = 0
+            rewards['global_excavator'] += each_reward
+
+            obs_excavators = excavator_info[:coupling_req]
+            for each_info in obs_excavators:
+                excavator = each_info['agent']
+                reward = 0
+                if self.reward_type == 'global':
+                    reward = each_reward
+                elif self.reward_type == 'difference':
+                    # look at the number of nearby excavators vs the N closest
+                    # if there is at least one additional excavator, then this
+                    # agent did not need to be present to remove the obstacle
+                    num_extra = len(obs_excavators) - len(excavator_info)
+                    reward = min(-num_extra + 1, 1)
+                rewards[excavator.name] += reward
 
         # Compute for harvesters and pois
         for poi, harvester_info in observed_pois_harvesters.items():
-            # todo  add coupling - need at least N harvesters in harvester_info before reducing the obstacle's value and
-            #       assigning rewards to any of the excavators
-            #       only assign to N closest harvesters
-            closest_info = harvester_info[0]
-            harvester = closest_info['agent']
-            # reduce the value of a poi from self.pois if it is observed
-            # assign reward for observing the poi to the closest harvester
-            #       the reward for an agent is based on the current value of the poi
-            #       this value cannot exceed the remaining value of the poi being observed
-            value_diff = min(harvester.value, poi.value)
-            poi.value -= value_diff
+            # need at least N harvesters in harvester_info before reducing the obstacle's value and assigning rewards to any of the excavators
+            coupling_req = poi.size
+            if len(harvester_info) < coupling_req:
+                continue
 
-            each_reward = value_diff
+            # the reward for removing an obstacle is based on the current value of the obstacle
+            each_reward = poi.value
             if self.normalize_rewards:
-                each_reward = value_diff / self.initial_poi_value
-            rewards[harvester.name] += each_reward
+                each_reward = each_reward / self.initial_poi_value
+            # todo  consider if a poi takes longer to fully remove
+            poi.value = 0
+            rewards['global_harvester'] += each_reward
 
+            obs_harvesters = harvester_info[:coupling_req]
+            for each_info in obs_harvesters:
+                harvester = each_info['agent']
+                reward = 0
+                if self.reward_type == 'global':
+                    reward = each_reward
+                elif self.reward_type == 'difference':
+                    # look at the number of nearby harvesters vs the N closest
+                    # if there is at least one additional harvester, then this
+                    # agent did not need to be present to observe the poi
+                    num_extra = len(obs_harvesters) - len(harvester_info)
+                    reward = min(-num_extra + 1, 1)
+                rewards[harvester.name] += reward
+
+        # check if simulation is done
+        dones = self.done()
+        #############################################################################################
+        # The effects of the actions have all been applied to the state
+        # No more state changes should occur below this point
         # Global team reward is the sum of subteam (excavator team and harvest team) rewards
+        curr_state = self.state()
         rewards['global_excavator'] = sum([each_reward for each_agent, each_reward in rewards.items() if each_agent.startswith('Excavator')])
         rewards['global_harvester'] = sum([each_reward for each_agent, each_reward in rewards.items() if each_agent.startswith('Harvester')])
         rewards['global'] = rewards['global_excavator'] + rewards['global_harvester']
 
-        # check if simulation is done
-        dones = self.done()
-
-        # The effects of the actions have all been applied to the state
-        # No more state changes should occur below this point
-        curr_state = self.state()
         self.action_history.append(actions)
         self.state_history.append(curr_state)
         self.reward_history.append(rewards)
@@ -596,7 +617,7 @@ class HarvestEnv:
         self.location_offset = self.render_bound // (self.render_scale * 2)
         return
 
-    def __render_frame(self):
+    def __render_human(self):
         black = (0, 0, 0)
         white = (255, 255, 255)
 
@@ -614,13 +635,13 @@ class HarvestEnv:
         write_values = False
         write_legend = True
 
-        if self.window is None and self.render_mode == 'human':
+        if self.window is None:
             pygame.init()
             pygame.display.init()
             pygame.font.init()
             self.window = pygame.display.set_mode((self.window_size, self.window_size))
 
-        if self.clock is None and self.render_mode == 'human':
+        if self.clock is None:
             self.clock = pygame.time.Clock()
 
         canvas = pygame.Surface((self.window_size, self.window_size))
@@ -735,9 +756,6 @@ class HarvestEnv:
             # We need to ensure that human-rendering occurs at the predefined framerate.
             # The following line will automatically add a delay to keep the framerate stable.
             self.clock.tick(self.metadata['render_fps'])
-        else:  # rgb_array
-            np_frame = np.transpose(np.array(pygame.surfarray.pixels3d(canvas)), axes=(1, 0, 2))
-            return np_frame
         return
 
     def render(self):
@@ -750,11 +768,10 @@ class HarvestEnv:
 
         :return:
         """
+        frame = None
         match self.render_mode:
             case 'human':
-                frame = self.__render_frame()
-            case 'rgb_array':
-                frame = self.__render_frame()
+                self.__render_human()
             case _:
                 frame = None
         return frame
