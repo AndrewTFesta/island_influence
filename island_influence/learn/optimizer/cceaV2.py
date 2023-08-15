@@ -370,6 +370,7 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims,
                     if fitness_update_eps <= 0:
                         policy.fitness = fitness
                     else:
+                        # todo  dan't have a delta if the policy does not have a fitness yet
                         fitness_delta = fitness - policy.fitness
                         policy.fitness += fitness_delta * fitness_update_eps
         # downselect

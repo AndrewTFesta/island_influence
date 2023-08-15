@@ -64,19 +64,20 @@ def main(main_args):
     }
 
     param_ranges = {
-        'migrate_every': [5, 25],
-        'num_sims': [15, 25],
-        'scale_factor': [1.0],
+        'migrate_every': [25],
+        'num_sims': [25],
+        'scale_factor': [1.0, 2.0],
         'num_harvesters': [4],
         'num_excavators': [4],
-        'num_obstacles': [15, 50],
-        'num_pois': [4, 8],
+        'num_obstacles': [50],
+        'num_pois': [8],
         'agent_size': [1],
         'obs_size': [1],
         'poi_size': [1],
         'sen_res': [8],
         'base_pop_size': [25],
-        'fitness_update_eps': [0, 1, 2],
+        'collision_penalty_scalar': [0, 1],
+        'fitness_update_eps': [0],
         'env_type': [rand_ring_env, det_ring_env]
     }
     ############################################################################
@@ -86,13 +87,13 @@ def main(main_args):
     if not base_dir.exists():
         base_dir.mkdir(parents=True, exist_ok=True)
 
-    for idx in range(stat_runs):
-        stat_dir = Path(base_dir, f'stat_run_{idx}')
-        try:
+    try:
+        for idx in range(stat_runs):
+            stat_dir = Path(base_dir, f'stat_run_{idx}')
             print(f'Starting stat run {idx}')
             run_parameter_sweep(stat_dir, island_params, ccea_params, env_params, param_ranges, island_class)
-        except KeyboardInterrupt:
-            print(f'Stopping stat run: {idx}')
+    except KeyboardInterrupt:
+        print(f'Stopping parameter sweep')
     return
 
 
