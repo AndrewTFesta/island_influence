@@ -130,7 +130,7 @@ class MAIsland:
             info_message = f'Island {self.name}:{self.total_gens_run}/{self.max_iters}:{remaining_time=}'
             debug_message = (f'Island {self.name}:{total_time=}:{time_per_gen_overall=}:{remaining_gens=}:'
                              f'{gens_run=}:{opt_time=}:{time_per_gen_opt=}:{max_fitnesses}')
-            logging.info(msg=info_message)
+            logging.debug(msg=info_message)
             logging.debug(msg=debug_message)
             with open(self.times_fname, 'w+') as times_file:
                 writer = csv.writer(times_file)
