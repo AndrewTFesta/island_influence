@@ -93,6 +93,9 @@ See the [LICENSE file](LICENSE) for license rights and limitations (MIT).
 [//]: # (other end goes in with no learned skills and learns to cooperate while learning skills)
 [//]: # (flexible options are somewhere in the middle)
 [//]: # (but are hindered by a very large joint actions space, as we move towards multiagent systems)
+[//]: # (becomes more effective as the problem becomes more reliant on cooperation)
+[//]: # (more effective with penalty for collision with obstacles)
+[//]: # (generalization of centrallized and decentralized training architecture)
 
 ### Questions
 

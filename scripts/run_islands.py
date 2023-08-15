@@ -188,7 +188,6 @@ def run_island_experiment(experiment_dir, island_params, ccea_params, env_params
 
 
 def main(main_args):
-    # todo  reduce how much is saved for each experiment
     use_threading = True
     base_pop_size = 25
     env_type = rand_ring_env
@@ -203,9 +202,10 @@ def main(main_args):
         'prob_to_mutate': 0.05, 'track_progress': True, 'use_mp': False,
     }
     env_params = {
-        'scale_factor': 0.5, 'num_harvesters': 4, 'num_excavators': 4, 'num_obstacles': 50, 'num_pois': 8, 'obs_rad': 1,
-        'collision_penalty_scalar': 0, 'max_vel': 1, 'agent_weight': 1, 'obs_weight': 1, 'poi_weight': 1, 'agent_value': 1, 'obstacle_value': 1,
-        'poi_value': 1, 'sen_res': 8, 'delta_time': 1, 'render_mode': None, 'max_steps': 100, 'reward_type': 'global'
+        'scale_factor': 0.5, 'num_harvesters': 4, 'num_excavators': 4, 'num_obstacles': 50, 'num_pois': 8, 'obs_rad': 1, 'max_vel': 1,
+        'agent_size': 1, 'obs_size': 1, 'poi_size': 1, 'agent_weight': 1, 'obs_weight': 1, 'poi_weight': 1, 'agent_value': 1, 'obstacle_value': 1,
+        'poi_value': 1, 'sen_res': 8, 'delta_time': 1, 'max_steps': 100, 'collision_penalty_scalar': 0, 'reward_type': 'global', 'normalize_rewards': True,
+        'render_mode': None
     }
     #############################################################################################
 

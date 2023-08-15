@@ -6,10 +6,12 @@
 """
 import argparse
 import time
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 
+from island_influence import project_properties
 from island_influence.harvest_env import HarvestEnv
 from island_influence.setup_env import rand_ring_env, det_ring_env
 
@@ -140,7 +142,6 @@ def test_step(env: HarvestEnv, render_mode):
 def test_random(env: HarvestEnv, render_mode):
     render_delay = 1
     counter = 0
-    done = False
     print(f'=' * 80)
     env.reset()
     env.render_mode = render_mode
@@ -149,6 +150,7 @@ def test_random(env: HarvestEnv, render_mode):
     # noinspection DuplicatedCode
     init_observations = env.reset()
     print(f'{init_observations=}')
+    done = False
     while not done:
         actions = {agent.name: env.action_space(agent).sample() for agent in env.agents}
         observations, rewards, terminations, truncs, infos = env.step(actions)
@@ -163,6 +165,7 @@ def test_random(env: HarvestEnv, render_mode):
     # noinspection DuplicatedCode
     init_observations = env.reset()
     print(f'{init_observations=}')
+    done = False
     while not done:
         actions = {agent.name: env.action_space(agent).sample() for agent in env.agents}
         observations, rewards, terminations, truncs, infos = env.step(actions)
@@ -273,19 +276,36 @@ def test_collisions(render_mode):
     return
 
 
-def test_persistence(env: HarvestEnv):
+def test_save_env(env: HarvestEnv):
     print(f'Running persistence tests')
     save_path = env.save_environment()
     test_env = HarvestEnv.load_environment(save_path)
-    # todo  inspect object
-    #       agents
-    #           histories
-    #           leaders
-    #               policies
-    #           followers
-    #           pois
-    #       reward history
-    #       state history
+
+    assert len(env.entities) == len(test_env.entities)
+    assert len(env.state_history) == len(test_env.state_history)
+    assert len(env.action_history) == len(test_env.action_history)
+    assert len(env.reward_history) == len(test_env.reward_history)
+
+    for env_entity, test_entity in zip(env.entities, test_env.entities):
+        assert env_entity.name == test_entity.name
+    return
+
+
+def test_save_transitions(env: HarvestEnv):
+    env.clear_saved_transitions()
+    test_random(env, render_mode=None)
+    initial_trans, initial_path = env.save_transitions()
+    env.reset()
+
+    test_random(env, render_mode=None)
+    second_trans, second_path = env.save_transitions()
+    env.reset()
+
+    load_trans = HarvestEnv.load_transitions(initial_path)
+
+    initial_trans.extend(second_trans)
+    assert initial_path == second_path
+    assert len(load_trans) == len(initial_trans)
     return
 
 
@@ -305,22 +325,28 @@ def test_reset(env: HarvestEnv, render_mode):
 
 
 def main(main_args):
-    env_params = {'scale_factor': 2, 'num_harvesters': 4, 'num_excavators': 4, 'num_obstacles': 16, 'num_pois': 8, 'collision_penalty_scalar': 0}
-    env_func = rand_ring_env(**env_params)
+    env_params = {
+        'scale_factor': 0.5, 'num_harvesters': 4, 'num_excavators': 4, 'num_obstacles': 16, 'num_pois': 8, 'collision_penalty_scalar': 0,
+        'max_steps': 25, 'save_dir': Path(project_properties.env_dir, 'harvest_env_test')
+    }
+    env_func = det_ring_env(**env_params)
     env = env_func()
     env.reset()
     env.normalize_rewards = True
 
     test_observations(env)
     test_actions(env)
-    test_collisions(render_mode=None)
+    test_save_env(env)
+    test_save_transitions(env)
+
+    # test_collisions(render_mode=None)
     # test_collisions(render_mode='rgb_array')
     # test_collisions(render_mode='human')
 
     # test_reset(env, render_mode=None)
     # test_step(env, render_mode=None)
     # test_random(env, render_mode=None)
-    # test_rollout(env, render_mode=None)
+    test_rollout(env, render_mode=None)
 
     # test_render(env, render_mode='rgb_array')
     # test_reset(env, render_mode='rgb_array')
@@ -328,13 +354,11 @@ def main(main_args):
     # test_random(env, render_mode='rgb_array')
     # test_rollout(env, render_mode='rgb_array')
 
-    test_render(env, render_mode='human')
-    test_reset(env, render_mode='human')
-    test_step(env, render_mode='human')
+    # test_render(env, render_mode='human')
+    # test_reset(env, render_mode='human')
+    # test_step(env, render_mode='human')
     test_random(env, render_mode='human')
-    test_rollout(env, render_mode='human')
-
-    test_persistence(env)
+    # test_rollout(env, render_mode='human')
     return
 
 

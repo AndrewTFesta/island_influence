@@ -57,10 +57,10 @@ def main(main_args):
         'starting_gen': 0, 'mutation_scalar': 0.1, 'prob_to_mutate': 0.05, 'track_progress': True, 'use_mp': True, 'num_sims': 5, 'fitness_update_eps': 0
     }
     env_params = {
-        'scale_factor': 0.5, 'num_harvesters': 4, 'num_excavators': 4, 'num_obstacles': 50, 'num_pois': 8, 'sen_res': 8,
-        'obs_rad': 1, 'max_vel': 1, 'agent_weight': 1, 'obs_weight': 1, 'poi_weight': 1,
-        'agent_value': 1, 'obstacle_value': 1, 'poi_value': 1, 'delta_time': 1, 'render_mode': None, 'max_steps': 100,
-        'reward_type': 'global', 'collision_penalty_scalar': 0, 'normalize_rewards': True
+        'scale_factor': 0.5, 'num_harvesters': 4, 'num_excavators': 4, 'num_obstacles': 50, 'num_pois': 8, 'obs_rad': 1, 'max_vel': 1,
+        'agent_size': 1, 'obs_size': 1, 'poi_size': 1, 'agent_weight': 1, 'obs_weight': 1, 'poi_weight': 1, 'agent_value': 1, 'obstacle_value': 1,
+        'poi_value': 1, 'sen_res': 8, 'delta_time': 1, 'max_steps': 100, 'collision_penalty_scalar': 0, 'reward_type': 'global', 'normalize_rewards': True,
+        'render_mode': None
     }
 
     param_ranges = {
@@ -71,6 +71,9 @@ def main(main_args):
         'num_excavators': [4],
         'num_obstacles': [15, 50],
         'num_pois': [4, 8],
+        'agent_size': [1],
+        'obs_size': [1],
+        'poi_size': [1],
         'sen_res': [8],
         'base_pop_size': [25],
         'fitness_update_eps': [0, 1, 2],

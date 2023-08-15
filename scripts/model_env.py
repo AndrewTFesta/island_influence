@@ -30,7 +30,7 @@ def run_ccea(env_type, env_params, ccea_params, base_pop_size, experiment_dir, m
         AgentType.Harvester: partial(create_agent_policy, env.harvesters[0]),
         AgentType.Excavator: partial(create_agent_policy, env.excavators[0]),
     }
-
+    ########################
     population_sizes = {AgentType.Harvester: base_pop_size, AgentType.Excavator: base_pop_size}
     agent_pops = {
         agent_type: [
@@ -45,7 +45,6 @@ def run_ccea(env_type, env_params, ccea_params, base_pop_size, experiment_dir, m
             print(f'{each_policy}: {each_policy.fitness}')
     print(f'=' * 80)
 
-    env_params['save_dir'] = experiment_dir
     ccea_params['population_sizes'] = population_sizes
     ccea_params['experiment_dir'] = experiment_dir
     ccea_params['max_iters'] = max_iters
@@ -68,7 +67,7 @@ def run_ccea(env_type, env_params, ccea_params, base_pop_size, experiment_dir, m
 def main(main_args):
     num_runs = 3
     base_pop_size = 15
-    max_iters = 100
+    max_iters= 100
     env_type = rand_ring_env
 
     now = datetime.datetime.now()
@@ -78,14 +77,13 @@ def main(main_args):
         experiment_dir.mkdir(parents=True, exist_ok=True)
 
     ccea_params = {
-        'starting_gen': 0, 'mutation_scalar': 0.1, 'prob_to_mutate': 0.05, 'num_sims': 5, 'fitness_update_eps': 0,
-        'track_progress': True, 'use_mp': False,
+        'starting_gen': 0, 'mutation_scalar': 0.1, 'prob_to_mutate': 0.05, 'track_progress': True, 'use_mp': False, 'num_sims': 15, 'fitness_update_eps': 0,
     }
     env_params = {
-        'scale_factor': 0.5, 'num_harvesters': 4, 'num_excavators': 4, 'num_obstacles': 50, 'num_pois': 8, 'obs_rad': 1, 'max_vel': 1,
-        'agent_size': 1, 'obs_size': 1, 'poi_size': 1, 'agent_weight': 1, 'obs_weight': 1, 'poi_weight': 1, 'agent_value': 1, 'obstacle_value': 1,
-        'poi_value': 1, 'sen_res': 8, 'delta_time': 1, 'max_steps': 100, 'collision_penalty_scalar': 0, 'reward_type': 'global', 'normalize_rewards': True,
-        'render_mode': None
+        'scale_factor': 0.5, 'num_harvesters': 4, 'num_excavators': 4, 'num_obstacles': 50, 'num_pois': 8, 'sen_res': 8,
+        'obs_rad': 1, 'max_vel': 1, 'agent_weight': 1, 'obs_weight': 1, 'poi_weight': 1,
+        'agent_value': 1, 'obstacle_value': 1, 'poi_value': 1, 'delta_time': 1, 'render_mode': None, 'max_steps': 100,
+        'reward_type': 'global', 'collision_penalty_scalar': 1, 'normalize_rewards': True
     }
 
     for idx in range(num_runs):

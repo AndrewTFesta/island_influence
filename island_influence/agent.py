@@ -25,7 +25,7 @@ class AgentType(Enum):
 class Agent:
     NUM_BINS = len(AgentType)
 
-    def __init__(self, agent_id: int, agent_type: AgentType, observation_radius, weight: float, value: float,
+    def __init__(self, agent_id: int, agent_type: AgentType, observation_radius, size: float, weight: float, value: float,
                  max_velocity: float = 0.0, policy: NeuralNetwork | None = None, sense_function='regions'):
         """
         The weight of an agent is how many agents it counts as when checking if the agent has an effect on another agent.
@@ -41,6 +41,7 @@ class Agent:
         :param agent_id:
         :param agent_type:
         :param observation_radius:
+        :param size:
         :param weight:
         :param value:
         """
@@ -51,12 +52,12 @@ class Agent:
         self.location = None
 
         self.observation_radius = observation_radius
+        self.size = size
         self.weight = weight
         self.value = value
 
         self._initial_value = value
         self._initial_weight = weight
-        # self._initial_location = copy.copy(location)
 
         # lower/upper bounds agent is able to move
         # same for both x and y directions
@@ -150,9 +151,13 @@ class Agent:
 
         for idx, entry in enumerate(obs_agents):
             agent, angle, dist = entry
+            if dist == 0.0:
+                dist += 0.001
+            obs_value = agent[3] / dist
+
             agent_type_idx = int(agent[-1])
             bin_idx = int(np.floor(angle / bin_size) % self.sensor_resolution)
-            layer_obs[agent_type_idx, bin_idx] += agent[3] / max(dist, 0.01)
+            layer_obs[agent_type_idx, bin_idx] += obs_value
             counts[agent_type_idx, bin_idx] += 1
 
         layer_obs = np.divide(layer_obs, counts)
@@ -193,7 +198,7 @@ class Agent:
 
 class Obstacle(Agent):
 
-    def __init__(self, agent_id, agent_type, observation_radius, weight, value):
+    def __init__(self, agent_id, agent_type, observation_radius, size, weight, value):
         """
         The weight of an obstacle is how many agents it requires to remove it.
 
@@ -203,14 +208,15 @@ class Obstacle(Agent):
         :param agent_id:
         :param agent_type:
         :param observation_radius:
+        :param size:
         :param weight:
         :param value:
         """
-        super().__init__(agent_id, agent_type, observation_radius, weight, value)
+        super().__init__(agent_id, agent_type, observation_radius, size, weight, value)
         return
 
     def __repr__(self):
-        return f'({self.name}: {self.agent_type}: {self.weight=}: {self.value=}: {self.location=})'
+        return f'({self.name}: {self.agent_type}: {self.size=}: {self.weight=}: {self.value=}: {self.location=})'
 
     def sense(self, other_agents):
         # sense nearby harvester agents
@@ -232,7 +238,7 @@ class Poi(Agent):
     #     obs = max_seen >= self.coupling
     #     return obs
 
-    def __init__(self, agent_id, agent_type, observation_radius, weight, value):
+    def __init__(self, agent_id, agent_type, observation_radius, size, weight, value):
         """
         The weight of a poi is how many agents it requires to remove it.
 
@@ -242,14 +248,15 @@ class Poi(Agent):
         :param agent_id:
         :param agent_type:
         :param observation_radius:
+        :param size:
         :param weight:
         :param value:
         """
-        super().__init__(agent_id, agent_type, observation_radius, weight, value)
+        super().__init__(agent_id, agent_type, observation_radius, size, weight, value)
         return
 
     def __repr__(self):
-        return f'({self.name}: {self.agent_type}: {self.weight=}: {self.value=}: {self.location=})'
+        return f'({self.name}: {self.agent_type}: {self.size=}: {self.weight=}: {self.value=}: {self.location=})'
 
     def observation_space(self):
         sensor_range = spaces.Box(low=0, high=self.weight, shape=(1,))

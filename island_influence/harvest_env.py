@@ -1,19 +1,30 @@
 import math
 import pickle
+from collections import namedtuple
 from pathlib import Path
 
 import numpy as np
 import pygame
 
-from island_influence import project_properties
 from island_influence.agent import Agent, Obstacle, Poi, AgentType
 from island_influence.learn.neural_network import NeuralNetwork
-from island_influence.utils import euclidean, observed_agents
+from island_influence.utils import relative
+
+STATE_INDICES = namedtuple('STATE_INDICES', ['location', 'weight', 'value', 'observation_radius', 'agent_type'])
 
 
 class HarvestEnv:
     metadata = {'render_modes': ['human', 'rgb_array', 'none'], 'render_fps': 4, 'name': 'DiscreteHarvestEnvironment'}
     REWARD_TYPES = ['global', 'difference']
+
+    @property
+    def entities(self):
+        entities = []
+        entities.extend(self.harvesters)
+        entities.extend(self.excavators)
+        entities.extend(self.obstacles)
+        entities.extend(self.pois)
+        return entities
 
     @property
     def agents(self):
@@ -67,7 +78,7 @@ class HarvestEnv:
         return sum([each_poi.value for each_poi in self.pois])
 
     def __init__(self, harvesters: list[Agent], excavators: list[Agent], obstacles: list[Obstacle], pois: list[Poi], location_funcs: dict, max_steps,
-                 delta_time=1, normalize_rewards=False, collision_penalty_scalar: int = 0, reward_type='global', render_mode=None):
+                 save_dir, delta_time=1, normalize_rewards=False, collision_penalty_scalar: int = 0, reward_type='global', render_mode=None):
         """
         Always make sure to add agents and call `HarvestEnv.reset()` after before using the environment
 
@@ -80,10 +91,10 @@ class HarvestEnv:
         :param delta_time:
         :param render_mode:
         """
-        self.reward_map = {
-            'global': self._global_reward,
-            'difference': self._difference_reward,
-        }
+        # self.reward_map = {
+        #     'global': self._global_reward,
+        #     'difference': self._difference_reward,
+        # }
         self._current_step = 0
         self.max_steps = max_steps
         self.num_dims = 2
@@ -92,8 +103,10 @@ class HarvestEnv:
 
         self.normalize_rewards = normalize_rewards
         self.collision_penalty_scalar = collision_penalty_scalar
-        self.reward_func = self._global_reward
-        self.reward_func = self.reward_map.get(reward_type, self._global_reward)
+        self.reward_type = reward_type
+        # self.reward_func = self._global_reward
+        # self.reward_func = self.reward_map.get(reward_type, self._global_reward)
+        self.save_dir = save_dir
 
         # agents are the harvesters and the excavators
         # todo  add more types of harvesters
@@ -243,12 +256,16 @@ class HarvestEnv:
         :return:
         """
         agent_types = list(AgentType)
+        all_agents = self.entities
         # env is the state and agents are how the updates are calculated based on current state
         # note that this may imply non-changing set of agents
-        agent_states = [[*agent.location, agent.weight, agent.value, agent_types.index(agent.agent_type)] for agent in self.agents]
-        obstacles_states = [[*obstacle.location, obstacle.weight, obstacle.value, agent_types.index(obstacle.agent_type)] for obstacle in self.obstacles]
-        poi_states = [[*poi.location, poi.weight, poi.value, agent_types.index(poi.agent_type)] for poi in self.pois]
-        states_lists = [states for states in (agent_states, obstacles_states, poi_states) if len(states) > 0]
+        # todo  order state values based on STATE_INDICES enum
+        agent_states = [
+            [*agent.location, agent.weight, agent.value, agent.observation_radius, agent_types.index(agent.agent_type)]
+            for agent in all_agents
+        ]
+        states_lists = [states for states in agent_states if len(states) > 0]
+
         all_states = np.vstack(states_lists)
         return all_states
 
@@ -257,14 +274,34 @@ class HarvestEnv:
         action = self.action_history[idx]
         reward = self.reward_history[idx]
         end_state = self.state_history[idx + 1]
-        return start_state, action, reward, end_state
+        transition = {
+            'initial_state': start_state,
+            'action': action,
+            # 'reward': reward,
+            'end_state': end_state
+        }
+        return transition
 
     def all_state_transitions(self):
-        state_transitions = []
-        for idx in enumerate(self.state_history):
-            transition = self.state_transition(idx)
-            state_transitions.append(transition)
+        num_transitions = len(self.action_history)
+        state_transitions = [
+            self.state_transition(idx)
+            for idx in range(num_transitions)
+        ]
         return state_transitions
+
+    def clear_saved_transitions(self, save_dir=None, tag=''):
+        if save_dir is None:
+            save_dir = self.save_dir
+
+        if tag != '':
+            tag = f'_{tag}'
+
+        transitions_fname = Path(save_dir, f'transitions{tag}.pkl')
+        transitions = []
+        with open(transitions_fname, 'wb') as save_file:
+            pickle.dump(transitions, save_file, pickle.HIGHEST_PROTOCOL)
+        return transitions
 
     def save_environment(self, save_dir=None, tag=''):
         # todo  use better methods of saving than pickling
@@ -274,7 +311,7 @@ class HarvestEnv:
         # https://developers.google.com/protocol-buffers
         # https://developers.google.com/protocol-buffers/docs/pythontutorial
         if save_dir is None:
-            save_dir = project_properties.env_dir
+            save_dir = self.save_dir
 
         if tag != '':
             tag = f'_{tag}'
@@ -286,15 +323,38 @@ class HarvestEnv:
         self.reset()
         with open(save_path, 'wb') as save_file:
             self.close()
-            # TypeError: cannot pickle 'pygame.surface.Surface' object
             pickle.dump(self, save_file, pickle.HIGHEST_PROTOCOL)
         return save_path
+
+    def save_transitions(self, save_dir=None, tag=''):
+        if save_dir is None:
+            save_dir = self.save_dir
+
+        if tag != '':
+            tag = f'_{tag}'
+
+        transitions_fname = Path(save_dir, f'transitions{tag}.pkl')
+        existing_transitions = []
+        if transitions_fname.exists():
+            with open(transitions_fname, 'rb') as load_file:
+                existing_transitions = pickle.load(load_file)
+        transitions = self.all_state_transitions()
+        existing_transitions.extend(transitions)
+        with open(transitions_fname, 'wb') as save_file:
+            pickle.dump(existing_transitions, save_file, pickle.HIGHEST_PROTOCOL)
+        return transitions, transitions_fname
 
     @staticmethod
     def load_environment(env_path):
         with open(env_path, 'rb') as load_file:
             env = pickle.load(load_file)
         return env
+
+    @staticmethod
+    def load_transitions(transitions_fname):
+        with open(transitions_fname, 'rb') as load_file:
+            transitions_fname = pickle.load(load_file)
+        return transitions_fname
 
     def reset(self, seed: int | None = None):
         """
@@ -387,20 +447,22 @@ class HarvestEnv:
             cum_rewards[agent_name] = agent_reward
         return cum_rewards
 
-    def evaluate_reward(self, state: np.ndarray, actions: np.ndarray, result_state: np.ndarray):
-        # noinspection PyArgumentList
-        rewards = self.reward_func(state, actions, result_state)
-        return rewards
-
-    def _global_reward(self, state: np.ndarray, actions: np.ndarray, result_state: np.ndarray):
-        # todo  global rewards based on (state, action, next_state)
-        rewards = {each_agent.name: 0 for each_agent in self.agents}
-        return rewards
-
-    def _difference_reward(self, state: np.ndarray, actions: np.ndarray, result_state: np.ndarray):
-        # todo  difference rewards based on (state, action, next_state)
-        rewards = {each_agent.name: 0 for each_agent in self.agents}
-        return rewards
+    @staticmethod
+    def check_observed(observing_agents, observed_agents):
+        closest = {}
+        for observed_agent in observed_agents:
+            observed_location = observed_agent.location
+            all_observed = []
+            for observing_agent in observing_agents:
+                observing_location = observing_agent.location
+                angle, dist = relative(observing_location, observed_location)
+                if dist <= observing_agent.observation_radius:
+                    entry = {'agent': observing_agent, 'distance': dist}
+                    all_observed.append(entry)
+            if len(all_observed) > 0:
+                all_observed.sort(key=lambda x: x['distance'])
+                closest[observed_agent] = all_observed
+        return closest
 
     def step(self, actions):
         """
@@ -432,11 +494,11 @@ class HarvestEnv:
         default_action = np.asarray([0, 0])
         for agent in self.agents:
             agent_action = actions.get(agent.name, default_action)
-            # each_action is (dx, dy)
             new_loc = agent.location + agent_action
             if len(obstacle_locations) > 0 and agent.agent_type == AgentType.Harvester:
                 # Collision detection for obstacles and harvesters
-                obstacle_dists = np.asarray([euclidean(new_loc, each_loc) for each_loc in obstacle_locations])
+                new_loc_mat = np.tile(new_loc, (len(remaining_obstacles), 1))
+                obstacle_dists = np.linalg.norm(new_loc_mat - obstacle_locations, axis=1)
                 obstacle_dists -= obstacle_radii
                 collision = np.min(obstacle_dists) <= 0
                 if collision:
@@ -444,8 +506,6 @@ class HarvestEnv:
                     colliding_obstacle_idx = np.argmin(obstacle_dists)
                     colliding_obstacle = remaining_obstacles[colliding_obstacle_idx]
                     obstacle_weight = colliding_obstacle.weight
-                    # cum_obstacles = [obstacle.weight for obstacle, collision in zip(remaining_obstacles, obs_collisions) if collision]
-                    # obstacle_weight = sum(cum_obstacles)
                     # todo  consider how to normalize rewards
                     #       reward based on obstacle and agent weights (analogous to physical impact between objects)
                     # todo  differentiate between reward sources - positive and negative
@@ -459,45 +519,51 @@ class HarvestEnv:
 
         # find the closest pairs of relevant agents after stepping the environment
         # check closest agents based on observation radii of active agents rather than passive agents
-        observed_obstacles_excavators = observed_agents(self.excavators, remaining_obstacles)
-        observed_pois_harvesters = observed_agents(self.harvesters, remaining_pois)
+        observed_obstacles_excavators = self.check_observed(self.excavators, remaining_obstacles)
+        observed_pois_harvesters = self.check_observed(self.harvesters, remaining_pois)
         # apply the effects of harvesters and excavators on obstacles and pois
         # assign rewards to harvester for observing pois and excavators for removing obstacles
         # Compute for excavators and obstacles
-        for obstacle_name, excavator_info in observed_obstacles_excavators.items():
-            excavator = excavator_info[0]
+        for obstacle, excavator_info in observed_obstacles_excavators.items():
+            # todo  add coupling - need at least N excavators in excavator_info before reducing the obstacle's value and
+            #       assigning rewards to any of the excavators
+            #       only assign to N closest harvesters
+            closest_info = excavator_info[0]
+            excavator = closest_info['agent']
             # remove an obstacle if an excavator collides with it
             # assign reward for removing the obstacle to the closest excavator
             #       the reward for an agent is based on the current value of the obstacle
             #       this value cannot exceed the remaining value of the obstacle being removed
-            value_diff = min(excavator.value, self.get_obstacle(obstacle_name).value)
-            obstacle = self.get_obstacle(obstacle_name)
+            value_diff = min(excavator.value, obstacle.value)
             obstacle.value -= value_diff
 
             each_reward = value_diff
             if self.normalize_rewards:
                 each_reward = value_diff / self.initial_obstacle_value
             rewards[excavator.name] += each_reward
-            rewards['global_excavator'] += each_reward
 
         # Compute for harvesters and pois
-        for poi_name, harvester_info in observed_pois_harvesters.items():
-            harvester = harvester_info[0]
+        for poi, harvester_info in observed_pois_harvesters.items():
+            # todo  add coupling - need at least N harvesters in harvester_info before reducing the obstacle's value and
+            #       assigning rewards to any of the excavators
+            #       only assign to N closest harvesters
+            closest_info = harvester_info[0]
+            harvester = closest_info['agent']
             # reduce the value of a poi from self.pois if it is observed
             # assign reward for observing the poi to the closest harvester
             #       the reward for an agent is based on the current value of the poi
             #       this value cannot exceed the remaining value of the poi being observed
-            value_diff = min(harvester.value, self.get_poi(poi_name).value)
-            poi = self.get_poi(poi_name)
+            value_diff = min(harvester.value, poi.value)
             poi.value -= value_diff
 
             each_reward = value_diff
             if self.normalize_rewards:
                 each_reward = value_diff / self.initial_poi_value
             rewards[harvester.name] += each_reward
-            rewards['global_harvester'] += each_reward
 
         # Global team reward is the sum of subteam (excavator team and harvest team) rewards
+        rewards['global_excavator'] = sum([each_reward for each_agent, each_reward in rewards.items() if each_agent.startswith('Excavator')])
+        rewards['global_harvester'] = sum([each_reward for each_agent, each_reward in rewards.items() if each_agent.startswith('Harvester')])
         rewards['global'] = rewards['global_excavator'] + rewards['global_harvester']
 
         # check if simulation is done
@@ -506,9 +572,6 @@ class HarvestEnv:
         # The effects of the actions have all been applied to the state
         # No more state changes should occur below this point
         curr_state = self.state()
-        eval_rewards = self.evaluate_reward(initial_state, actions, curr_state)
-        eval_rewards = self._difference_reward(initial_state, actions, curr_state)
-        eval_rewards = self._global_reward(initial_state, actions, curr_state)
         self.action_history.append(actions)
         self.state_history.append(curr_state)
         self.reward_history.append(rewards)
@@ -642,7 +705,7 @@ class HarvestEnv:
         if write_legend:
             outline = 1
             legend_offset = 10
-            for idx, agent_type, color in enumerate(agent_colors.items()):
+            for idx, (agent_type, color) in enumerate(agent_colors.items()):
                 text = f'{agent_type.name}'
                 text_surface = font.render(text, False, color)
                 if outline > 0:
@@ -669,6 +732,7 @@ class HarvestEnv:
 
                 text_height = text_surface.get_height() + legend_offset
                 text_width = text_surface.get_width() + legend_offset
+                # noinspection PyTypeChecker
                 canvas.blit(text_surface, (self.window_size - text_width, text_height * idx))
 
         if self.render_mode == 'human':

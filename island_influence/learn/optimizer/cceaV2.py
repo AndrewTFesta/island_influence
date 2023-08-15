@@ -298,7 +298,7 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims,
 
         }
         save_config(config=ccea_config, save_dir=experiment_dir, config_name='ccea_config')
-        env.save_environment(experiment_dir)
+        env.save_environment()
         # save initial fitnesses
         save_agent_policies(experiment_dir, 0, env, agent_policies)
     ##########################################################################################
