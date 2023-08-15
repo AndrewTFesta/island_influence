@@ -19,8 +19,6 @@ from island_influence.learn.island.ThreadIsland import ThreadIsland
 from island_influence.learn.optimizer.cceaV2 import ccea
 from island_influence.setup_env import create_agent_policy, rand_ring_env
 
-DEBUG = False
-
 
 def create_harvester_island(island_class, experiment_dir, island_params, ccea_params, env_params, base_pop_size, env_type):
     env_func = env_type(**env_params)
@@ -188,18 +186,19 @@ def run_island_experiment(experiment_dir, island_params, ccea_params, env_params
 
 
 def main(main_args):
+    debug = False
     use_threading = True
     base_pop_size = 25
     env_type = rand_ring_env
 
     island_class = ThreadIsland if use_threading else MAIsland
-    log_level = logging.DEBUG if DEBUG else logging.INFO
+    log_level = logging.DEBUG if debug else logging.INFO
     logger = logging.getLogger()
     logger.setLevel(log_level)
     island_params = {'max_iters': 1000, 'migrate_every': 15, 'track_progress': True, 'logger': logger}
     ccea_params = {
         'num_sims': (base_pop_size // 3) * 2, 'starting_gen': 0, 'fitness_update_eps': False, 'mutation_scalar': 0.1,
-        'prob_to_mutate': 0.05, 'track_progress': True, 'use_mp': False,
+        'prob_to_mutate': 0.05, 'track_progress': True, 'use_mp': True,
     }
     env_params = {
         'scale_factor': 0.5, 'num_harvesters': 4, 'num_excavators': 4, 'num_obstacles': 50, 'num_pois': 8, 'obs_rad': 1, 'max_vel': 1,
