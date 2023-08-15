@@ -1,6 +1,5 @@
 import math
 import pickle
-from collections import namedtuple
 from pathlib import Path
 
 import numpy as np
@@ -9,8 +8,6 @@ import pygame
 from island_influence.agent import Agent, Obstacle, Poi, AgentType
 from island_influence.learn.neural_network import NeuralNetwork
 from island_influence.utils import relative
-
-STATE_INDICES = namedtuple('STATE_INDICES', ['location', 'weight', 'value', 'observation_radius', 'agent_type'])
 
 
 class HarvestEnv:
@@ -91,10 +88,6 @@ class HarvestEnv:
         :param delta_time:
         :param render_mode:
         """
-        # self.reward_map = {
-        #     'global': self._global_reward,
-        #     'difference': self._difference_reward,
-        # }
         self._current_step = 0
         self.max_steps = max_steps
         self.num_dims = 2
@@ -104,8 +97,6 @@ class HarvestEnv:
         self.normalize_rewards = normalize_rewards
         self.collision_penalty_scalar = collision_penalty_scalar
         self.reward_type = reward_type
-        # self.reward_func = self._global_reward
-        # self.reward_func = self.reward_map.get(reward_type, self._global_reward)
         self.save_dir = save_dir
 
         # agents are the harvesters and the excavators
@@ -255,18 +246,18 @@ class HarvestEnv:
         training decentralized execution methods like QMIX
         :return:
         """
-        agent_types = list(AgentType)
-        all_agents = self.entities
+        # agent_types = list(AgentType)
+        # all_agents = self.entities
         # env is the state and agents are how the updates are calculated based on current state
         # note that this may imply non-changing set of agents
-        # todo  order state values based on STATE_INDICES enum
-        agent_states = [
-            [*agent.location, agent.weight, agent.value, agent.observation_radius, agent_types.index(agent.agent_type)]
-            for agent in all_agents
-        ]
-        states_lists = [states for states in agent_states if len(states) > 0]
+        # agent_states = [
+        #     [*agent.location, agent.size, agent.weight, agent.value, agent.observation_radius, agent_types.index(agent.agent_type)]
+        #     for agent in all_agents
+        # ]
+        # states_lists = [states for states in agent_states if len(states) > 0]
+        # all_states = np.vstack(states_lists)
 
-        all_states = np.vstack(states_lists)
+        all_states = self.entities
         return all_states
 
     def state_transition(self, idx):

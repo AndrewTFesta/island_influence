@@ -114,10 +114,13 @@ class Agent:
         """
         obs_bins = []
         for idx, each_agent in enumerate(agent_locations):
-            if np.isnan(each_agent).any():
+            if each_agent == self:
                 continue
+            # if np.isnan(each_agent).any():
+            #     continue
 
-            agent_location = each_agent[:2]
+            agent_location = each_agent.location
+            # agent_location = each_agent[:2]
             angle, dist = relative(self.location, agent_location)
             if min_distance <= dist <= observation_radius:
                 obs_bins.append((each_agent, angle, dist))
@@ -138,11 +141,12 @@ class Agent:
         :param offset:
         :return:
         """
+        agent_types = list(AgentType)
         layer_obs = np.zeros((Agent.NUM_BINS, self.sensor_resolution))
         counts = np.ones(layer_obs.shape)
 
         # each row in each layer is a list of
-        #   [locations (2d), weight, value]
+        #   [locations (2d), size, weight, value, observation_radius, agent_type]
         obs_agents = Agent.observable_agents(self, state, self.observation_radius)
         bin_size = 360 / self.sensor_resolution
         if offset:
@@ -153,9 +157,12 @@ class Agent:
             agent, angle, dist = entry
             if dist == 0.0:
                 dist += 0.001
-            obs_value = agent[3] / dist
 
-            agent_type_idx = int(agent[-1])
+            # obs_value = agent[4] / dist
+            # agent_type_idx = int(agent[-1])
+            obs_value = agent.value / max(dist, 0.01)
+            agent_type_idx = agent_types.index(agent.agent_type)
+
             bin_idx = int(np.floor(angle / bin_size) % self.sensor_resolution)
             layer_obs[agent_type_idx, bin_idx] += obs_value
             counts[agent_type_idx, bin_idx] += 1
