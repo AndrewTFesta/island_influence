@@ -19,19 +19,19 @@ from scripts.run_islands import run_island_experiment
 
 
 def run_parameter_sweep(base_dir, island_params, ccea_params, env_params, param_ranges, island_class):
-    remove_keys = []
-    for each_key, each_params in param_ranges.items():
-        if len(each_params) == 1:
-            each_value = each_params[0]
-            if each_key in island_params:
-                island_params[each_key] = each_value
-            if each_key in ccea_params:
-                ccea_params[each_key] = each_value
-            if each_key in env_params:
-                env_params[each_key] = each_value
-            remove_keys.append(each_key)
-    for each_key in remove_keys:
-        param_ranges.pop(each_key)
+    # remove_keys = []
+    # for each_key, each_params in param_ranges.items():
+    #     if len(each_params) == 1:
+    #         each_value = each_params[0]
+    #         if each_key in island_params:
+    #             island_params[each_key] = each_value
+    #         if each_key in ccea_params:
+    #             ccea_params[each_key] = each_value
+    #         if each_key in env_params:
+    #             env_params[each_key] = each_value
+    #         remove_keys.append(each_key)
+    # for each_key in remove_keys:
+    #     param_ranges.pop(each_key)
     #####################################################################
     keys, values = zip(*param_ranges.items())
     exp_configs = [dict(zip(keys, v)) for v in itertools.product(*values)]
