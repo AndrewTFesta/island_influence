@@ -4,7 +4,6 @@
 @description
 
 """
-import csv
 import json
 import logging
 import pickle
