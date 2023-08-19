@@ -60,7 +60,7 @@ class MAIsland:
         self.since_last_migration = 0
         self.max_iters = max_iters
         self.save_dir = save_dir
-        self.times_fname = Path(self.save_dir, 'opt_times.csv')
+        self.times_fname = Path(self.save_dir, 'opt_times.json')
         self.migrated_from_neighbors = {}
         self.num_migrations = 0
         self.total_gens_run = 0
