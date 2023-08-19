@@ -42,7 +42,9 @@ def run_parameter_sweep(base_dir, stat_runs, island_params, ccea_params, env_par
             print(f'Starting stat run {stat_idx}')
             stat_dir = Path(experiment_dir, f'stat_run_{stat_idx}')
             run_island_experiment(stat_dir, island_params, ccea_params, env_params, base_pop_size=base_pop_size, env_type=env_type, island_class=island_class)
-            run_ccea(env_type, env_params, ccea_params, base_pop_size=base_pop_size, experiment_dir=stat_dir, max_iters=island_params['max_iters'])
+
+            ccea_dir = Path(stat_dir, 'base_ccea')
+            run_ccea(env_type, env_params, ccea_params, base_pop_size=base_pop_size, experiment_dir=ccea_dir, max_iters=island_params['max_iters'])
     return
 
 
