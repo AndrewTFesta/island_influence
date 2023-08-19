@@ -108,14 +108,14 @@ class NeuralNetwork(nn.Module):
             base_repr = f'{base_repr}, {self.fitness=}'
         return base_repr
 
-    # def _deepcopy(self):
-    #     # https://discuss.pytorch.org/t/deep-copying-pytorch-modules/13514/2
-    #     new_model = copy.deepcopy(self)
-    #     new_model.network_id = uuid.uuid1().int
-    #     new_model.fitness = None
-    #     # new_copy.parent = self.name
-    #     new_model.parent = self
-    #     return new_model
+    def _deepcopy(self):
+        # https://discuss.pytorch.org/t/deep-copying-pytorch-modules/13514/2
+        new_model = copy.deepcopy(self)
+        new_model.network_id = uuid.uuid1().int
+        new_model.fitness = None
+        # new_copy.parent = self.name
+        new_model.parent = self
+        return new_model
     
     def copy(self):
         """
@@ -131,20 +131,49 @@ class NeuralNetwork(nn.Module):
         new_model.parent = self
         return new_model
 
-    def mutate_gaussian(self, mutation_scalar=0.1, probability_to_mutate=0.05):
-        # todo  optimize mutating network
+    def mutate_gaussian_individual(self, mutation_scalar=0.1, probability_to_mutate=0.05):
+        """
+        This is slowed down by looping over each parameter value and generating a value to check if it is altered.
+        There also appears to be a very small value error with fewer values than specified being selected.
+
+        :param mutation_scalar:
+        :param probability_to_mutate:
+        :return:
+        """
         rng = default_rng()
         with torch.no_grad():
             param_vector = parameters_to_vector(self.parameters())
 
+            num_altered = 0
             for each_val in param_vector:
                 rand_val = rng.random()
                 if rand_val <= probability_to_mutate:
                     noise = torch.randn(each_val.size()) * mutation_scalar
                     each_val.add_(noise)
+                    num_altered += 1
 
             vector_to_parameters(param_vector, self.parameters())
-        return
+        num_vals = param_vector.size(dim=0)
+        return num_altered, num_vals
+
+    def mutate_gaussian(self, mutation_scalar=0.1, probability_to_mutate=0.05):
+        with torch.no_grad():
+            param_vector = parameters_to_vector(self.parameters())
+            noise_vector = torch.randn_like(param_vector)
+            noise_vector *= mutation_scalar
+
+            ignore_vector = torch.rand_like(param_vector)
+            ignore_vector -= probability_to_mutate
+
+            # noinspection PyTypeChecker
+            ignore_vector = torch.where(ignore_vector < 0, 1, 0)
+            num_altered = torch.sum(ignore_vector)
+            noise_vector = noise_vector.masked_fill(ignore_vector <= 0, 0)
+            param_vector += noise_vector
+
+            vector_to_parameters(param_vector, self.parameters())
+        num_vals = param_vector.size(dim=0)
+        return num_altered.numpy(), num_vals
 
     def replace_layers(self, other_net, layers):
         # todo  allow swap specific weights in each_layer
@@ -180,11 +209,23 @@ class NeuralNetwork(nn.Module):
         if x.dtype is not torch.float32:
             x = x.float()
 
-        if x.shape[0] != self.n_inputs:
-            # if input does not have the correct shape
-            # x = torch.zeros([1, self.n_inputs], dtype=torch.float32)
-            raise ValueError(f'Input does not have correct shape: {x.shape=} | {self.n_inputs=}')
+        # if x.shape[0] != self.n_inputs:
+        #     # if input does not have the correct shape
+        #     # x = torch.zeros([1, self.n_inputs], dtype=torch.float32)
+        #     raise ValueError(f'Input does not have correct shape: {x.shape=} | {self.n_inputs=}')
 
+        logits = self.network(x)
+        return logits
+
+    def forward1(self, x):
+        """
+        This is hardly faster, despite having no checks. When using the built-in pytorch __call__ functionality, it actually appears to be slower.
+        :param x:
+        :return:
+        """
+        x = torch.from_numpy(x)
+        if x.dtype is not torch.float32:
+            x = x.float()
         logits = self.network(x)
         return logits
 
