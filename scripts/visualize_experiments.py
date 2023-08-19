@@ -14,7 +14,7 @@ from matplotlib import pyplot as plt
 
 from island_influence import project_properties
 from island_influence.agent import AgentType
-from island_influence.harvest_env import HarvestEnv
+from island_influence.envs.harvest_env import HarvestEnv
 from island_influence.learn.optimizer.cceaV2 import rollout
 from island_influence.learn.neural_network import load_pytorch_model
 
@@ -56,9 +56,9 @@ def parse_harvest_fitnesses(experiment_dir: Path):
     return exp_fitnesses
 
 
-def parse_harvest_exp(exp_dir, base_dir):
+def parse_harvest_exp(exp_dir, save_dir):
     exp_name = exp_dir.stem
-    save_dir = Path(base_dir, f'harvest_{exp_name}')
+    save_dir = Path(save_dir, f'harvest_{exp_name}')
     exp_types = list(exp_dir.iterdir())
     for each_type in exp_types:
         fitness_data = parse_harvest_fitnesses(each_type)
@@ -67,7 +67,7 @@ def parse_harvest_exp(exp_dir, base_dir):
     return
 
 
-def parse_island_exp(exp_dir, base_dir):
+def parse_island_exp(exp_dir, save_dir):
     exp_name = exp_dir.stem
     stat_dirs = list(exp_dir.glob('stat_run_*'))
     islands = {}
@@ -85,13 +85,16 @@ def parse_island_exp(exp_dir, base_dir):
                 agent_fitnesses.append(fitnesses)
 
     for each_island, fitnesses in islands.items():
-        save_dir = Path(base_dir, f'island_{exp_name}')
+        save_dir = Path(save_dir, f'island_{exp_name}')
         # replay_episode(each_dir)
         plot_fitnesses(fitnesses, save_dir=save_dir, tag=f'{each_island}')
     return
 
 
-def parse_param_sweep_exp(exp_dir, base_dir):
+def parse_param_sweep_exp(exp_dir, save_dir):
+    island_exp_dirs = list(exp_dir.iterdir())
+    for each_island_dir in island_exp_dirs:
+        parse_island_exp(each_island_dir, save_dir)
     return
 
 
@@ -190,15 +193,16 @@ def main(main_args):
         base_save_dir.mkdir(parents=True, exist_ok=True)
 
     base_dir = Path(project_properties.output_dir, 'exps')
-    exp_dirs = list(base_dir.glob('*_exp_*'))
+    # exp_dirs = list(base_dir.glob('*_exp_*'))
+    exp_dirs = list(base_dir.iterdir())
     for each_exp in exp_dirs:
-        exp_type = each_exp.stem.split('_')[0]
+        exp_type = '_'.join(each_exp.stem.split('_')[:-6])
         if exp_type == 'island_exp':
-            parse_island_exp(each_exp, base_dir=base_save_dir)
+            parse_island_exp(each_exp, save_dir=base_save_dir)
         elif exp_type == 'harvest_exp':
-            parse_harvest_exp(each_exp, base_dir=base_save_dir)
-        elif exp_type == 'param_sweep_exp':
-            parse_param_sweep_exp(each_exp, base_dir=base_save_dir)
+            parse_harvest_exp(each_exp, save_dir=base_save_dir)
+        elif exp_type == 'island_param_sweep':
+            parse_param_sweep_exp(each_exp, save_dir=base_save_dir)
     return
 
 

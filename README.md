@@ -99,9 +99,12 @@ See the [LICENSE file](LICENSE) for license rights and limitations (MIT).
 
 ### Questions
 
-1. What is the problem, why do I care?
+1. What is the problem, why do I care? 
+   - Multiagent learning has shown to be a highly effective tool when designing large-scale multiagent systems. Their distributed nature allows designers to build on each component individually as parts of a whole. 
 2. Why is it important or difficult?
+   - However, the strength of these systems also belies their underlying weakness. Carving out the individual components is difficult, and even more so, it is difficult to train complex cooperation between these separate components with different capabilities that all must interact with each other in different ways in order to achieve a team objective.
 3. What has been done in this area?
+   - Approaches such as 
 4. What particular problem remains unsolved?
 5. How did you solve it?
 6. What's cool about your approach?

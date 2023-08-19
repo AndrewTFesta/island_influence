@@ -16,7 +16,7 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 from island_influence.agent import AgentType
-from island_influence.harvest_env import HarvestEnv
+from island_influence.envs.harvest_env import HarvestEnv
 from island_influence.utils import save_config
 
 

@@ -13,3 +13,5 @@ torchaudio
 pandas
 setuptools
 dill
+Flask
+MarkupSafe

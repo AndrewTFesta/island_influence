@@ -12,8 +12,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from island_influence import project_properties
-from island_influence.harvest_env import HarvestEnv
-from island_influence.setup_env import rand_ring_env, det_ring_env
+from island_influence.envs.harvest_env import HarvestEnv
+from island_influence.setup_env import det_ring_env
 
 
 def display_env(env, render_mode, render_delay=1.0):
@@ -22,42 +22,46 @@ def display_env(env, render_mode, render_delay=1.0):
     return
 
 
-def test_observations(env: HarvestEnv):
-    print(f'=' * 80)
+def test_observations(env: HarvestEnv, display=False):
     env.reset()
-    print(f'Running observation tests')
     first_agent = env.agents[0]
     obs_space = env.observation_space(first_agent)
-    print(f'{obs_space=}')
+    if display:
+        print(f'=' * 80)
+        print(f'Running observation tests')
+        print(f'{obs_space=}')
 
     for agent in env.agents:
         each_obs = env.observation_space(agent)
-        print(f'{agent.name}: {each_obs}')
+        if display:
+            print(f'{agent.name}: {each_obs}')
     all_obs = env.get_observations()
     for name, each_obs in all_obs.items():
-        print(f'{name}: {each_obs}')
-    print(f'=' * 80)
+        if display:
+            print(f'{name}: {each_obs}')
     return
 
 
-def test_actions(env: HarvestEnv):
-    print(f'=' * 80)
+def test_actions(env: HarvestEnv, display=False):
     env.reset()
-    print(f'Running action tests')
     first_agent = env.agents[0]
     act_space = env.action_space(first_agent)
-    print(f'{act_space=}')
+    if display:
+        print(f'=' * 80)
+        print(f'Running action tests')
+        print(f'{act_space=}')
 
     for agent in env.agents:
         each_act = env.action_space(agent)
-        print(f'{agent.name}: {each_act}')
+        if display:
+            print(f'{agent.name}: {each_act}')
 
     all_obs = env.get_observations()
     for agent_name, obs in all_obs.items():
         agent = env.get_agent(agent_name)
         action = agent.get_action(obs)
-        print(f'{agent_name=}: {obs=} | {action=}')
-    print(f'=' * 80)
+        if display:
+            print(f'{agent_name=}: {obs=} | {action=}')
     return
 
 
@@ -189,24 +193,26 @@ def test_step(env: HarvestEnv, render_mode):
     return
 
 
-def test_random(env: HarvestEnv, render_mode):
+def test_random(env: HarvestEnv, render_mode, display=False):
     render_delay = 1
     counter = 0
-    print(f'=' * 80)
     env.reset()
     env.render_mode = render_mode
-    print(f'Running random step tests')
 
     # noinspection DuplicatedCode
     init_observations = env.reset()
-    print(f'{init_observations=}')
+    if display:
+        print(f'=' * 80)
+        print(f'Running random step tests')
+        print(f'{init_observations=}')
+
     done = False
     while not done:
         actions = {agent.name: env.action_space(agent).sample() for agent in env.agents}
         observations, rewards, terminations, truncs, infos = env.step(actions)
         done = all(terminations.values())
         counter += 1
-        if counter % 100 == 0:
+        if counter % 100 == 0 and display:
             print(f'{counter=}')
         if render_mode:
             display_env(env, render_mode, render_delay)
@@ -214,20 +220,18 @@ def test_random(env: HarvestEnv, render_mode):
     # reset and do it again
     # noinspection DuplicatedCode
     init_observations = env.reset()
-    print(f'{init_observations=}')
+    if display:
+        print(f'{init_observations=}')
     done = False
     while not done:
         actions = {agent.name: env.action_space(agent).sample() for agent in env.agents}
         observations, rewards, terminations, truncs, infos = env.step(actions)
         done = all(terminations.values())
         counter += 1
-        if counter % 100 == 0:
+        if counter % 100 == 0 and display:
             print(f'{counter=}')
         if render_mode:
             display_env(env, render_mode, render_delay)
-
-    # display_final_agents(env)
-    print(f'=' * 80)
     return
 
 
@@ -248,8 +252,9 @@ def test_rollout(env: HarvestEnv, render_mode):
     return
 
 
-def test_collisions(render_mode):
-    print(f'Running collision tests')
+def test_collisions(render_mode, display=False):
+    if display:
+        print(f'Running collision tests')
     env_obstacles_func = det_ring_env(scale_factor=0.5, num_excavators=0)
     env_pois_func = det_ring_env(scale_factor=0.5, num_excavators=0, num_obstacles=0)
 
@@ -300,7 +305,8 @@ def test_collisions(render_mode):
         if render_mode:
             display_env(env_obstacles, render_mode, render_delay)
     cum_rewards = env_obstacles.cumulative_rewards()
-    print(f'Obstacle environment: {env_obstacles.collision_penalty_scalar}: {cum_rewards}')
+    if display:
+        print(f'Obstacle environment: {env_obstacles.collision_penalty_scalar}: {cum_rewards}')
     env_obstacles.reset()
     env_obstacles.collision_penalty_scalar = 1
     for each_action in tests:
@@ -308,27 +314,29 @@ def test_collisions(render_mode):
         if render_mode:
             display_env(env_obstacles, render_mode, render_delay)
     cum_rewards = env_obstacles.cumulative_rewards()
-    print(f'Obstacle environment: {env_obstacles.collision_penalty_scalar}: {cum_rewards}')
-    print(f'=' * 80)
+    if display:
+        print(f'Obstacle environment: {env_obstacles.collision_penalty_scalar}: {cum_rewards}')
+        print(f'=' * 80)
 
     for each_action in tests:
         observations, rewards, terminations, truncs, infos = env_pois.step(each_action)
         if render_mode:
             display_env(env_pois, render_mode, render_delay)
     cum_rewards = env_pois.cumulative_rewards()
-    print(f'Poi environment: {env_pois.collision_penalty_scalar}: {cum_rewards}')
+    if display:
+        print(f'Poi environment: {env_pois.collision_penalty_scalar}: {cum_rewards}')
     env_pois.reset()
     env_pois.collision_penalty_scalar = 1
     for each_action in tests:
         observations, rewards, terminations, truncs, infos = env_pois.step(each_action)
         if render_mode:
             display_env(env_pois, render_mode, render_delay)
-    print(f'=' * 80)
     return
 
 
-def test_save_env(env: HarvestEnv):
-    print(f'Running persistence tests')
+def test_save_env(env: HarvestEnv, display=False):
+    if display:
+        print(f'Running persistence tests')
     save_path = env.save_environment()
     test_env = HarvestEnv.load_environment(save_path)
 
@@ -342,13 +350,15 @@ def test_save_env(env: HarvestEnv):
     return
 
 
-def test_save_transitions(env: HarvestEnv):
+def test_save_transitions(env: HarvestEnv, display=False):
+    if display:
+        print(f'Running save transitions tests')
     env.clear_saved_transitions()
-    test_random(env, render_mode=None)
+    test_random(env, render_mode=None, display=display)
     initial_trans, initial_path = env.save_transitions()
     env.reset()
 
-    test_random(env, render_mode=None)
+    test_random(env, render_mode=None, display=display)
     second_trans, second_path = env.save_transitions()
     env.reset()
 
@@ -360,8 +370,9 @@ def test_save_transitions(env: HarvestEnv):
     return
 
 
-def test_reset(env: HarvestEnv, render_mode):
-    print(f'Running reset tests')
+def test_reset(env: HarvestEnv, render_mode, display=False):
+    if display:
+        print(f'Running reset tests')
     render_delay = 1
     env.reset()
     env.render_mode = render_mode
@@ -386,9 +397,9 @@ def main(main_args):
     env.normalize_rewards = True
 
     test_observations(env)
-    test_actions(env)
-    test_save_env(env)
-    test_save_transitions(env)
+    # test_actions(env)
+    # test_save_env(env)
+    # test_save_transitions(env)
 
     # test_collisions(render_mode=None)
     # test_collisions(render_mode='human')
@@ -403,13 +414,17 @@ def main(main_args):
 
     # test_render(env, render_mode='human')
     # test_reset(env, render_mode='human')
-    test_step(env, render_mode='human')
+    # test_step(env, render_mode='human')
     # test_random(env, render_mode='human')
-    test_rollout(env, render_mode='human')
+    # test_rollout(env, render_mode='human')
     return
 
 
 if __name__ == '__main__':
+    # https://docs.python.org/3/library/profile.html
+    # python test\test_environment.py
+    # python -m cProfile -s cumulative test\test_environment.py
+    # python -m cProfile -s filename test\test_environment.py
     parser = argparse.ArgumentParser(description='')
 
     args = parser.parse_args()

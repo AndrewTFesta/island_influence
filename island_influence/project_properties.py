@@ -41,6 +41,7 @@ env_dir = Path(output_dir, 'envs')
 island_dir = Path(output_dir, 'island')
 exps_dir = Path(output_dir, 'exps')
 log_dir = Path(output_dir, 'logs')
+profile_dir = Path(output_dir, 'profile')
 
 # --------------------------------------------
 # Cached directories

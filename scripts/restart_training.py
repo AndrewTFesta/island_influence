@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 
 from island_influence import project_properties
-from island_influence.harvest_env import HarvestEnv
+from island_influence.envs.harvest_env import HarvestEnv
 from island_influence.learn.optimizer.cceaV2 import ccea
 from island_influence.learn.neural_network import load_pytorch_model
 from island_influence.utils import load_config

@@ -12,7 +12,7 @@ import numpy as np
 
 from island_influence import project_properties
 from island_influence.agent import Poi, Obstacle, Agent, AgentType
-from island_influence.harvest_env import HarvestEnv
+from island_influence.envs.harvest_env import HarvestEnv
 from island_influence.learn.neural_network import NeuralNetwork
 from island_influence.utils import random_ring, deterministic_ring
 

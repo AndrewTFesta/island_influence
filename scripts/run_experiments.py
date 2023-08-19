@@ -18,25 +18,11 @@ from scripts.run_ccea import run_ccea
 from scripts.run_islands import run_island_experiment
 
 
-def run_parameter_sweep(base_dir, island_params, ccea_params, env_params, param_ranges, island_class):
-    # remove_keys = []
-    # for each_key, each_params in param_ranges.items():
-    #     if len(each_params) == 1:
-    #         each_value = each_params[0]
-    #         if each_key in island_params:
-    #             island_params[each_key] = each_value
-    #         if each_key in ccea_params:
-    #             ccea_params[each_key] = each_value
-    #         if each_key in env_params:
-    #             env_params[each_key] = each_value
-    #         remove_keys.append(each_key)
-    # for each_key in remove_keys:
-    #     param_ranges.pop(each_key)
-    #####################################################################
+def run_parameter_sweep(base_dir, stat_runs, island_params, ccea_params, env_params, param_ranges, island_class):
     keys, values = zip(*param_ranges.items())
     exp_configs = [dict(zip(keys, v)) for v in itertools.product(*values)]
     print(f'{len(exp_configs)=}')
-    for idx, exp_params in enumerate(exp_configs):
+    for exp_idx, exp_params in enumerate(exp_configs):
         base_pop_size = exp_params.pop('base_pop_size')
         env_type = exp_params.pop('env_type')
 
@@ -48,25 +34,28 @@ def run_parameter_sweep(base_dir, island_params, ccea_params, env_params, param_
             if each_param in env_params:
                 env_params[each_param] = param_val
 
-        experiment_dir = Path(base_dir, f'param_sweep_exp_{idx}')
+        experiment_dir = Path(base_dir, f'param_sweep_exp_{exp_idx}')
         if not experiment_dir.exists():
             experiment_dir.mkdir(parents=True, exist_ok=True)
 
-        run_island_experiment(experiment_dir, island_params, ccea_params, env_params, base_pop_size=base_pop_size, env_type=env_type, island_class=island_class)
-        run_ccea(env_type, env_params, ccea_params, base_pop_size=base_pop_size, experiment_dir=experiment_dir, max_iters=island_params['max_iters'])
+        for stat_idx in range(stat_runs):
+            print(f'Starting stat run {stat_idx}')
+            stat_dir = Path(experiment_dir, f'stat_run_{stat_idx}')
+            run_island_experiment(stat_dir, island_params, ccea_params, env_params, base_pop_size=base_pop_size, env_type=env_type, island_class=island_class)
+            run_ccea(env_type, env_params, ccea_params, base_pop_size=base_pop_size, experiment_dir=stat_dir, max_iters=island_params['max_iters'])
     return
 
 
 def main(main_args):
     debug = False
-    stat_runs = 1
+    stat_runs = 2
     use_threading = True
     island_class = ThreadIsland if use_threading else MAIsland
     log_level = logging.DEBUG if debug else logging.INFO
     logger = logging.getLogger()
     logger.setLevel(log_level)
     #############################################################
-    island_params = {'max_iters': 500, 'track_progress': True, 'logger': logger, 'migrate_every': 5}
+    island_params = {'max_iters': 50, 'track_progress': True, 'logger': logger, 'migrate_every': 5}
     ccea_params = {
         'starting_gen': 0, 'mutation_scalar': 0.1, 'prob_to_mutate': 0.05, 'track_progress': True, 'use_mp': True, 'num_sims': 5, 'fitness_update_eps': 0
     }
@@ -90,10 +79,10 @@ def main(main_args):
         'poi_size': [1],
         'sen_res': [8],
         'base_pop_size': [25],
-        'collision_penalty_scalar': [0, 1],
+        'collision_penalty_scalar': [0],
         'fitness_update_eps': [0],
-        'env_type': [det_ring_env]
-        # 'env_type': [rand_ring_env, det_ring_env]
+        # 'env_type': [det_ring_env]
+        'env_type': [rand_ring_env, det_ring_env]
     }
     ############################################################################
     now = datetime.now()
@@ -103,10 +92,7 @@ def main(main_args):
         base_dir.mkdir(parents=True, exist_ok=True)
 
     try:
-        for idx in range(stat_runs):
-            stat_dir = Path(base_dir, f'stat_run_{idx}')
-            print(f'Starting stat run {idx}')
-            run_parameter_sweep(stat_dir, island_params, ccea_params, env_params, param_ranges, island_class)
+        run_parameter_sweep(base_dir, stat_runs, island_params, ccea_params, env_params, param_ranges, island_class)
     except KeyboardInterrupt:
         print(f'Stopping parameter sweep')
     return

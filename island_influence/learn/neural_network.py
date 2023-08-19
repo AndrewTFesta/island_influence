@@ -84,6 +84,10 @@ class NeuralNetwork(nn.Module):
 
         self.network_func = network_func
         self.learner = learner
+        # todo  represent fitness as (mu,sigma)
+        #       sample from distribution when fitness is collapsed
+        #       calculate fitness is a manner similar to Truefitness
+        #       https://docs.battlesnake.com/guides/tournaments/hosting
         self._fitness = None if learner else 0.0
 
         self.n_inputs = n_inputs
@@ -113,6 +117,7 @@ class NeuralNetwork(nn.Module):
         return new_copy
 
     def mutate_gaussian(self, mutation_scalar=0.1, probability_to_mutate=0.05):
+        # todo  optimize mutating network
         rng = default_rng()
         with torch.no_grad():
             param_vector = parameters_to_vector(self.parameters())
@@ -152,6 +157,8 @@ class NeuralNetwork(nn.Module):
         return dev
 
     def forward(self, x):
+        # todo  optimize pytorch forward pass
+        # https://discuss.pytorch.org/t/updating-multiple-networks-simultaneously-on-cpu/94742/4
         if isinstance(x, np.ndarray):
             x = torch.from_numpy(x)
 

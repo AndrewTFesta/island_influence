@@ -6,56 +6,52 @@
 """
 import argparse
 import cProfile
+import datetime
+import logging
+from pathlib import Path
+from pstats import SortKey
+
+from island_influence import project_properties
+from island_influence.learn.island.MAIsland import MAIsland
+from island_influence.setup_env import rand_ring_env
+from scripts.run_ccea import run_ccea
+from scripts.run_islands import run_island_experiment
+
+BASE_POP_SIZE = 25
+
+LOGGER = logging.getLogger()
+LOGGER.setLevel(logging.INFO)
+DATE_STR = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+
+ISLAND_PARAMS = {'max_iters': 15, 'migrate_every': 15, 'track_progress': True, 'logger': LOGGER}
+CCEA_PARAMS = {
+    'starting_gen': 0, 'mutation_scalar': 0.1, 'prob_to_mutate': 0.05, 'num_sims': 5, 'fitness_update_eps': 0,
+    'track_progress': True, 'use_mp': False,
+}
+ENV_PARAMS = {
+    'scale_factor': 0.5, 'num_harvesters': 4, 'num_excavators': 4, 'num_obstacles': 16, 'num_pois': 8, 'obs_rad': 1, 'max_vel': 1,
+    'agent_size': 1, 'obs_size': 1, 'poi_size': 1, 'agent_weight': 1, 'obs_weight': 1, 'poi_weight': 1, 'agent_value': 1, 'obstacle_value': 1,
+    'poi_value': 1, 'sen_res': 8, 'delta_time': 1, 'max_steps': 25, 'collision_penalty_scalar': 0, 'reward_type': 'global', 'normalize_rewards': True,
+    'render_mode': None
+}
 
 
-def build5():
-    arr = [a for a in range(0, 1000000) if (a & 1) == 0]
+def profile_ccea():
+    max_iters = 25
+    experiment_dir = Path(project_properties.profile_dir, f'harvest_exp_{DATE_STR}')
+    if not experiment_dir.exists():
+        experiment_dir.mkdir(parents=True, exist_ok=True)
+
+    stat_dir = Path(experiment_dir, f'stat_run_{0}')
+    run_ccea(rand_ring_env, ENV_PARAMS, CCEA_PARAMS, base_pop_size=BASE_POP_SIZE, experiment_dir=stat_dir, max_iters=max_iters)
     return
 
 
-def build4():
-    arr = [a for a in range(0, 1000000) if a % 2 == 0]
-    return
-
-
-def build3():
-    arr = []
-    for a in range(0, 1000000):
-        if a % 2 == 0:
-            arr.append(a)
-    return
-
-
-def build2():
-    arr = []
-    for a in range(0, 1000000):
-        if check_even(a):
-            arr.append(a)
-    return
-
-
-def check_even(x):
-    if x % 2 == 0:
-        return x
-    else:
-        return None
-
-
-def build():
-    arr = []
-    for a in range(0, 1000000):
-        arr.append(a)
-    return
-
-
-def deploy():
-    print('Array deployed!')
-    return
-
-
-def test():
-    build()
-    deploy()
+def profile_islands():
+    experiment_dir = Path(project_properties.profile_dir, f'island_exp_{DATE_STR}', f'stat_run_{0}')
+    if not experiment_dir.exists():
+        experiment_dir.mkdir(parents=True, exist_ok=True)
+    run_island_experiment(experiment_dir, ISLAND_PARAMS, CCEA_PARAMS, ENV_PARAMS, base_pop_size=BASE_POP_SIZE, env_type=rand_ring_env, island_class=MAIsland)
     return
 
 
@@ -75,11 +71,8 @@ def main(main_args):
     :return:
     """
     # todo  create optimizer function calls to compare their execution bottlenecks
-    cProfile.run('test()')
-    cProfile.run('build2()')
-    cProfile.run('build3()')
-    cProfile.run('build4()')
-    cProfile.run('build5()')
+    # cProfile.run('profile_ccea()', sort=SortKey.CUMULATIVE)
+    cProfile.run('profile_islands()', sort=SortKey.CUMULATIVE)
     return
 
 

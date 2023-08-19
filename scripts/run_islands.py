@@ -154,7 +154,8 @@ def run_island_experiment(experiment_dir, island_params, ccea_params, env_params
     excavator_island.optimize()
     mainland.optimize()
 
-    while harvester_island.running or excavator_island.running or mainland.running:
+    # while harvester_island.running or excavator_island.running or mainland.running:
+    while mainland.running:
         time.sleep(5)
 
     harvester_island.stop()

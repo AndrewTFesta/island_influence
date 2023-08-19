@@ -136,3 +136,4 @@ dmypy.json
 /cached/
 
 scripts/gptindex_query.py
+/profile/
