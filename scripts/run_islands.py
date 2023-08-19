@@ -165,19 +165,19 @@ def run_island_experiment(experiment_dir, island_params, ccea_params, env_params
 
     # display final results
     print(f'=' * 80)
-    print(f'Island {excavator_island.name} has finished running: {excavator_island.total_gens_run} after {sum(excavator_island.opt_times)} seconds')
+    print(f'Island {excavator_island.name} has finished running: {excavator_island.total_gens_run} after {sum(excavator_island.opt_times["times"])} seconds')
     for agent_type, policies in excavator_island.top_inds.items():
         print(f'\t{agent_type}')
         for each_policy in policies:
             print(f'\t\t{each_policy.name}: {each_policy.fitness}')
     print(f'=' * 80)
-    print(f'Island {harvester_island.name} has finished running: {harvester_island.total_gens_run} after {sum(harvester_island.opt_times)} seconds')
+    print(f'Island {harvester_island.name} has finished running: {harvester_island.total_gens_run} after {sum(harvester_island.opt_times["times"])} seconds')
     for agent_type, policies in harvester_island.top_inds.items():
         print(f'\t{agent_type}')
         for each_policy in policies:
             print(f'\t\t{each_policy.name}: {each_policy.fitness}')
     print(f'=' * 80)
-    print(f'Island {mainland.name} has finished running: {mainland.total_gens_run} after {sum(mainland.opt_times)} seconds')
+    print(f'Island {mainland.name} has finished running: {mainland.total_gens_run} after {sum(mainland.opt_times["times"])} seconds')
     for agent_type, policies in mainland.top_inds.items():
         print(f'\t{agent_type}')
         for each_policy in policies:
