@@ -5,6 +5,7 @@
 
 """
 import csv
+import json
 import logging
 import pickle
 import threading
@@ -94,7 +95,7 @@ class MAIsland:
         logging.debug(msg=f'Running island optimizer on thread: {threading.get_native_id()}')
         # run the optimize function to completion (as defined by the optimize function)
         self.total_gens_run = 0
-        self.opt_times = []
+        self.opt_times = {'times': [], 'num_gens': []}
         self.final_pops = None
         self.top_inds = None
         pbar = tqdm(total=self.max_iters, desc=f'{self.name}') if self.track_progress else None
@@ -115,7 +116,9 @@ class MAIsland:
             )
             opt_end = time.process_time()
             opt_time = opt_end - opt_start
-            self.opt_times.append(opt_time)
+            # todo  also save number of generations run since last
+            self.opt_times['times'].append(opt_time)
+            self.opt_times['num_gens'].append(gens_run)
             self.total_gens_run += gens_run
             self.since_last_migration += gens_run
 
@@ -133,8 +136,7 @@ class MAIsland:
             logging.debug(msg=info_message)
             logging.debug(msg=debug_message)
             with open(self.times_fname, 'w+') as times_file:
-                writer = csv.writer(times_file)
-                writer.writerow(self.opt_times)
+                json.dump(self.opt_times, times_file)
 
             # at the end of every optimization loop (when the optimizer finishes),
             # migrate the champion from all learning population to every neighbor island
