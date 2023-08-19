@@ -122,7 +122,7 @@ class MAIsland:
             self.total_gens_run += gens_run
             self.since_last_migration += gens_run
 
-            total_time = sum(self.opt_times)
+            total_time = sum(self.opt_times['times'])
             time_per_gen_opt = opt_time / (gens_run + 0.001)
             time_per_gen_overall = total_time / self.total_gens_run
 
