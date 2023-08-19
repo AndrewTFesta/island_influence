@@ -20,7 +20,7 @@ from scripts.run_islands import run_island_experiment
 
 def run_parameter_sweep(base_dir, stat_runs, island_params, ccea_params, env_params, param_ranges, island_class):
     keys, values = zip(*param_ranges.items())
-    exp_configs = [dict(zip(keys, v)) for v in itertools.product(*values)]
+    exp_configs = [dict(zip(keys, vals)) for vals in itertools.product(*values)]
     print(f'{len(exp_configs)=}')
     for exp_idx, exp_params in enumerate(exp_configs):
         base_pop_size = exp_params.pop('base_pop_size')

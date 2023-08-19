@@ -5,14 +5,19 @@
 
 """
 import argparse
+import time
 
 import numpy as np
 import torch
+from tqdm import trange
 
 from island_influence.learn.neural_network import NeuralNetwork
 
 
 def display_weights(nn_weights):
+    if isinstance(nn_weights, NeuralNetwork):
+        nn_weights = nn_weights.weight_vectors()
+
     for each_layer in nn_weights:
         print(each_layer)
     return
@@ -55,39 +60,83 @@ def main(main_args):
         np_vect = np.asarray(vect)
         pt_vect = torch.from_numpy(np_vect)
         output = model_0(pt_vect)
-        print(f'{vect} | {output=}')
+        # print(f'{vect} | {output=}')
+
+    # print('=' * 80)
+    # print('Original weights')
+    # print('=' * 80)
+    # print(f'Model 0')
+    # display_weights(model_0.weight_vectors())
+    # print('=' * 80)
+    # print(f'Model 1')
+    # display_weights(model_1.weight_vectors())
+    # print('=' * 80)
+    # print('=' * 80)
+    # model_0.replace_layers(model_1, [0])
+    # print('=' * 80)
+    # print('Replace model_0 layer 0 with model_1 layer 0')
+    # print('=' * 80)
+    # print(f'Model 0')
+    # display_weights(model_0.weight_vectors())
+    # print('=' * 80)
+    # print(f'Model 1')
+    # display_weights(model_1.weight_vectors())
+    # print('=' * 80)
+    # print('=' * 80)
+    # model_0.mutate_gaussian(probability_to_mutate=1.0, mutation_scalar=1)
+    # print('=' * 80)
+    # print('Mutate weights in model_0')
+    # print('=' * 80)
+    # print(f'Model 0')
+    # display_weights(model_0.weight_vectors())
+    # print('=' * 80)
+    # print(f'Model 1')
+    # display_weights(model_1.weight_vectors())
+    # print('=' * 80)
+    # print('=' * 80)
+    ##############################################
+    timing_iters = 10_000
+    times = []
+    for _ in trange(timing_iters):
+        start_time = time.process_time_ns()
+        new_model = model_0.copy()
+        end_time = time.process_time_ns()
+        times.append(end_time - start_time)
+    print(f'Copy test: {np.average(times)}')
+
+    times = []
+    for _ in trange(timing_iters):
+        start_time = time.process_time_ns()
+        new_model = model_0._deepcopy()
+        end_time = time.process_time_ns()
+        times.append(end_time - start_time)
+    print(f'Deepcopy test: {np.average(times)}')
+
+    times = []
+    for _ in trange(timing_iters):
+        start_time = time.process_time_ns()
+        new_model = model_0._assign_weights()
+        end_time = time.process_time_ns()
+        times.append(end_time - start_time)
+    print(f'Assign weights test: {np.average(times)}')
 
     print('=' * 80)
     print('Original weights')
-    print('=' * 80)
     print(f'Model 0')
-    display_weights(model_0.weight_vectors())
+    print(f'{id(model_0)}: {model_0.network_id}')
+    display_weights(model_0)
     print('=' * 80)
-    print(f'Model 1')
-    display_weights(model_1.weight_vectors())
+    print(f'Copy weights')
+    new_model = model_0.copy()
+    print(f'{id(new_model) == id(model_0)}: {new_model.network_id == model_0.network_id}: {id(new_model)}: {new_model.network_id}')
+    print(f'{new_model.fitness=} | {model_0.fitness=} | {new_model.learner} | {model_0.learner}')
+    display_weights(new_model)
     print('=' * 80)
-    print('=' * 80)
-    model_0.replace_layers(model_1, [0])
-    print('=' * 80)
-    print('Replace model_0 layer 0 with model_1 layer 0')
-    print('=' * 80)
-    print(f'Model 0')
-    display_weights(model_0.weight_vectors())
-    print('=' * 80)
-    print(f'Model 1')
-    display_weights(model_1.weight_vectors())
-    print('=' * 80)
-    print('=' * 80)
-    model_0.mutate_gaussian(probability_to_mutate=1.0, mutation_scalar=1)
-    print('=' * 80)
-    print('Mutate weights in model_0')
-    print('=' * 80)
-    print(f'Model 0')
-    display_weights(model_0.weight_vectors())
-    print('=' * 80)
-    print(f'Model 1')
-    display_weights(model_1.weight_vectors())
-    print('=' * 80)
+    print(f'Copy1 weights')
+    new_model = model_0.copy1()
+    print(f'{id(new_model) == id(model_0)}: {new_model.network_id == model_0.network_id}: {id(new_model)}: {new_model.network_id}')
+    print(f'{new_model.fitness=} | {model_0.fitness=} | {new_model.learner} | {model_0.learner}')
+    display_weights(new_model)
     print('=' * 80)
     return
 

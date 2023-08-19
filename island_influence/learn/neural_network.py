@@ -91,6 +91,7 @@ class NeuralNetwork(nn.Module):
         self._fitness = None if learner else 0.0
 
         self.n_inputs = n_inputs
+        self.n_hidden = n_hidden
         self.n_outputs = n_outputs
 
         # https://pytorch.org/docs/stable/generated/torch.flatten.html
@@ -107,14 +108,28 @@ class NeuralNetwork(nn.Module):
             base_repr = f'{base_repr}, {self.fitness=}'
         return base_repr
 
+    # def _deepcopy(self):
+    #     # https://discuss.pytorch.org/t/deep-copying-pytorch-modules/13514/2
+    #     new_model = copy.deepcopy(self)
+    #     new_model.network_id = uuid.uuid1().int
+    #     new_model.fitness = None
+    #     # new_copy.parent = self.name
+    #     new_model.parent = self
+    #     return new_model
+    
     def copy(self):
-        # https://discuss.pytorch.org/t/deep-copying-pytorch-modules/13514/2
-        new_copy = copy.deepcopy(self)
-        new_copy.network_id = uuid.uuid1().int
-        new_copy.fitness = None
-        # new_copy.parent = self.name
-        new_copy.parent = self
-        return new_copy
+        """
+        Creating a new object and then manually assigning the weights and desired attributes is almost twice as fast as deepcopying
+        the pytorch neural network object.
+        :return:
+        """
+        new_model = NeuralNetwork(self.n_inputs, self.n_outputs, n_hidden=0,  learner=self.learner, network_func=self.network_func)
+        with torch.no_grad():
+            param_vector = parameters_to_vector(self.parameters())
+            vector_to_parameters(param_vector, new_model.parameters())
+        new_model.fitness = None
+        new_model.parent = self
+        return new_model
 
     def mutate_gaussian(self, mutation_scalar=0.1, probability_to_mutate=0.05):
         # todo  optimize mutating network
