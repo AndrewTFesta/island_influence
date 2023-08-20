@@ -3,7 +3,6 @@ import pickle
 from pathlib import Path
 
 import numpy as np
-import pygame
 
 from island_influence.agent import Agent, Obstacle, Poi, AgentType
 from island_influence.learn.neural_network import NeuralNetwork
@@ -161,6 +160,7 @@ class HarvestEnv:
         #   input   num_agents * (num_dimensions (2) + action_size (2))
         #   output  num_agents * num_dimensions (2)
         state = self.state()
+        # todo  fix for using agents as state representation, not matrix of values
         state_size = state.flatten().size
         n_outputs = len(self.agents) * self.num_dims
         n_hidden = math.ceil((state_size + n_outputs) / 2)
@@ -618,6 +618,8 @@ class HarvestEnv:
         return
 
     def __render_human(self):
+        import pygame
+
         black = (0, 0, 0)
         white = (255, 255, 255)
 
@@ -782,6 +784,8 @@ class HarvestEnv:
         environment data which should not be kept around after the user is no longer using the environment.
         """
         if self.window is not None:
+            import pygame
+            
             pygame.display.quit()
             pygame.quit()
         return
