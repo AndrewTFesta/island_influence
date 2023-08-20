@@ -76,6 +76,7 @@ def parse_island_exp(exp_dir, save_dir):
         for each_dir in island_dirs:
             island_type = each_dir.stem
             fitness_data = parse_generations(each_dir)
+            # todo  replace with dict.get
             if island_type not in islands:
                 islands[island_type] = {agent_type: [] for agent_type in fitness_data}
 

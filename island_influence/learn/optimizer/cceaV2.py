@@ -352,6 +352,7 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims,
         agent_results = {}
         for each_result in rollout_results:
             for each_policy_name, fitness in each_result.items():
+                # todo  replace with dict.get
                 if each_policy_name not in agent_results:
                     agent_results[each_policy_name] = []
                 agent_results[each_policy_name].append(fitness)

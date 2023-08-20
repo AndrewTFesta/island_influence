@@ -785,7 +785,7 @@ class HarvestEnv:
         """
         if self.window is not None:
             import pygame
-            
+
             pygame.display.quit()
             pygame.quit()
         return

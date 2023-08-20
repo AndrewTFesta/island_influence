@@ -416,7 +416,9 @@ def main(main_args):
     # test_reset(env, render_mode='human')
     # test_step(env, render_mode='human')
     # test_random(env, render_mode='human')
-    # test_rollout(env, render_mode='human')
+    test_rollout(env, render_mode='human')
+
+    env.close()
     return
 
 

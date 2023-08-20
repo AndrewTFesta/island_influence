@@ -192,6 +192,7 @@ class MAIsland:
         return
 
     def receive_population(self, pop_id, population, from_neighbor):
+        # todo  replace with dict.get
         if pop_id not in self.migrated_from_neighbors:
             self.migrated_from_neighbors[pop_id] = []
 
