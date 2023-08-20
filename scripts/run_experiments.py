@@ -41,10 +41,16 @@ def run_parameter_sweep(base_dir, stat_runs, island_params, ccea_params, env_par
         for stat_idx in range(stat_runs):
             print(f'Starting stat run {stat_idx}')
             stat_dir = Path(experiment_dir, f'stat_run_{stat_idx}')
-            run_island_experiment(stat_dir, island_params, ccea_params, env_params, base_pop_size=base_pop_size, env_type=env_type, island_class=island_class)
+            try:
+                run_island_experiment(stat_dir, island_params, ccea_params, env_params, base_pop_size=base_pop_size, env_type=env_type, island_class=island_class)
+            except RuntimeError as re:
+                print(re)
 
             ccea_dir = Path(stat_dir, 'base_ccea')
-            run_ccea(env_type, env_params, ccea_params, base_pop_size=base_pop_size, experiment_dir=ccea_dir, max_iters=island_params['max_iters'])
+            try:
+                run_ccea(env_type, env_params, ccea_params, base_pop_size=base_pop_size, experiment_dir=ccea_dir, max_iters=island_params['max_iters'])
+            except RuntimeError as re:
+                print(re)
     return
 
 
@@ -57,14 +63,18 @@ def main(main_args):
     logger = logging.getLogger()
     logger.setLevel(log_level)
     #############################################################
-    island_params = {'max_iters': 50, 'track_progress': True, 'logger': logger, 'migrate_every': 5}
+    island_params = {'max_iters': 500, 'track_progress': True, 'logger': logger, 'migrate_every': 15}
     ccea_params = {
-        'starting_gen': 0, 'mutation_scalar': 0.1, 'prob_to_mutate': 0.05, 'track_progress': True, 'use_mp': True, 'num_sims': 5, 'fitness_update_eps': 0
+        'starting_gen': 0, 'mutation_scalar': 0.1, 'prob_to_mutate': 0.05, 'track_progress': True, 'use_mp': True,
+        'num_sims': 15, 'fitness_update_eps': 0
     }
     env_params = {
-        'scale_factor': 0.5, 'num_harvesters': 4, 'num_excavators': 4, 'num_obstacles': 50, 'num_pois': 8, 'obs_rad': 1, 'max_vel': 1,
-        'agent_size': 1, 'obs_size': 1, 'poi_size': 1, 'agent_weight': 1, 'obs_weight': 1, 'poi_weight': 1, 'agent_value': 1, 'obstacle_value': 1,
-        'poi_value': 1, 'sen_res': 8, 'delta_time': 1, 'max_steps': 100, 'collision_penalty_scalar': 0, 'reward_type': 'global', 'normalize_rewards': True,
+        'scale_factor': 0.5, 'num_harvesters': 4, 'num_excavators': 4, 'num_obstacles': 50, 'num_pois': 8, 'obs_rad': 1,
+        'max_vel': 1,
+        'agent_size': 1, 'obs_size': 1, 'poi_size': 1, 'agent_weight': 1, 'obs_weight': 1, 'poi_weight': 1,
+        'agent_value': 1, 'obstacle_value': 1,
+        'poi_value': 1, 'sen_res': 8, 'delta_time': 1, 'max_steps': 100, 'collision_penalty_scalar': 0,
+        'reward_type': 'global', 'normalize_rewards': True,
         'render_mode': None
     }
 
