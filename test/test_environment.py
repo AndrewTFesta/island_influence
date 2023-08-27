@@ -401,7 +401,7 @@ def main(main_args):
     # test_save_env(env)
     # test_save_transitions(env)
 
-    # test_collisions(render_mode=None)
+    test_collisions(render_mode=None)
     # test_collisions(render_mode='human')
 
     # test_rewards(env, render_mode=None)

@@ -3,6 +3,7 @@ import pickle
 from pathlib import Path
 
 import numpy as np
+from scipy.spatial import distance
 
 from island_influence.agent import Agent, Obstacle, Poi, AgentType
 from island_influence.learn.neural_network import NeuralNetwork
@@ -481,31 +482,41 @@ class HarvestEnv:
         # should not matter which order they are stepped in as long as dt is small enough
         obstacle_locations = np.asarray([each_obstacle.location for each_obstacle in remaining_obstacles])
         obstacle_radii = np.asarray([each_obstacle.observation_radius for each_obstacle in remaining_obstacles])
+
         # for agent_name, each_action in actions.items():
         default_action = np.asarray([0, 0])
         for agent in self.agents:
             agent_action = actions.get(agent.name, default_action)
+            # todo  check if agent is currently near any obstacles
+            obstacle_dists = distance.cdist([agent.location], obstacle_locations)[0]
+            obstacle_dists -= obstacle_radii
+            obstacle_dists = np.clip(obstacle_dists, 0, None)
+
+            arg_closest = np.argmin(obstacle_dists)
+            closest_dist = obstacle_dists[arg_closest]
+
+            agent_action = agent_action if closest_dist > 0 else agent_action / 2
             new_loc = agent.location + agent_action
-            if len(obstacle_locations) > 0 and agent.agent_type == AgentType.Harvester:
-                # Collision detection for obstacles and harvesters
-                new_loc_mat = np.tile(new_loc, (len(remaining_obstacles), 1))
-                obstacle_dists = np.linalg.norm(new_loc_mat - obstacle_locations, axis=1)
-                obstacle_dists -= obstacle_radii
-                collision = np.min(obstacle_dists) <= 0
-                if collision:
-                    # todo  do not restrict movement, instead, assign a reward based on the proximity of obstacles to harvesters
-                    #       possibly movement of agents in regions that are near obstacles is slower
-                    new_loc = agent.location
-                    colliding_obstacle_idx = np.argmin(obstacle_dists)
-                    colliding_obstacle = remaining_obstacles[colliding_obstacle_idx]
-                    obstacle_weight = colliding_obstacle.weight
-                    # todo  consider how to normalize rewards
-                    #       reward based on obstacle and agent weights (analogous to physical impact between objects)
-                    # todo  differentiate between reward sources - positive and negative
-                    collision_reward = agent.weight * obstacle_weight
-                    collision_reward *= -1
-                    collision_reward *= self.collision_penalty_scalar
-                    rewards[agent.name] += collision_reward
+            # if len(obstacle_locations) > 0 and agent.agent_type == AgentType.Harvester:
+            #     # Collision detection for obstacles and harvesters
+            #     new_loc_mat = np.tile(new_loc, (len(remaining_obstacles), 1))
+            #     obstacle_dists = np.linalg.norm(new_loc_mat - obstacle_locations, axis=1)
+            #     obstacle_dists -= obstacle_radii
+            #     collision = np.min(obstacle_dists) <= 0
+            #     if collision:
+            #         # todo  do not restrict movement, instead, assign a reward based on the proximity of obstacles to harvesters
+            #         #       possibly movement of agents in regions that are near obstacles is slower
+            #         new_loc = agent.location
+            #         colliding_obstacle_idx = np.argmin(obstacle_dists)
+            #         colliding_obstacle = remaining_obstacles[colliding_obstacle_idx]
+            #         obstacle_weight = colliding_obstacle.weight
+            #         # todo  consider how to normalize rewards
+            #         #       reward based on obstacle and agent weights (analogous to physical impact between objects)
+            #         # todo  differentiate between reward sources - positive and negative
+            #         collision_reward = agent.weight * obstacle_weight
+            #         collision_reward *= -1
+            #         collision_reward *= self.collision_penalty_scalar
+            #         rewards[agent.name] += collision_reward
             agent.location = new_loc
 
         self._current_step += self.delta_time
