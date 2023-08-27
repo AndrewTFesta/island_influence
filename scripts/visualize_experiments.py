@@ -67,12 +67,19 @@ def parse_harvest_exp(exp_dir, save_dir):
     return
 
 
-def parse_island_exp(exp_dir, save_dir):
-    exp_name = exp_dir.stem
+def parse_island_exp(exp_dir, save_dir, tag='None'):
+    if len(tag) != 0:
+        tag = f'{tag}_'
+
     stat_dirs = list(exp_dir.glob('stat_run_*'))
+    stat_dirs = sorted(stat_dirs, key=lambda x: int(x.stem.split('_')[-1]))
+
     islands = {}
     for each_stat_run in stat_dirs:
-        island_dirs = list(each_stat_run.iterdir())
+        base_gen_dirs = [each_dir for each_dir in each_stat_run.iterdir() if each_dir.is_dir() and each_dir.stem.startswith('gen_')]
+        base_gen_dirs = sorted(base_gen_dirs, key=lambda x: int(x.stem.split('_')[-1]))
+
+        island_dirs = [each_dir for each_dir in each_stat_run.iterdir() if each_dir.is_dir() and not each_dir.stem.startswith('gen_')]
         for each_dir in island_dirs:
             island_type = each_dir.stem
             fitness_data = parse_generations(each_dir)
@@ -86,41 +93,54 @@ def parse_island_exp(exp_dir, save_dir):
                 agent_fitnesses.append(fitnesses)
 
     for each_island, fitnesses in islands.items():
-        save_dir = Path(save_dir, f'island_{exp_name}')
-        # replay_episode(each_dir)
-        plot_fitnesses(fitnesses, save_dir=save_dir, tag=f'{each_island}')
+        island_tag = f'{tag}{each_island}'
+        plot_fitnesses(fitnesses, save_dir=save_dir, tag=island_tag)
     return
 
 
 def parse_param_sweep_exp(exp_dir, save_dir):
-    island_exp_dirs = list(exp_dir.iterdir())
-    for each_island_dir in island_exp_dirs:
-        parse_island_exp(each_island_dir, save_dir)
+    param_exp_dirs = [each_dir for each_dir in exp_dir.iterdir() if each_dir.is_dir()]
+    for param_dir in param_exp_dirs:
+        param_name = param_dir.stem.split('_')
+        param_name = param_name[-2:]
+        param_name = '_'.join(param_name)
+        tag = f'{exp_dir.stem}_{param_name}'
+        parse_island_exp(param_dir, save_dir, tag=tag)
     return
 
 
 def plot_fitnesses(fitness_data, save_dir, tag, save_format='svg'):
     fig, axes = plt.subplots(nrows=1, ncols=1, figsize=(12, 12))
 
+    plot_keys = [
+        # 'global',
+        'global_harvester',
+        'global_excavator'
+    ]
     agent_keys = [f'AgentType.{element.name}' for element in AgentType]
-    for each_key in agent_keys:
+    # plot_keys.extend(agent_keys)
+
+    for each_key in plot_keys:
         if each_key in fitness_data:
             agent_fitnesses = fitness_data[each_key]
             # issue arises due to first few generations not necessarily having the max number of policies
-            max_fitnesses = []
+            max_runs = []
             for each_stat_run in agent_fitnesses:
                 stat_run_maxs = []
-                for each_gen in each_stat_run:
-                    max_fitness = max(each_gen)
+                for gen_fitnesses in each_stat_run:
+                    max_fitness = max(gen_fitnesses) if isinstance(gen_fitnesses, list) else gen_fitnesses
                     stat_run_maxs.append(max_fitness)
-                max_fitnesses.append(stat_run_maxs)
+                max_runs.append(stat_run_maxs)
 
-            means = np.mean(max_fitnesses, axis=0)
-            stds = np.std(max_fitnesses, axis=0)
+            min_gens = [len(each_fits) for each_fits in max_runs]
+            min_gens = np.min(min_gens)
+            max_runs = [each_run[:min_gens] for each_run in max_runs]
+            means = np.mean(max_runs, axis=0)
+            stds = np.std(max_runs, axis=0)
             stds /= math.sqrt(len(agent_fitnesses))
 
             gen_idxs = np.arange(0, len(means))
-            axes.plot(gen_idxs, means, label=f'max {each_key}')
+            axes.plot(gen_idxs, means, label=f'{each_key}')
             axes.fill_between(gen_idxs, means + stds, means - stds, alpha=0.2)
 
     axes.set_xlabel(f'generation')
@@ -140,8 +160,9 @@ def plot_fitnesses(fitness_data, save_dir, tag, save_format='svg'):
         save_dir.mkdir(parents=True, exist_ok=True)
 
     plot_name = f'{tag}'
-    save_name = Path(save_dir, f'{plot_name}_{tag}')
+    save_name = Path(save_dir, f'{plot_name}')
     plt.savefig(f'{save_name}.{save_format}')
+    # plt.show()
     plt.close()
     return
 
@@ -188,22 +209,31 @@ def replay_episode(episode_dir: Path):
 
 
 def main(main_args):
-    # todo  update to work for parameter sweep experiments
     base_save_dir = Path(project_properties.output_dir, 'experiment_results', 'figs')
-    if not base_save_dir.exists():
-        base_save_dir.mkdir(parents=True, exist_ok=True)
+    harvest_save_dir = Path(base_save_dir, 'harvest_exp')
+    island_save_dir = Path(base_save_dir, 'island_exp')
+    param_save_dir = Path(base_save_dir, 'param_sweep')
+    if not harvest_save_dir.exists():
+        harvest_save_dir.mkdir(parents=True, exist_ok=True)
+    if not island_save_dir.exists():
+        island_save_dir.mkdir(parents=True, exist_ok=True)
+    if not param_save_dir.exists():
+        param_save_dir.mkdir(parents=True, exist_ok=True)
 
-    base_dir = Path(project_properties.output_dir, 'exps')
+    base_exp_dir = Path(project_properties.output_dir, 'exps')
+    # base_exp_dir = Path(r'D:\output\exps')
     # exp_dirs = list(base_dir.glob('*_exp_*'))
-    exp_dirs = list(base_dir.iterdir())
+    exp_dirs = list(base_exp_dir.iterdir())
     for each_exp in exp_dirs:
         exp_type = '_'.join(each_exp.stem.split('_')[:-6])
-        if exp_type == 'island_exp':
-            parse_island_exp(each_exp, save_dir=base_save_dir)
-        elif exp_type == 'harvest_exp':
-            parse_harvest_exp(each_exp, save_dir=base_save_dir)
-        elif exp_type == 'island_param_sweep':
-            parse_param_sweep_exp(each_exp, save_dir=base_save_dir)
+        if exp_type.startswith('island_exp'):
+            continue
+            # parse_island_exp(each_exp, save_dir=island_save_dir)
+        elif exp_type.startswith('harvest_exp'):
+            continue
+            # parse_harvest_exp(each_exp, save_dir=harvest_save_dir)
+        elif exp_type.startswith('island_param_sweep'):
+            parse_param_sweep_exp(each_exp, save_dir=param_save_dir)
     return
 
 

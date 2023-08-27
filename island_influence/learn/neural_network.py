@@ -84,10 +84,14 @@ class NeuralNetwork(nn.Module):
 
         self.network_func = network_func
         self.learner = learner
+        # todo  calculate fitness is a manner similar to Truefitness
+        #       https://docs.battlesnake.com/guides/tournaments/hosting
         # todo  represent fitness as (mu,sigma)
         #       sample from distribution when fitness is collapsed
-        #       calculate fitness is a manner similar to Truefitness
-        #       https://docs.battlesnake.com/guides/tournaments/hosting
+        #   this also implies that the same network will (almost certainly) have a
+        #   different fitness value on two consecutive queries
+        self._fitness_distribution = (0, 0)
+        self._fitness_vector = [(0, 0)]
         self._fitness = None if learner else 0.0
 
         self.n_inputs = n_inputs

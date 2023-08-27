@@ -493,6 +493,8 @@ class HarvestEnv:
                 obstacle_dists -= obstacle_radii
                 collision = np.min(obstacle_dists) <= 0
                 if collision:
+                    # todo  do not restrict movement, instead, assign a reward based on the proximity of obstacles to harvesters
+                    #       possibly movement of agents in regions that are near obstacles is slower
                     new_loc = agent.location
                     colliding_obstacle_idx = np.argmin(obstacle_dists)
                     colliding_obstacle = remaining_obstacles[colliding_obstacle_idx]

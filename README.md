@@ -10,22 +10,10 @@ See the [LICENSE file](LICENSE) for license rights and limitations (MIT).
 - [Roadmap](#roadmap)
 - [Multiagent Reliance-Based Learning State](#multiagent-reliance-based-learning)
   - [Introduction](#introduction)
-  - [Background](#background)
-  - [Approach](#approach)
+  - [Influenced-Learning Island Model](#influenced-learning-island-model)
   - [Results](#results)
   - [Conclusion](#conclusion)
-  - [Future Work](#future-work)
-- [Environments](#environments)
-  - [HarvestEnv](#harvestenv)
-- [Agents](#agents)
-  - [Harvester](#harvester)
-  - [Excavator](#excavator)
-  - [Obstacle](#obstacle)
-  - [PoI](#poi)
-- [Rewards](#rewards)
-- [CCEA](#ccea)
-  - [Mutation](#mutation)
-  - [Selection](#selection)
+    - [Future Work](#future-work)
 
 # Roadmap
 
@@ -80,38 +68,69 @@ See the [LICENSE file](LICENSE) for license rights and limitations (MIT).
 
 ## Introduction
 
-[//]: # (Focus on relevance to the field/contribution)
-[//]: # (Frame reliance as a tradeoff of individualized skills and all learning simultaneously)
-[//]: # (Mfl using own behaviors versus relying on others)
-[//]: # (Tell other agents how to act or what to do)
-[//]: # (Shared policies all learn the same thing)
 [//]: # (QD process running on each island with CCEA running on mainland)
 [//]: # (Islands produces sets of initializations for the optimization process running on the mainland)
-[//]: # (EA's prone to local minima based on starting conditions)
 [//]: # (Mfl/options and traditional ccea loop on opposite ends of a spectrum)
 [//]: # (one end optimizes skills and then learns using those skills)
 [//]: # (other end goes in with no learned skills and learns to cooperate while learning skills)
 [//]: # (flexible options are somewhere in the middle)
-[//]: # (but are hindered by a very large joint actions space, as we move towards multiagent systems)
-[//]: # (becomes more effective as the problem becomes more reliant on cooperation)
-[//]: # (more effective with penalty for collision with obstacles)
 [//]: # (generalization of centrallized and decentralized training architecture)
 
-### Questions
+[//]: # (Focus on relevance to the field/contribution)
+[//]: # (Frame reliance as a tradeoff of individualized skills and all learning simultaneously)
+[//]: # (Mfl using own behaviors versus relying on others)
+[//]: # (EA's prone to local minima based on starting conditions)
+[//]: # (but are hindered by a very large joint actions space, as we move towards multiagent systems)
+[//]: # (becomes more effective as the problem becomes more reliant on cooperation)
+[//]: # (becomes more effective with penalty for collision with obstacles)
 
-1. What is the problem, why do I care? 
-   - Multiagent learning has shown to be a highly effective tool when designing large-scale multiagent systems. Their distributed nature allows designers to build on each component individually as parts of a whole. 
-2. Why is it important or difficult?
-   - However, the strength of these systems also belies their underlying weakness. Carving out the individual components is difficult, and even more so, it is difficult to train complex cooperation between these separate components with different capabilities that all must interact with each other in different ways in order to achieve a team objective.
-3. What has been done in this area?
-   - Approaches such as 
-4. What particular problem remains unsolved?
-5. How did you solve it?
-6. What's cool about your approach?
-7. What were your key results?
-8. What is the key contribution of this paper?
+[//]: # (### Questions)
 
-In this work, we present a peer-to-peer network architecture for large-scale distributed learning in complex multiagent settings that require joint coordination between asymmetric agents.
+[//]: # (1. What is the problem, why do I care? Why is it important or difficult?)
+[//]: # (3. What has been done in this area?)
+[//]: # (4. What particular problem remains unsolved?)
+[//]: # (5. How did you solve it? What's cool about your approach?)
+[//]: # (7. What were your key results?)
+[//]: # (8. What is the key contribution of this paper?)
+
+Multiagent learning has shown to be a highly effective tool when designing large-scale distributed systems. Their inherent distributed nature allows designers to build on each component individually as parts of a whole, leading to a simplification of designing the individual components.
+
+However, the strength of these systems also belies their underlying weakness. Carving out the individual components is difficult, and even more so, it is difficult to train complex cooperation between these separate components with different capabilities that all must interact with each other in different ways in order to achieve a team objective. Learning in such a scenario thus gives rise to two particular challenges.
+
+The first comes from the singular actions and sequences of actions in the environment. As there are numerous entities interacting simultaneously, the immediate and long-term effects of any singular action (of an agent) or interactions (between agents) can be difficult to precisely dictate to lead to a particular desired behavior. In traditional reinforcement learning, this can be seen as the reward hacking problem, where an agent may learn to exploit a nuance of the environment to maximize its long-term returns. This is magnified in a multi-agent setting where not only must the individual rewards be designed such as to lead a singular agent to maximize its reward, but also such that the interactions between agents aid in furthering the team objective of the agents in the system.
+
+The second issue comes from the multiples agents in the system all learning simultaneously. From the perspective of any single agent in the system, this causes the environment to appear non-stationary. Given the same state-action pair of an agent, the system may provide a different next state as the other agents in the system as likewise making decisions based on their own state perceptions. This non-stationarity issue, inherent in multi-agent learning systems, introduces large levels of noise into the learning signal provided to an agent, making it more difficult for an agent to reinforce effective policies.
+
+The first challenge is particularly present in reinforcement learning, where an agent learns to map a state, or state-action pair, to a value function. This means that the system designer must consider all the low-level interactions in the environment when designing the reward function. Evolutionary learning, over reinforcement learning, alleviates this difficulty by changing the method by which feedback is provided to an agent. Instead of the reward being provided based on state, or state-action pairs, an agent's performance is evaluated based on a fitness function which scores the entire performance of the agent's policy. This can often be easier to design conceptually as it is at a high-level, although it can be much harder and less sample efficient for an agent to learn what constitutes a good behavior, as there is less feedback it can leverage to reinforce good behaviors, or good sub-behaviors.
+
+Approaches leveraging temporal abstractions, such as multi-fitness learning or multi-agent options, help primarily with the second challenge by providing the agents with meaningful behaviors, rather than single actions, to plan over. This effectively reduces the temporal scale over which the agent must plan, making it more likely that the agents will discover sequences of joint-actions that lead to a positive system reward. These approaches, however, still suffer from the first challenge described above, albeit in a slightly different way. As MFL or multi-agent options does not allow for changing the behaviors while the agents are all learning simultaneously in the system, the designer must carefully consider which *behaviors* are appropriate for the agent to use to reach its desired behavior.
+
+[//]: # (introduce island models as another approach)
+
+In this work, we present an evolutionary method for reinforcing complex interactions between agents with different capabilities where the success of an agent on the team is both dependent on its own behaviors and support from other agents on the team, both of the same type and of a different type. By leveraging an asymmetric island model, we are able to design and train agents of the team, and by separating out the agents, each type of agent is learning in a more stationary version of the environment, from the perspective of the learning agents. We then allow for intermittent migrations of learned policies not only to a mainland for joint-learning of all agent types, but between the sub-islands as well.
+
+The agent islands are learning how to maximize their own rewards in the presence of other types of agents, and the mainland provides selective pressure to push all the agents towards collaborative policies. In doing this, the agents are able to learn more collaborative and effective policies to maximize the team objective. Additionally, not only is this island-based learning framework inherently both horizontally and vertically scalable, we show that this approach is more readily transferable to other variations of the environment, suggesting the agents learned a policy that is more closely aligned to the desired behaviors and does not exploit any particularities of the training environment.
+
+The contributions of this work are a multi-agent evolutionary island-model:
+
+- excels in reinforcing complex and extended-time inter-agent coordination that learns temporally abstract behaviors
+- robust and transferable to different environmental dynamics
+- inherently scalable to differing resource limitations of training machines
+
+[//]: # (inter-island migration architecture for large-scale distributed learning in complex multiagent settings that require joint coordination between asymmetric agents.)
+
+[//]: # (We speak of learning adaptation if an individual, during its lifetime, adapts to a certain problem domain. We speak of evolutionary adaptation if an individual is part of a hereditary sequence of individuals whose features are changing over the course of generations)
+[//]: # (An individual does not evolve. A population evolves.)
+
+[//]: # (but traditionally policies are not migrated between islands. While this has benefits in homogeneous agent settings, such as allowing each island to potentially search in different regions of the policy/solution space, it has limitations in hetero multiagent settings in that agents don't learn under the influence of other agents, which might be critical in tight coordination problems)
+
+[//]: # (The effects of migrating a stationary agent to other islands can also be viewed as addressing the non stationarity issue mas, and I think that should inform those criteria. But this also is complicated that it's not only migrations between 2 Island, but an arbitrary number. And then we want to make sure the training on the islands is useful for the main task on the mainland.)
+
+[//]: # (On one hand, it's about encouraging more interdependent interactions, but we could also frame it as addressing the non-stationarity of other agents during training &#40;almost CLEAN rewards style but for asymmetric agents&#41;.)
+
+[//]: # ( The QD bit might overall allow the discovery of more interesting policies &#40;"complementary diversity"&#41;, but as a first step we want to keep as many variables constant and simple as possible. So just ccea on islands to start with def works)
+
+[//]: # (The biggest things I think we kind of already touched on, but it's really about migratory schedules and how they play into the reliability of the system as a whole. I cant recall everything of note of the top of me head atm, so that's a bit vague. Another thing is a plot I designed that tries to look at how each agent tries to make a decision based on the state. There's some potential there, and you can definitely see a stark contrast in the portions of the state each agent is paying attention to when comparing agents to others of the same type, but trained in a different method. But it's pretty crude and hard to interpret, so could benefit from some ideas about how to clean it up. Unfortunately, that was one of the things I lost, and I havent recreated that yet.)
 
 [//]: # (Carrying capacities have proven to be powerful. Dynamic population sizes have proven to be a powerful concept in evolutionary multi agent learning. By allowing for a variable population size, a learning algorithm can decide how much to prioritize the learning of certain types of agents, especially in asymmetric environments where the capabilities or objectives of different types of agents may vary drastically between types of agents. In our approach, we present a carrying capacity derived selection mechanism for deciding when to select or remove agents from our learning population. Drawing inspiration from the concept of carrying capacities. Natural populations often limit the size of a population based on resource requirements, drawn from a global pool of resources. )
 
@@ -159,9 +178,9 @@ As far as progress, I focused more heavily on the island model design as I ident
 
 Guarav and I spoke about the QD processes more mid-week and decided that this could be an extension/future work as this effort is meant to focus on island-island migrations. Additionally, I designed a part of a presentation that is meant to capture the idea we are working towards. This focuses on extending the lifting a table example with the addition that we nail the table to the ground. The point here is that the capabilities of a single agent cannot complete the task. Instead, it has to rely on a different (type of) agent to do the same behavior before it can complete the task.
 
-For this coming week, I want to make those visualizations of the learning and environment. Currently, I am using gdp/pdb exclusively to debug everything. We'll need these visualizations anyways for the paper, so I'd like them as dual purpose to make sure everything is as I expect it and makes it easier to present/talk about.
+For this coming week, I want to make those visualizations of the learning and environment. Currently, I am using gdp/pdb exclusively to debug everything. We'll need these visualizations anyway for the paper, so I'd like them as dual purpose to make sure everything is as I expect it and makes it easier to present/talk about.
 
-As initial results, the env is setup to basically not allow one type of agent to complete the task. So it's not much of a surprise that adding multiple roles allows for better learning. When not using island-island migrations (what should we call these?), learning *can* happen, but it's much slower if it happens since it can only occur during the more monolithic training on the mainland.
+As initial results, the env is set-up to basically not allow one type of agent to complete the task. So it's not much of a surprise that adding multiple roles allows for better learning. When not using island-island migrations (what should we call these?), learning *can* happen, but it's much slower if it happens since it can only occur during the more monolithic training on the mainland.
 
 For the coming week, I intend to focus on the story after creating the visualizations so that we can discuss next week how we can sell the story in the paper. For the fitness survey, with the slight break to think about it, I intend to write the intro section that describes the different approaches and what distinguishes them.
 
@@ -169,13 +188,13 @@ For the coming week, I intend to focus on the story after creating the visualiza
 
 The previous week was meant to be spent on building the graphs and trajectories that would go into the paper, with the hope that they could also help identify any issues in the process or act as a verifier for the current findings. I was able to get some of the desired plots in place, but one in particular stood out. These plots highlight the portions of the state that are changed between generations or that are "most heavily weighted" when the agent decides on an action. The idea here is to gain insight into how the agent(s) are evolving over time from the perspective of what parts of the state-space they are changing to make their decisions. An interesting finding was that it can be really easy for the agents to "fixate" on certain portions of the state. This can impede learning, especially if the support agents lag behind the gathering agents, as the gathering agents effectively learn that the support agents are unreliable, and so default back to behaviors that at least are somewhat beneficial even if the support agents are incompetent. This shows up primarily early on when the initial migration(s) do not occur for an extended period of time (100-200 generations). In this case, the gatherers learn to seek out resources that they can capture without needing to remove obstacles, even if there are better rewards that would require removing obstacles. The obvious fix here would likely be to have the migration schedule decay over time, and initially do migrations much faster (every 15-ish generations). That is my first approach, but I'm also seeing if I can incorporate some level of confidence or UCT type weighting to push the agents away from fixating on portions of the state space, especially early in training.
 
-As I mentioned in the last meeting, I intend to focus on actually writing this week. Namely, I want to have a rough draft of the intro and approach, along with the outline of the portions of the background. The results section would mainly be an outline of the interesting findings so far along with a few initial plots that support those findings. I want to have this to Gaurav by Friday so we can discuss not just the overall story, but also if it could be supported better by certain experiments or configurations.
+As I mentioned in the last meeting, I intend to focus on actually writing this week. Namely, I want to have a rough draft of the intro and approach, along with the outline of the portions of the background. The results section would mainly be an outline of the interesting findings so far along with a few initial plots that support those findings. I want to have this to Gaurav by Friday, so we can discuss not just the overall story, but also if it could be supported better by certain experiments or configurations.
 
-Part of the reason for the Friday deadline for myself is I anticipate this week to be more full with course work as there is both a quiz tomorrow (that got pushed back from last Thursday) and more impactful, the final and assignment on Thursday. So I think it would be better to just try and minimize the overall time I'm working on that by condensing it to as few days as possible.
+Part of the reason for the Friday deadline for myself is I anticipate this week to be more full of course work as there is both a quiz tomorrow (that got pushed back from last Thursday) and more impactful, the final and assignment on Thursday. So I think it would be better to just try and minimize the overall time I'm working on that by condensing it to as few days as possible.
 
 ### Sixth week
 
-The plan for the previous (two) weeks had been to get the experimental results in a displayable format and to address the consistency issue that sometimes arises early in training where the harvesting agents can seem to fixate on the easier rewards that they are able to accomplish independently, even after migrating obstacle removing policies from the other islands. Unfortunately, my laptop was (is) experiencing an issue with 4 of the logical cores, causing the clock watchdog to timeout, leading to a BSOD. I've been in contact with support, and after trying to troubleshoot the issue, they had me ship it to them since it appears to be a hardware issue. On the upside, I reconfigured another system I use as a headless server to be a daily driver and have been working on updating this system to be at the same place as my laptop. This also requires rewriting some of the code as the cores failing seem to have corrupted some sectors of my ssd. Running some of my recovery utilities didn't recover a lot of things I actually care about, and I hadn't pushed some of the more recent changes. But I do have a version of the code that I had pushed about 4 days before the last meeting (1 am the saturday before), so the time I've effectively lost is those few days and the time spent diagnosing the laptop and setting up the new system. I also lost some of my notes and ideas I had been taking in markdown that I hadn't thought to backup (should just keep those in a private repo). Most of the graphics Gaurav and I have been working on are online or shared in our chats, so the ones lost are the ones generated by the code, which is less of a concern to me.
+The plan for the previous (two) weeks had been to get the experimental results in a displayable format and to address the consistency issue that sometimes arises early in training where the harvesting agents can seem to fixate on the easier rewards that they are able to accomplish independently, even after migrating obstacle removing policies from the other islands. Unfortunately, my laptop was (is) experiencing an issue with 4 of the logical cores, causing the clock watchdog to timeout, leading to a BSOD. I've been in contact with support, and after trying to troubleshoot the issue, they had me ship it to them since it appears to be a hardware issue. On the upside, I reconfigured another system I use as a headless server to be a daily driver and have been working on updating this system to be at the same place as my laptop. This also requires rewriting some of the code as the cores failing seem to have corrupted some sectors of my ssd. Running some of my recovery utilities didn't recover a lot of things I actually care about, and I hadn't pushed some of the more recent changes. But I do have a version of the code that I had pushed about 4 days before the last meeting (1 am the saturday before), so the time I've effectively lost is those few days and the time spent diagnosing the laptop and setting up the new system. I also lost some of my notes and ideas I had been taking in markdown that I hadn't thought to back-up (should just keep those in a private repo). Most of the graphics Gaurav and I have been working on are online or shared in our chats, so the ones lost are the ones generated by the code, which is less of a concern to me.
 
 So the plan for this week is to get everything up to the point that I had wanted it before the system failed. Gaurav and I are planning a meeting in the next day or so to go over what we have. Specifically, what I am working on recreating is the follows:
 
@@ -207,19 +226,47 @@ I feel like the slides are in a pretty decent shape for explaining up through th
 
 This past week, I've been working mainly on the material for Professor Davidson's class with the intent that I can get in a position to complete the rest of the work in the next two weeks. The project I'm working on is on verification for linear controllers where the project is looking into how to determine how well a controller might be expected to work in certain environmental dynamics and how/where might we expect the controller to fail.
 
-As for the research, I've been working on adding in migration of full policies, but that is proving to have a few more complications implementation-wise, primarily with maintaining individual indices so that I can keep almost create a genealogy across time. I want to look into seeing if I can find a way to show that the populations evolve in different "directions" after each migration, and if I can find a "globally" consistent method to determine this. For instance, if we look at two islands, the populations might be evolving in certain directions, but after migrating populations between each other, does this make the populations evolve in a more similar direction? Do they diverge more drastically since they don't have to do all of the same tasks they were doing before and can rely on the other to do some of it instead? But this comparison would only make sense if this metric of measuring "direction" meant a similar thing for each of the islands. If they did not, while we look at how the migrations affected the direction an individual island evolved in (which could be interesting itself), we could not generalize any such statement across islands.
+As for the research, I've been working on adding in migration of full policies, but that is proving to have a few more complications implementation-wise, primarily with maintaining individual indices so that I can keep almost create a genealogy across time. I want to look into seeing if I can find a way to show that the populations evolve in different "directions" after each migration, and if I can find a "globally" consistent method to determine this. For instance, if we look at two islands, the populations might be evolving in certain directions, but after migrating populations between each other, does this make the populations evolve in a more similar direction? Do they diverge more drastically since they don't have to do all the same tasks they were doing before and can rely on the other to do some of it instead? But this comparison would only make sense if this metric of measuring "direction" meant a similar thing for each of the islands. If they did not, while we look at how the migrations affected the direction an individual island evolved in (which could be interesting itself), we could not generalize any such statement across islands.
 
 For this next week, I intend to finish implementing full population migrations (and start playing with QD type optimization techniques on this environment). Additionally, I want to find two other environments in literature that might be applicable to this approach, so that we can explore a generalization concept more broadly in the future. With respect to Professor Davidson's class, I intend to have the proposal sometime later tomorrow, once I finish the paragraph on prior approaches. The biggest challenge here is that most of the work I'm finding is applicable towards non-linear controllers.
 
-Alongside those goals for the week, I've realized I've become disorganized with documents, writings, etc, so I want to spend time doing some "spring cleaning", so to speak.
+Alongside those goals for the week, I've realized I've become disorganized with documents, writings, etc, so I want to spend time doing some "spring-cleaning", so to speak.
 
 Looking further ahead. within the next two weeks, I'd like to have a rough draft of a masters document. And once I finish the work with Professor Davidson, I'd like to talk with you about that work, as when Guarav and I were speaking last week, I brought up the idea of how a natural extension of this work could be towards a non-linear dynamical system where instead of just evolving the agents, another island is also evolving an "adversarial" environment that is trying to find the failure modes of the agents with the intent of either going towards an auto-curricula approach or a continuous learning domain where there isn't necessarily an "end goal" or "end task". Instead, we are looking towards an open-ended back-and-forth between agent and environment where each tries to beat the other, and eventually, we end up with a fairly generalizable and robust agent that can solve a much broader type task that might be defined in a singular environment or by a single task.
 
 ## Background
-## Approach
+
+[//]: # (asymmetric rover assets: https://docs.google.com/presentation/d/1XnTmeIubrFk2w-Olg7Nz-cZyidONkBIs6EzIX-t39mk/edit#slide=id.g21d8d7fc76d_0_8)
+
+### Cooperative Co-evolution
+
+### Temporal Abstractions
+#### Options Learning
+#### Multifitness learning
+
+## Influenced-Learning Island Model
+
+### Agent Interactions
+### Island-Island Migrations
+
+### Harvest Environment
+
+This approach was tested using an environment designed to require agents to rely on the capabilities of other agents, but still be able to individually complete individual tasks. The environment consists of several different types of agents.
+
+### Agent Types
+
+### Experiments and evaluation
+
 ## Results
 ## Conclusion
-## Future Work
+
+In this work, we presented a framework for learning inter-agent dependencies that arise due to environmental dynamics as related to the desired objective. By allowing for distributed optimization processes that intermittently incorporate the learning of other types of agents, the non-stationarity issue in multi-agent learning can be alleviated, leading to faster convergence along with more optimal policies as the degree of this reliance is increased compared to a standard cooperative co-evolutionary optimization loop. Additionally, when presented with an altered environment, the agents trained using the influenced-learning island model were able to adapt to the new environment much more quickly that agents trained using other methods.
+
+### Future Work
+
+[//]: # (Policies as actions: Re-framing MFL as early-freezing of network layers)
+
+[//]: # (strong assymetry: https://www.youtube.com/watch?v=2P1NZuUpeyk)
 
 
 [//]: # (introduce the actual task)
@@ -230,16 +277,5 @@ Looking further ahead. within the next two weeks, I'd like to have a rough draft
 
 [//]: # (The key insight here is that the follower policy acts as a method of injecting domain knowledge about the task without fully specifying the behavior of the system. In a tightly coupled problem, multiple agents must work in close coordination to accomplish the task. The follower policy pushes some agents towards acting in a manner that is conducive to the agents working closely. Often, designers will shape the fitness functions to try and capture how well a task is performed, and it is this fitness shaping that is meant to drive the manifestation of a desired behavior. However, simple policies themselves can also serve as an effective means of guiding systems of agents to coordinate in complex manners.)
 
-### Experiments and evaluation
-
-# Environments
-## HarvestEnv
-# Agents
-## Harvester
-## Excavator
-## Obstacle
-## POI
-# Rewards
-# CCEA
-## Mutation
-## Selection
+- https://github.com/DEAP/notebooks
+- https://github.com/DEAP/notebooks/blob/master/SIGEvolution.ipynb
