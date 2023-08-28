@@ -14,9 +14,9 @@ from matplotlib import pyplot as plt
 
 from island_influence import project_properties
 from island_influence.agent import AgentType
-from island_influence.envs.harvest_env import HarvestEnv
-from island_influence.learn.optimizer.cceaV2 import rollout
-from island_influence.learn.neural_network import load_pytorch_model
+# from island_influence.envs.harvest_env import HarvestEnv
+# from island_influence.learn.optimizer.cceaV2 import rollout
+# from island_influence.learn.neural_network import load_pytorch_model
 
 
 def parse_generations(generations_dir):

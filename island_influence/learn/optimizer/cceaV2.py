@@ -11,8 +11,6 @@ from functools import partial
 from pathlib import Path
 
 import numpy as np
-from numpy.random import default_rng
-from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 from island_influence.agent import AgentType
@@ -126,7 +124,7 @@ def select_roulette(agent_pops, select_sizes: dict[AgentType, int], noise=0.01, 
 #     return chosen_pops
 
 
-def select_hall_of_fame(agent_pops, env, num_sims, filter_learners=False):
+def select_hall_of_fame(agent_pops, env: HarvestEnv, num_sims, filter_learners=False):
     """
 
 
@@ -136,7 +134,7 @@ def select_hall_of_fame(agent_pops, env, num_sims, filter_learners=False):
     :param filter_learners:
     :return: list with tuple of agents and indices, where the indices are the agents selected for evaluation
     """
-    best_policies = select_top_n(agent_pops, select_sizes={name: env.num_agent_types(name) for name, pop in agent_pops.items()})
+    best_policies = select_top_n(agent_pops, select_sizes={name: env.types_num[name] for name, pop in agent_pops.items()})
     test_policies = select_roulette(agent_pops, select_sizes={agent_type: num_sims for agent_type in agent_pops.keys()}, filter_learners=filter_learners)
 
     chosen_teams = []
@@ -164,7 +162,7 @@ def select_top_n(agent_pops, select_sizes: dict[AgentType, int], filter_learners
     return chosen_agent_pops
 
 
-def evaluate_agents(agent_team, env):
+def evaluate_agents(agent_team, env: HarvestEnv):
     team_members, update_policy_ids = agent_team
     agent_rewards, policy_rewards = rollout(env, team_members, render=False)
     eval_policy_rewards = {policy.name: policy_reward for policy, policy_reward in policy_rewards.items() if policy in update_policy_ids}
@@ -189,20 +187,19 @@ def rollout(env: HarvestEnv, agent_policies, render: bool = False):
         all_rewards.append(rewards)
         done = all(agent_dones.values())
         if render:
-            # TypeError: HarvestEnv.render() got an unexpected keyword argument 'window_size'
             render_func()
 
     # assign rewards based on the cumulative rewards of the env
     agent_rewards = env.cumulative_rewards()
     # correlate policies to rewards
-    policy_rewards = {each_agent.policy: agent_rewards[each_agent.name] for each_agent in env.agents}
+    policy_rewards = {policy: agent_rewards[each_agent] for each_agent, policy in env._actors.items()}
     # episode_rewards = all_rewards[-1]
     # episode_rewards = reward_func(env)
     return agent_rewards, policy_rewards
 
 
-def save_agent_policies(experiment_dir, gen_idx, env, agent_pops, human_readable=False):
-    best_policies = select_top_n(agent_pops, select_sizes={name: env.num_agent_types(name) for name, pop in agent_pops.items()})
+def save_agent_policies(experiment_dir, gen_idx, env: HarvestEnv, agent_pops, human_readable=False):
+    best_policies = select_top_n(agent_pops, select_sizes={name: env.types_num[name] for name, pop in agent_pops.items()})
     best_agent_fitnesses, policy_rewards = rollout(env, best_policies, render=False)
 
     fitnesses = {
@@ -211,7 +208,6 @@ def save_agent_policies(experiment_dir, gen_idx, env, agent_pops, human_readable
     }
     fitnesses['global_harvester'] = best_agent_fitnesses['global_harvester']
     fitnesses['global_excavator'] = best_agent_fitnesses['global_excavator']
-    fitnesses['global'] = best_agent_fitnesses['global']
 
     indent = 2 if human_readable else None
     gen_path = Path(experiment_dir, f'gen_{gen_idx}')
@@ -219,6 +215,8 @@ def save_agent_policies(experiment_dir, gen_idx, env, agent_pops, human_readable
         gen_path.mkdir(parents=True, exist_ok=True)
 
     # env.save_environment(gen_path, tag=f'gen_{gen_idx}')
+    # todo  save policies into a pool of all policies
+    #       check the current saved polic
     for agent_name, policies in agent_pops.items():
         network_save_path = Path(gen_path, f'{agent_name}_networks')
         if not network_save_path:
@@ -236,7 +234,7 @@ def save_agent_policies(experiment_dir, gen_idx, env, agent_pops, human_readable
 
 def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims, experiment_dir, completion_criteria=lambda: False,
          starting_gen=0, fitness_update_eps: float = 0, mutation_scalar=0.1, prob_to_mutate=0.05, track_progress=True,
-         use_mp=False, tb_writer=None):
+         use_mp=False):
     """
     agents in agent_policies are the actual agents being optimized
     the non-learning agents are generally expected to be an inherent part of the environment
@@ -254,10 +252,9 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims,
     :param prob_to_mutate:
     :param track_progress:
     :param use_mp:
-    :param tb_writer:
     :return:
     """
-    population_sizes = {agent_type: max(pop_size, env.num_agent_types(agent_type)) for agent_type, pop_size in population_sizes.items()}
+    population_sizes = {agent_type: max(pop_size, env.types_num[agent_type]) for agent_type, pop_size in population_sizes.items()}
     selection_func = partial(select_hall_of_fame, **{'env': env, 'num_sims': num_sims, 'filter_learners': True})
     eval_func = partial(evaluate_agents, env=env)
     downselect_func = partial(select_top_n, **{'select_sizes': population_sizes})
@@ -275,7 +272,7 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims,
             {
                 agent_type: [
                     policies[idx % len(policies)] if len(policies) > 0 else filtered_pops[agent_type][0]
-                    for _ in range(env.num_agent_types(agent_type))
+                    for _ in range(env.types_num[agent_type])
                 ]
                 for agent_type, policies in agent_policies.items()
             }
@@ -315,10 +312,6 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims,
         pbar = track_progress if isinstance(track_progress, tqdm) else tqdm(total=max_iters, desc=f'Generation')
         if not isinstance(track_progress, tqdm):
             pbar.update(starting_gen)
-
-    writer = tb_writer
-    if tb_writer is None:
-        writer = SummaryWriter(log_dir=experiment_dir)
 
     num_iters = 0
     for gen_idx in range(starting_gen, max_iters):
@@ -377,12 +370,6 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims,
         # downselect
         agent_policies = downselect_func(agent_policies)
 
-        best_policies = select_top_n(agent_policies, select_sizes={name: env.num_agent_types(name) for name, pop in agent_policies.items()})
-        for each_agent, policies in best_policies.items():
-            for idx, each_policy in enumerate(policies):
-                writer.add_scalar(f'{each_agent}_{idx}.fitness', each_policy.fitness, gen_idx)
-        writer.flush()
-
         # save generation progress
         # save all policies of each agent and save fitnesses mapping policies to fitnesses
         save_agent_policies(experiment_dir, gen_idx + 1, env, agent_policies)
@@ -395,8 +382,6 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims,
         mp_pool.shutdown()
     if isinstance(pbar, tqdm) and not track_progress:
         pbar.close()
-    if tb_writer is None:
-        writer.close()
 
-    best_policies = select_top_n(agent_policies, select_sizes={name: env.num_agent_types(name) for name, pop in agent_policies.items()})
+    best_policies = select_top_n(agent_policies, select_sizes={name: env.types_num[name] for name, pop in agent_policies.items()})
     return agent_policies, best_policies, num_iters

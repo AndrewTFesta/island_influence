@@ -3,86 +3,57 @@ import pickle
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
+import torch
+from gym import spaces
 from scipy.spatial import distance
 
-from island_influence.agent import Agent, Obstacle, Poi, AgentType
 from island_influence.learn.neural_network import NeuralNetwork
 from island_influence.utils import relative
 
 
 class HarvestEnv:
-    metadata = {'render_modes': ['human', 'none'], 'render_fps': 4, 'name': 'DiscreteHarvestEnvironment'}
+    metadata = {'render_modes': ['human', 'none'], 'render_fps': 4, 'name': 'HarvestEnv'}
     REWARD_TYPES = ['global', 'difference']
-
-    @property
-    def entities(self):
-        entities = []
-        entities.extend(self.harvesters)
-        entities.extend(self.excavators)
-        entities.extend(self.obstacles)
-        entities.extend(self.pois)
-        return entities
-
-    @property
-    def agents(self):
-        all_agents = []
-        all_agents.extend(self.harvesters)
-        all_agents.extend(self.excavators)
-        return all_agents
+    AGENT_TYPES = ['harvester', 'excavator']
+    # One bin for each agent type (harvester, excavator, obstacle, poi)
+    NUM_BINS = 4
 
     @property
     def harvesters(self):
-        return self._harvesters
+        return self._state[self._state['agent_type'] == 0]
 
     @property
     def excavators(self):
-        return self._excavators
+        return self._state[self._state['agent_type'] == 1]
 
     @property
     def obstacles(self):
-        return self._obstacles
+        return self._state[self._state['agent_type'] == 2]
 
     @property
     def pois(self):
-        return self._pois
-
-    @harvesters.setter
-    def harvesters(self, new_harvesters):
-        self._harvesters = new_harvesters
-        return
-
-    @excavators.setter
-    def excavators(self, new_excavators):
-        self._obstacles = new_excavators
-        return
-
-    @obstacles.setter
-    def obstacles(self, new_obstacles):
-        self._obstacles = new_obstacles
-        return
-
-    @pois.setter
-    def pois(self, new_pois):
-        self._pois = new_pois
-        return
+        return self._state[self._state['agent_type'] == 3]
 
     @property
     def remaining_obstacle_value(self):
-        return sum([each_obstacle.value for each_obstacle in self.obstacles])
+        return self.obstacles['value'].sum()
 
     @property
     def remaining_poi_value(self):
-        return sum([each_poi.value for each_poi in self.pois])
+        return self.pois['value'].sum()
 
-    def __init__(self, harvesters: list[Agent], excavators: list[Agent], obstacles: list[Obstacle], pois: list[Poi], location_funcs: dict, max_steps,
-                 save_dir, delta_time=1, normalize_rewards=False, collision_penalty_scalar: int = 0, reward_type='global', render_mode=None):
+    def __init__(self, actors: dict[str, list], num_harvesters, num_excavators, num_obstacles, num_pois, location_funcs: dict, max_steps, save_dir,
+                 sensor_resolution=8, observation_radius=2, delta_time=1, normalize_rewards=False, collision_penalty_scalar: int = 0, reward_type='global',
+                 render_mode=None):
         """
         Always make sure to add agents and call `HarvestEnv.reset()` after before using the environment
 
-        :param harvesters:
-        :param excavators:
-        :param obstacles:
-        :param pois:
+        :param actors:
+        :param num_harvesters:
+        :param num_excavators:
+        :param num_obstacles:
+        :param num_pois:
         :param location_funcs:
         :param max_steps:
         :param delta_time:
@@ -91,33 +62,67 @@ class HarvestEnv:
         self._reward_type = ['global', 'difference']
         self._current_step = 0
         self.max_steps = max_steps
-        self.num_dims = 2
         self.agent_action_size = 2
         self.delta_time = delta_time
+        self.sensor_resolution = sensor_resolution
+        self.observation_radius = observation_radius
+        self.max_velocity = 1
 
         self.normalize_rewards = normalize_rewards
         self.collision_penalty_scalar = collision_penalty_scalar
         self.reward_type = reward_type if reward_type in self._reward_type else 'global'
         self.save_dir = save_dir
 
-        # agents are the harvesters and the excavators
-        # todo  add more types of harvesters
-        # todo  add more types of supports
-        self._harvesters = harvesters
-        self._excavators = excavators
-        self._obstacles = obstacles
-        self._pois = pois
-
-        self.type_mapping = {
-            AgentType.Harvester: self.harvesters,
-            AgentType.Excavator: self.excavators,
-            AgentType.Obstacle: self.obstacles,
-            AgentType.StaticPoi: self.pois,
+        self.num_dims = 2
+        self._fields = ['name', 'location_0', 'location_1', 'observation_radius', 'size', 'weight', 'value', 'agent_type']
+        self._info = {
+            'harvester': {'observation_radius': 5, 'size': 1, 'weight': 1, 'value': 1, 'agent_type': 0},
+            'excavator': {'observation_radius': 5, 'size': 1, 'weight': 1, 'value': 1, 'agent_type': 1},
+            'obstacle': {'observation_radius': 5, 'size': 1, 'weight': 1, 'value': 1, 'agent_type': 2},
+            'poi': {'observation_radius': 5, 'size': 1, 'weight': 1, 'value': 1, 'agent_type': 3},
+        }
+        self.type_map = {
+            info['agent_type']: agent_type
+            for agent_type, info in self._info.items()
+        }
+        self.types_num = {
+            'harvester': num_harvesters,
+            'excavator': num_excavators,
+            'obstacle': num_obstacles,
+            'poi': num_pois,
         }
 
+        self._action_spaces = {
+            'harvester': spaces.Box(
+                low=-1 * self.max_velocity, high=self.max_velocity,
+                shape=(self.num_dims,), dtype=np.float64
+            ),
+            'excavator': spaces.Box(
+                low=-1 * self.max_velocity, high=self.max_velocity,
+                shape=(self.num_dims,), dtype=np.float64
+            ),
+        }
+        self._observation_spaces = {
+            'harvester': spaces.Box(
+                low=0, high=np.inf,
+                shape=(self.sensor_resolution, self.NUM_BINS), dtype=np.float64
+            ),
+            'excavator': spaces.Box(
+                low=0, high=np.inf,
+                shape=(self.sensor_resolution, self.NUM_BINS), dtype=np.float64
+            ),
+        }
+        self._actors = {
+            f'{agent_type}:{idx}': each_actor
+            for agent_type, type_actors in actors.items()
+            for idx, each_actor in enumerate(type_actors)
+        }
+        self.agents = []
+
         self.location_funcs = location_funcs
-        self.initial_obstacle_value = sum([each_obstacle.value for each_obstacle in self.obstacles])
-        self.initial_poi_value = sum([each_poi.value for each_poi in self.pois])
+        self.initial_obstacle_value = None
+        self.initial_poi_value = None
+        self._state = None
 
         # note: state/observations history starts at len() == 1
         #       while action/reward history starts at len() == 0
@@ -146,99 +151,35 @@ class HarvestEnv:
 
     def create_env_model(self):
         # check agent locations to make sure all are set
-        locations_set = True
-        all_agents = self.agents
-        all_agents.extend(self.obstacles)
-        all_agents.extend(self.pois)
-        for each_agent in all_agents:
-            agent_loc = each_agent.location
-            if agent_loc is None:
-                locations_set = False
-                break
-        if not locations_set:
-            self.reset()
         # network for learning state transitions
         #   input   num_agents * (num_dimensions (2) + action_size (2))
         #   output  num_agents * num_dimensions (2)
         state = self.state()
-        # todo  fix for using agents as state representation, not matrix of values
         state_size = state.flatten().size
-        n_outputs = len(self.agents) * self.num_dims
+        n_outputs = len(state) * self.num_dims
         n_hidden = math.ceil((state_size + n_outputs) / 2)
         env_model = NeuralNetwork(n_inputs=state_size, n_outputs=n_outputs, n_hidden=n_hidden)
         return env_model
 
-    def num_agent_types(self, agent_type: AgentType | str):
-        if isinstance(agent_type, str):
-            agent_name = agent_type.split('.')[-1]
-            agent_type = AgentType[agent_name]
-
-        agents = self.type_mapping[agent_type]
-        num_agents = len(agents)
-        return num_agents
-
-    def set_policies(self, agent_type: AgentType | str, agent_policies):
-        if isinstance(agent_type, str):
-            agent_name = agent_type.split('.')[-1]
-            agent_type = AgentType[agent_name]
-
-        agents = self.type_mapping[agent_type]
-        assert len(agents) == len(agent_policies)
-        for each_agent, policy in zip(agents, agent_policies):
-            each_agent.policy = policy
+    def set_policies(self, agent_type: str, agent_policies):
+        assert len(agent_policies) == self.types_num[agent_type]
+        for idx, each_policy in enumerate(agent_policies):
+            self._actors[f'{agent_type}:{idx}'] = each_policy
         return
 
-    def get_agent(self, agent_name: str):
-        agent = None
-        for each_agent in self.agents:
-            if each_agent.name == agent_name:
-                agent = each_agent
-                break
-        return agent
-
-    def get_harvester(self, harvester_name: str):
-        harvester = None
-        for each_harvester in self.harvesters:
-            if each_harvester.name == harvester_name:
-                harvester = each_harvester
-                break
-        return harvester
-
-    def get_excavator(self, excavator_name: str):
-        excavator = None
-        for each_excavator in self.excavators:
-            if each_excavator.name == excavator_name:
-                excavator = each_excavator
-                break
-        return excavator
-
-    def get_obstacle(self, obstacle_name: str):
-        obstacle = None
-        for each_obstacle in self.obstacles:
-            if each_obstacle.name == obstacle_name:
-                obstacle = each_obstacle
-                break
-        return obstacle
-
-    def get_poi(self, poi_name: str):
-        poi = None
-        for each_poi in self.pois:
-            if each_poi.name == poi_name:
-                poi = each_poi
-                break
-        return poi
-
-    def action_space(self, agent: Agent | str):
-        if isinstance(agent, str):
-            agent = self.get_agent(agent)
-        act_space = agent.action_space()
+    def action_space(self, agent):
+        agent_state = self.get_object_state(agent)
+        agent_type = agent_state.loc['agent_type']
+        agent_type = self.type_map[agent_type]
+        act_space = self._action_spaces[agent_type]
         return act_space
 
-    def observation_space(self, agent: Agent | str):
-        if isinstance(agent, str):
-            agent = self.get_agent(agent)
-        obs_space = agent.observation_space()
-        return obs_space
+    def observation_space(self, agent):
+        agent_state = self.get_object_state(agent)
+        agent_type = agent_state.loc['agent_type']
+        agent_type = self.type_map[agent_type]
+        act_space = self._observation_spaces[agent_type]
+        return act_space
 
     def state(self):
         """
@@ -248,30 +189,15 @@ class HarvestEnv:
         training decentralized execution methods like QMIX
         :return:
         """
-        # agent_types = list(AgentType)
-        # all_agents = self.entities
-        # env is the state and agents are how the updates are calculated based on current state
-        # note that this may imply non-changing set of agents
-        # agent_states = [
-        #     [*agent.location, agent.size, agent.weight, agent.value, agent.observation_radius, agent_types.index(agent.agent_type)]
-        #     for agent in all_agents
-        # ]
-        # states_lists = [states for states in agent_states if len(states) > 0]
-        # all_states = np.vstack(states_lists)
-
-        all_states = self.entities
-        return all_states
+        reduced_state = self._state.drop(columns='name')
+        return reduced_state
 
     def state_transition(self, idx):
-        start_state = self.state_history[idx]
-        action = self.action_history[idx]
-        reward = self.reward_history[idx]
-        end_state = self.state_history[idx + 1]
         transition = {
-            'initial_state': start_state,
-            'action': action,
-            # 'reward': reward,
-            'end_state': end_state
+            'initial_state': self.state_history[idx],
+            'action': self.action_history[idx],
+            # 'reward': self.reward_history[idx],
+            'end_state': self.state_history[idx + 1]
         }
         return transition
 
@@ -349,6 +275,22 @@ class HarvestEnv:
             transitions_fname = pickle.load(load_file)
         return transitions_fname
 
+    def get_object_state(self, object_name):
+        object_state = self._state[self._state['name'] == object_name]
+        object_state = object_state.iloc[0]
+        return object_state
+
+    def get_object_location(self, object_state: pd.Series):
+        agent_locations = object_state.loc[['location_0', 'location_1']]
+        return agent_locations
+
+    def gen_locs(self, seed):
+        harvester_locs = self.location_funcs['harvesters'](num_points=self.types_num['harvester'], seed=seed)
+        excavator_locs = self.location_funcs['excavators'](num_points=self.types_num['excavator'], seed=seed)
+        obstacle_locs = self.location_funcs['obstacles'](num_points=self.types_num['obstacle'], seed=seed)
+        poi_locs = self.location_funcs['pois'](num_points=self.types_num['poi'], seed=seed)
+        return {'harvester': harvester_locs, 'excavator': excavator_locs, 'obstacle': obstacle_locs, 'poi': poi_locs}
+
     def reset(self, seed: int | None = None):
         """
         Reset needs to initialize the `agents` attribute and must set up the
@@ -358,33 +300,26 @@ class HarvestEnv:
 
         :param seed:
         """
-        if len(self.harvesters) > 0:
-            harvester_locs = self.location_funcs['harvesters'](num_points=len(self.harvesters), seed=seed)
-            for idx, agent in enumerate(self.harvesters):
-                agent.reset()
-                agent.location = harvester_locs[idx]
+        # todo  mark all the ways this can change
+        #       different number of harvesters, excavators, obstacles, pois
+        #       different feature attributes
+        locs = self.gen_locs(None)
+        keys = ['harvester', 'excavator', 'obstacle', 'poi']
+        entries = [
+            {'name': f'{each_key}:{loc_idx}', **{f'location_{idx}': val for idx, val in enumerate(each_loc)}, **self._info[each_key]}
+            for each_key in keys
+            for loc_idx, each_loc in enumerate(locs[each_key])
+        ]
+        self._state = pd.DataFrame(entries)
 
-        if len(self.excavators) > 0:
-            excavator_locs = self.location_funcs['excavators'](num_points=len(self.excavators), seed=seed)
-            for idx, agent in enumerate(self.excavators):
-                agent.reset()
-                agent.location = excavator_locs[idx]
-
-        if len(self.obstacles) > 0:
-            obstacle_locs = self.location_funcs['obstacles'](num_points=len(self.obstacles), seed=seed)
-            for idx, agent in enumerate(self.obstacles):
-                agent.reset()
-                agent.location = obstacle_locs[idx]
-
-        if len(self.pois) > 0:
-            poi_locs = self.location_funcs['pois'](num_points=len(self.pois), seed=seed)
-            for idx, agent in enumerate(self.pois):
-                agent.reset()
-                agent.location = poi_locs[idx]
+        self.agents = self._state[self._state['name'].str.startswith('harvester') | self._state['name'].str.startswith('excavator')]
+        self.agents = self.agents['name'].tolist()
+        self.initial_obstacle_value = self.obstacles['value'].sum()
+        self.initial_poi_value = self.pois['value'].sum()
 
         self._current_step = 0
         # clear the action, observation, and state histories
-        self.state_history = [self.state()]
+        self.state_history = [self._state]
         self.action_history = []
         self.reward_history = []
 
@@ -395,18 +330,93 @@ class HarvestEnv:
         self.clock = None
         return observations
 
+    def observable_agents(self, agent, observation_radius, min_distance=0.001):
+        """
+        observable_agents
+
+        :param agent:
+        :param observation_radius:
+        :param min_distance:
+        :return:
+        """
+        agent_loc = self.get_object_location(agent)
+        obs_bins = []
+        for index, each_agent_state in self._state.iterrows():
+            each_loc = self.get_object_location(each_agent_state)
+            if all([val == 0 for val in np.subtract(each_loc, agent_loc)]):
+                continue
+
+            angle, dist = relative(agent_loc, each_loc)
+            if min_distance <= dist <= observation_radius:
+                obs_bins.append((each_agent_state, angle, dist))
+        return obs_bins
+
+    def sense(self, agent, offset=False):
+        """
+        Takes in the state of the worlds and counts how many agents are in each d-hyperoctant around the agent,
+        with the agent being at the center of the observation.
+
+        Calculates which pois, leaders, and follower go into which d-hyperoctant, where d is the state
+        resolution of the environment.
+
+        first set of (sensor_resolution) bins is for leaders/followers
+        second set of (sensor_resolution) bins is for pois
+
+        :param agent:
+        :param offset:
+        :return:
+        """
+        layer_obs = np.zeros((self.NUM_BINS, self.sensor_resolution))
+        counts = np.ones(layer_obs.shape)
+
+        # each row in each layer is a list of
+        #   [locations (2d), size, weight, value, observation_radius, agent_type]
+        obs_agents = self.observable_agents(agent, self.observation_radius)
+        bin_size = 360 / self.sensor_resolution
+        if offset:
+            offset = 360 / (self.sensor_resolution * 2)
+            bin_size = offset * 2
+
+        for idx, entry in enumerate(obs_agents):
+            other_agent, angle, dist = entry
+            if dist == 0.0:
+                dist += 0.001
+
+            other_type = int(other_agent.loc['agent_type'])
+            obs_value = other_agent.loc['value'] / max(dist, 0.01)
+
+            bin_idx = int(np.floor(angle / bin_size) % self.sensor_resolution)
+            layer_obs[other_type, bin_idx] += obs_value
+            counts[other_type, bin_idx] += 1
+
+        layer_obs = np.divide(layer_obs, counts)
+        layer_obs = np.nan_to_num(layer_obs)
+        layer_obs = layer_obs.flatten()
+        return layer_obs
+
     def get_observations(self):
         """
         Returns a dictionary of observations (keyed by the agent name).
 
         :return:
         """
-        curr_state = self.state()
         observations = {}
-        for agent in self.agents:
-            agent_obs = agent.sense(curr_state)
-            observations[agent.name] = agent_obs
+        for agent_name in self.agents:
+            agent = self.get_object_state(agent_name)
+            agent_obs = self.sense(agent)
+            observations[agent_name] = agent_obs
         return observations
+
+    def agent_action(self, policy, observation):
+        with torch.no_grad():
+            action = policy(observation)
+            action = action.numpy()
+
+        mag = np.linalg.norm(action)
+        if mag > self.max_velocity:
+            action = action / mag
+            action *= self.max_velocity
+        return action
 
     def get_actions(self):
         """
@@ -416,10 +426,11 @@ class HarvestEnv:
         """
         observations = self.get_observations()
         actions = {}
-        for agent in self.agents:
-            agent_obs = observations[agent.name]
-            agent_action = agent.get_action(agent_obs)
-            actions[agent.name] = agent_action
+        for agent_name in self.agents:
+            policy = self._actors[agent_name]
+            agent_obs = observations[agent_name]
+            agent_action = self.agent_action(policy, agent_obs)
+            actions[agent_name] = agent_action
         return actions
 
     def done(self):
@@ -427,7 +438,7 @@ class HarvestEnv:
         time_over = self._current_step >= self.max_steps
         episode_done = any([all_obs, time_over])
 
-        agent_dones = {agent.name: episode_done for agent in self.agents}
+        agent_dones = {agent: episode_done for agent in self.agents}
         return agent_dones
 
     def cumulative_rewards(self):
@@ -440,22 +451,34 @@ class HarvestEnv:
             cum_rewards[agent_name] = agent_reward
         return cum_rewards
 
-    @staticmethod
-    def check_observed(observing_agents, observed_agents):
+    def check_observed(self, observing_agents, observed_agents):
         closest = {}
-        for observed_agent in observed_agents:
-            observed_location = observed_agent.location
+        for observed_idx, observed_agent in observed_agents.iterrows():
+            observed_value = observed_agent['value']
+            if observed_value == 0:
+                continue
+
+            observed_name = observed_agent['name']
+            observed_location = self.get_object_location(observed_agent)
+
             all_observed = []
-            for observing_agent in observing_agents:
-                observing_location = observing_agent.location
+            for observing_idx, observing_agent in observing_agents.iterrows():
+                observing_location = self.get_object_location(observing_agent)
+
                 angle, dist = relative(observing_location, observed_location)
-                if dist <= observing_agent.observation_radius:
+                if dist <= observing_agent['observation_radius']:
                     entry = {'agent': observing_agent, 'distance': dist}
                     all_observed.append(entry)
             if len(all_observed) > 0:
                 all_observed.sort(key=lambda x: x['distance'])
-                closest[observed_agent] = all_observed
+                closest[observed_name] = all_observed
         return closest
+
+    def eval_rewards(self, current_state, actions, next_state):
+        # todo  consider how to normalize rewards
+        #       reward based on obstacle and agent weights (analogous to physical impact between objects)
+        # todo  incorporate penalty for harvesters being near obstacles
+        return {agent_name: 0 for agent_name in self.agents}
 
     def step(self, actions):
         """
@@ -471,131 +494,119 @@ class HarvestEnv:
         dicts keyed by the agent name
             e.g. {agent_0: observation_0, agent_1: observation_1, ...}
         """
-        remaining_obstacles = [agent for agent in self.obstacles if agent.value > 0]
-        remaining_pois = [agent for agent in self.pois if agent.value > 0]
+        initial_state = self._state
+        team_rewards = {'harvester': 0, 'excavator': 0}
 
-        rewards = {agent.name: 0.0 for agent in self.agents}
-        rewards['global_excavator'] = 0.0
-        rewards['global_harvester'] = 0.0
+        remaining_obstacles = self.obstacles.loc[self.obstacles['value'] != 0]
+        obstacle_locations = remaining_obstacles.loc[:, remaining_obstacles.columns.str.startswith('loc')]
+        obstacle_radii = remaining_obstacles.loc[:, 'size']
 
         # step location and time of all agents
         # should not matter which order they are stepped in as long as dt is small enough
-        obstacle_locations = np.asarray([each_obstacle.location for each_obstacle in remaining_obstacles])
-        obstacle_radii = np.asarray([each_obstacle.observation_radius for each_obstacle in remaining_obstacles])
-
-        # for agent_name, each_action in actions.items():
         default_action = np.asarray([0, 0])
-        for agent in self.agents:
-            agent_action = actions.get(agent.name, default_action)
-            # todo  check if agent is currently near any obstacles
-            obstacle_dists = distance.cdist([agent.location], obstacle_locations)[0]
-            obstacle_dists -= obstacle_radii
-            obstacle_dists = np.clip(obstacle_dists, 0, None)
+        for idx, agent_name in enumerate(self.agents):
+            agent_action = actions.get(agent_name, default_action)
+            agent_state = self.get_object_state(agent_name)
+            agent_location = self.get_object_location(agent_state)
+            agent_type = agent_state.loc['agent_type']
+            agent_type = self.type_map[agent_type]
 
-            arg_closest = np.argmin(obstacle_dists)
-            closest_dist = obstacle_dists[arg_closest]
+            # check if agent is currently near any obstacles
+            # do not restrict movement, instead, assign a reward based on the proximity of obstacles to harvesters
+            #   possibly movement of agents in regions that are near obstacles is slower
+            if agent_type == 'harvester' and len(remaining_obstacles) > 0:
+                obstacle_dists = distance.cdist([agent_location.tolist()], obstacle_locations.to_numpy())[0]
+                obstacle_dists -= obstacle_radii
+                obstacle_dists = np.clip(obstacle_dists, 0, None)
+                closest_dist = obstacle_dists.min()
+                if closest_dist <= 0:
+                    agent_action /= 2
+                    # penalty for being in a hazardous region based on the value of the closest obstacle
+                    arg_closest = np.argmin(obstacle_dists)
+                    closest_obstacle = remaining_obstacles.iloc[arg_closest]
+                    each_reward = closest_obstacle['value']
+                    if self.normalize_rewards:
+                        each_reward = each_reward / self.initial_obstacle_value
+                    team_rewards['harvester'] -= each_reward
+            new_loc = agent_location + agent_action
+            self._state.loc[self._state['name'] == agent_name, 'location_0'], self._state.loc[self._state['name'] == agent_name, 'location_1'] = new_loc
 
-            agent_action = agent_action if closest_dist > 0 else agent_action / 2
-            new_loc = agent.location + agent_action
-            # if len(obstacle_locations) > 0 and agent.agent_type == AgentType.Harvester:
-            #     # Collision detection for obstacles and harvesters
-            #     new_loc_mat = np.tile(new_loc, (len(remaining_obstacles), 1))
-            #     obstacle_dists = np.linalg.norm(new_loc_mat - obstacle_locations, axis=1)
-            #     obstacle_dists -= obstacle_radii
-            #     collision = np.min(obstacle_dists) <= 0
-            #     if collision:
-            #         # todo  do not restrict movement, instead, assign a reward based on the proximity of obstacles to harvesters
-            #         #       possibly movement of agents in regions that are near obstacles is slower
-            #         new_loc = agent.location
-            #         colliding_obstacle_idx = np.argmin(obstacle_dists)
-            #         colliding_obstacle = remaining_obstacles[colliding_obstacle_idx]
-            #         obstacle_weight = colliding_obstacle.weight
-            #         # todo  consider how to normalize rewards
-            #         #       reward based on obstacle and agent weights (analogous to physical impact between objects)
-            #         # todo  differentiate between reward sources - positive and negative
-            #         collision_reward = agent.weight * obstacle_weight
-            #         collision_reward *= -1
-            #         collision_reward *= self.collision_penalty_scalar
-            #         rewards[agent.name] += collision_reward
-            agent.location = new_loc
+        # find the closest pairs of relevant agents after excavators and harvesters have moved
+        # check closest agents based on observation radii of actors rather than stationary objects
+        observed_obstacles_excavators = self.check_observed(self.excavators, self.obstacles)
+        observed_pois_harvesters = self.check_observed(self.harvesters, self.pois)
 
-        self._current_step += self.delta_time
-
-        # find the closest pairs of relevant agents after stepping the environment
-        # check closest agents based on observation radii of active agents rather than passive agents
-        observed_obstacles_excavators = self.check_observed(self.excavators, remaining_obstacles)
-        observed_pois_harvesters = self.check_observed(self.harvesters, remaining_pois)
         # apply the effects of harvesters and excavators on obstacles and pois
         # assign rewards to harvester for observing pois and excavators for removing obstacles
         # Compute for excavators and obstacles
-        for obstacle, excavator_info in observed_obstacles_excavators.items():
+        for obstacle_name, excavator_info in observed_obstacles_excavators.items():
             # need at least N excavators in excavator_info before reducing the obstacle's value and assigning rewards to any of the excavators
-            coupling_req = obstacle.size
+            obstacle = self.get_object_state(obstacle_name)
+            coupling_req = int(obstacle['size'])
             if len(excavator_info) < coupling_req:
                 continue
 
             # the reward for removing an obstacle is based on the current value of the obstacle
-            each_reward = obstacle.value
+            each_reward = obstacle['value']
             if self.normalize_rewards:
                 each_reward = each_reward / self.initial_obstacle_value
             # todo  consider if an obstacle takes longer to fully remove
-            obstacle.value = 0
-            rewards['global_excavator'] += each_reward
+            self._state.loc[self._state['name'] == obstacle_name, 'value'] = 0
 
-            obs_excavators = excavator_info[:coupling_req]
-            for each_info in obs_excavators:
-                excavator = each_info['agent']
-                reward = 0
-                if self.reward_type == 'global':
-                    reward = each_reward
-                elif self.reward_type == 'difference':
-                    # look at the number of nearby excavators vs the N closest
-                    # if there is at least one additional excavator, then this
-                    # agent did not need to be present to remove the obstacle
-                    num_extra = len(obs_excavators) - len(excavator_info)
-                    reward = min(-num_extra + 1, 1)
-                rewards[excavator.name] += reward
+            reward = each_reward
+            if self.reward_type == 'difference':
+                # look at the number of nearby excavators vs the N closest
+                # if there is at least one additional excavator, then this
+                # agent did not need to be present to remove the obstacle
+                # todo  Note that in this case, the difference rewards are symmetric
+                # todo  correlate the reward to a specific agent
+                obs_excavators = excavator_info[:coupling_req]
+                num_extra = len(obs_excavators) - len(excavator_info)
+                reward = min(-num_extra + 1, 1)
+            team_rewards['excavator'] += reward
 
         # Compute for harvesters and pois
-        for poi, harvester_info in observed_pois_harvesters.items():
+        for poi_name, harvester_info in observed_pois_harvesters.items():
             # need at least N harvesters in harvester_info before reducing the obstacle's value and assigning rewards to any of the excavators
-            coupling_req = poi.size
+            poi = self.get_object_state(poi_name)
+            coupling_req = int(poi['size'])
             if len(harvester_info) < coupling_req:
                 continue
 
-            # the reward for removing an obstacle is based on the current value of the obstacle
-            each_reward = poi.value
+            # the reward for observing a poi is based on the current value of the obstacle
+            each_reward = poi['value']
             if self.normalize_rewards:
                 each_reward = each_reward / self.initial_poi_value
             # todo  consider if a poi takes longer to fully remove
-            poi.value = 0
-            rewards['global_harvester'] += each_reward
+            self._state.loc[self._state['name'] == poi_name, 'value'] = 0
 
-            obs_harvesters = harvester_info[:coupling_req]
-            for each_info in obs_harvesters:
-                harvester = each_info['agent']
-                reward = 0
-                if self.reward_type == 'global':
-                    reward = each_reward
-                elif self.reward_type == 'difference':
-                    # look at the number of nearby harvesters vs the N closest
-                    # if there is at least one additional harvester, then this
-                    # agent did not need to be present to observe the poi
-                    # todo  Note that in this case, the difference rewards are symmetric
-                    num_extra = len(obs_harvesters) - len(harvester_info)
-                    reward = min(-num_extra + 1, 1)
-                rewards[harvester.name] += reward
+            reward = each_reward
+            if self.reward_type == 'difference':
+                # look at the number of nearby harvesters vs the N closest
+                # if there is at least one additional harvester, then this
+                # agent did not need to be present to observe the poi
+                # todo  Note that in this case, the difference rewards are symmetric
+                # todo  correlate the reward to a specific agent
+                obs_excavators = harvester_info[:coupling_req]
+                num_extra = len(obs_excavators) - len(harvester_info)
+                reward = min(-num_extra + 1, 1)
+            team_rewards['harvester'] += reward
 
+        self._current_step += self.delta_time
         # check if simulation is done
         dones = self.done()
         #############################################################################################
         # The effects of the actions have all been applied to the state
         # No more state changes should occur below this point
         # Global team reward is the sum of subteam (excavator team and harvest team) rewards
-        curr_state = self.state()
-        rewards['global_excavator'] = sum([each_reward for each_agent, each_reward in rewards.items() if each_agent.startswith('Excavator')])
-        rewards['global_harvester'] = sum([each_reward for each_agent, each_reward in rewards.items() if each_agent.startswith('Harvester')])
-        rewards['global'] = rewards['global_excavator'] + rewards['global_harvester']
+        curr_state = self._state
+        eval_ = self.eval_rewards(initial_state, actions, curr_state)
+        rewards = {
+            agent_name: team_rewards['harvester'] if agent_name.startswith('harvester') else team_rewards['excavator']
+            for agent_name in self.agents
+        }
+        rewards['global_harvester'] = team_rewards['harvester']
+        rewards['global_excavator'] = team_rewards['excavator']
 
         self.action_history.append(actions)
         self.state_history.append(curr_state)
@@ -603,21 +614,14 @@ class HarvestEnv:
 
         # Update infos and truncated for agents.
         # Not sure what would go here, but it seems to be expected by pettingzoo
-        infos = {agent.name: {} for agent in self.agents}
-        truncs = {agent.name: {} for agent in self.agents}
+        infos = {agent_name: {} for agent_name in self.agents}
+        truncs = {agent_name: {} for agent_name in self.agents}
 
         observations = self.get_observations()
         return observations, rewards, dones, truncs, infos
 
     def set_render_bounds(self):
-        agent_locations = np.asarray([agent.location for agent in self.agents])
-        obstacle_locations = np.asarray([agent.location for agent in self.obstacles])
-        poi_locations = np.asarray([agent.location for agent in self.pois])
-
-        if len(obstacle_locations) > 0:
-            agent_locations = np.concatenate((agent_locations, obstacle_locations), axis=0)
-        if len(poi_locations) > 0:
-            agent_locations = np.concatenate((agent_locations, poi_locations), axis=0)
+        agent_locations = self._state.loc[:, self._state.columns.str.startswith('loc')]
 
         min_loc = np.min(agent_locations, axis=0)
         max_loc = np.max(agent_locations, axis=0)
@@ -639,10 +643,10 @@ class HarvestEnv:
         # The size of a single grid square in pixels
         pix_square_size = (self.window_size / self.render_bound)
 
-        agent_colors = {AgentType.Harvester: (0, 255, 0), AgentType.Excavator: (0, 0, 255), AgentType.Obstacle: black, AgentType.StaticPoi: (255, 0, 0)}
+        agent_colors = {'harvester': (0, 255, 0), 'excavator': (0, 0, 255), 'obstacle': black, 'poi': (255, 0, 0)}
         default_color = (128, 128, 128)
 
-        agent_sizes = {AgentType.Harvester: 0.5, AgentType.Excavator: 0.5, AgentType.Obstacle: 0.25, AgentType.StaticPoi: 0.25}
+        agent_sizes = {'harvester': 0.5, 'excavator': 0.5, 'obstacle': 0.25, 'poi': 0.25}
         default_size = 0.1
         size_scalar = 2
 
@@ -665,9 +669,13 @@ class HarvestEnv:
         font = pygame.font.SysFont('arial', text_size)
 
         for agent in self.agents:
-            location = np.array(agent.location) + self.location_offset
-            acolor = agent_colors.get(agent.agent_type, default_color)
-            asize = agent_sizes.get(agent.agent_type, default_size)
+            agent = self.get_object_state(agent)
+            agent_type = agent['agent_type']
+            agent_type = self.type_map[agent_type]
+            location = self.get_object_location(agent).to_numpy()
+            location = location + self.location_offset
+            acolor = agent_colors.get(agent_type, default_color)
+            asize = agent_sizes.get(agent_type, default_size)
             asize *= size_scalar
 
             pygame.draw.rect(
@@ -676,64 +684,81 @@ class HarvestEnv:
                 )
             )
 
-        for agent in self.obstacles:
+        for idx, agent in self.obstacles.iterrows():
+            agent_value = agent['value']
+
             # only render the obstacle if it has not been removed by an excavator
-            if agent.value <= 0:
+            if agent_value <= 0:
                 continue
 
-            location = np.array(agent.location) + self.location_offset
-            asize = agent_sizes.get(agent.agent_type, default_size)
+            agent_type = agent['agent_type']
+            agent_type = self.type_map[agent_type]
+            obs_radius = agent['observation_radius']
+            location = self.get_object_location(agent).to_numpy()
+            location = location + self.location_offset
+            asize = agent_sizes.get(agent_type, default_size)
             asize *= size_scalar
 
             # different colors to distinguish how much remains of the obstacle
-            acolor = agent_colors.get(agent.agent_type, default_color)
-            acolor = np.divide(acolor, (agent.value + 1))
+            acolor = agent_colors.get(agent_type, default_color)
+            acolor = np.divide(acolor, (agent_value + 1))
 
             # draw a circle at the location to represent the obstacle
             pygame.draw.circle(canvas, acolor, (location + 0.5) * pix_square_size, pix_square_size * asize)
-            pygame.draw.circle(canvas, acolor, (location + 0.5) * pix_square_size, pix_square_size * agent.observation_radius, width=1)
+            pygame.draw.circle(canvas, acolor, (location + 0.5) * pix_square_size, pix_square_size * obs_radius, width=1)
 
-        for agent in self.pois:
-            location = np.array(agent.location) + self.location_offset
-            asize = agent_sizes.get(agent.agent_type, default_size)
+        for idx, agent in self.pois.iterrows():
+            agent_type = agent['agent_type']
+            agent_type = self.type_map[agent_type]
+            obs_radius = agent['observation_radius']
+            agent_value = agent['value']
+            location = self.get_object_location(agent).to_numpy()
+            location = location + self.location_offset
+            asize = agent_sizes.get(agent_type, default_size)
             asize *= size_scalar
 
             # different colors to distinguish how much of the poi is observed
-            acolor = agent_colors.get(agent.agent_type, default_color)
-            acolor = np.divide(acolor, (agent.value + 1))
+            acolor = agent_colors.get(agent_type, default_color)
+            acolor = np.divide(acolor, (agent_value + 1))
             # draw circle around poi indicating the observation radius
             # draw a circle at the location to represent the obstacle
             pygame.draw.circle(canvas, black, (location + 0.5) * pix_square_size, pix_square_size * asize)
             pygame.draw.circle(canvas, acolor, (location + 0.5) * pix_square_size, pix_square_size * asize * 0.75)
-            pygame.draw.circle(canvas, acolor, (location + 0.5) * pix_square_size, pix_square_size * agent.observation_radius, width=1)
+            pygame.draw.circle(canvas, acolor, (location + 0.5) * pix_square_size, pix_square_size * obs_radius, width=1)
 
         if write_values:
             for agent in self.agents:
-                location = np.array(agent.location) + self.location_offset
+                agent_value = agent['value']
+                location = self.get_object_location(agent).to_numpy()
+                location = location + self.location_offset
                 # display text of the current value of an agent
                 # do this in a loop after to make sure it displays on all pois, obstacles, and agents
-                text_surface = font.render(f'{agent.value}', False, white)
+                text_surface = font.render(f'{agent_value}', False, white)
                 canvas.blit(text_surface, (location + 0.35) * pix_square_size)
 
             for agent in self.obstacles:
-                location = np.array(agent.location) + self.location_offset
+                agent_value = agent['value']
+                location = self.get_object_location(agent).to_numpy()
+                location = location + self.location_offset
                 # display text of the current value of an obstacle
                 # do this in a loop after to make sure it displays on all pois, obstacles, and agents
-                text_surface = font.render(f'{agent.value}', False, white)
+                text_surface = font.render(f'{agent_value}', False, white)
                 canvas.blit(text_surface, (location + 0.35) * pix_square_size)
 
             for agent in self.pois:
-                location = np.array(agent.location) + self.location_offset
+                agent_value = agent['value']
+                location = self.get_object_location(agent).to_numpy()
+                location = location + self.location_offset
                 # display text of the current value of a poi
                 # do this in a loop after to make sure it displays on all pois, obstacles, and agents
-                text_surface = font.render(f'{agent.value}', False, white)
+                text_surface = font.render(f'{agent_value}', False, white)
                 canvas.blit(text_surface, (location + 0.3) * pix_square_size)
 
         if write_legend:
             outline = 1
             legend_offset = 10
             for idx, (agent_type, color) in enumerate(agent_colors.items()):
-                text = f'{agent_type.name}'
+                text = f'{agent_type}'
                 text_surface = font.render(text, False, color)
                 if outline > 0:
                     outline_surface = font.render(text, True, black)

@@ -16,7 +16,7 @@ from island_influence.envs.harvest_env import HarvestEnv
 from island_influence.setup_env import det_ring_env
 
 
-def display_env(env, render_mode, render_delay=1.0):
+def display_env(env, render_mode, render_delay=0.1):
     env.render()
     time.sleep(render_delay)
     return
@@ -24,44 +24,44 @@ def display_env(env, render_mode, render_delay=1.0):
 
 def test_observations(env: HarvestEnv, display=False):
     env.reset()
-    first_agent = env.agents[0]
-    obs_space = env.observation_space(first_agent)
+    # first_agent = env.agents[0]
+    # obs_space = env.observation_space(first_agent)
     if display:
         print(f'=' * 80)
         print(f'Running observation tests')
-        print(f'{obs_space=}')
+        # print(f'{obs_space=}')
 
     for agent in env.agents:
-        each_obs = env.observation_space(agent)
+        obs_space = env.observation_space(agent)
         if display:
-            print(f'{agent.name}: {each_obs}')
-    all_obs = env.get_observations()
-    for name, each_obs in all_obs.items():
+            print(f'{agent.name}: {obs_space}')
+
+    observations = env.get_observations()
+    for name, obs in observations.items():
         if display:
-            print(f'{name}: {each_obs}')
+            print(f'{name}: {obs}')
     return
 
 
 def test_actions(env: HarvestEnv, display=False):
     env.reset()
-    first_agent = env.agents[0]
-    act_space = env.action_space(first_agent)
+    # first_agent = env.agents[0]
+    # act_space = env.action_space(first_agent)
     if display:
         print(f'=' * 80)
         print(f'Running action tests')
-        print(f'{act_space=}')
+        # print(f'{act_space=}')
 
     for agent in env.agents:
-        each_act = env.action_space(agent)
+        act_space = env.action_space(agent)
         if display:
-            print(f'{agent.name}: {each_act}')
+            print(f'{agent.name}: {act_space}')
 
-    all_obs = env.get_observations()
-    for agent_name, obs in all_obs.items():
-        agent = env.get_agent(agent_name)
-        action = agent.get_action(obs)
+    observations = env.get_observations()
+    actions = env.get_actions()
+    for name, act in actions.items():
         if display:
-            print(f'{agent_name=}: {obs=} | {action=}')
+            print(f'{name}: {act}')
     return
 
 
@@ -151,20 +151,20 @@ def test_step(env: HarvestEnv, render_mode):
     right_action = np.array((step_size, 0))
 
     tests = [
-        {agent.name: forward_action for agent in env.agents},
-        {agent.name: backwards_action for agent in env.agents},
-        {agent.name: right_action for agent in env.agents},
-        {agent.name: left_action for agent in env.agents},
+        {agent: forward_action for agent in env.agents},
+        {agent: backwards_action for agent in env.agents},
+        {agent: right_action for agent in env.agents},
+        {agent: left_action for agent in env.agents},
 
-        {agent.name: forward_action for agent in env.agents},
-        {agent.name: forward_action for agent in env.agents},
-        {agent.name: forward_action for agent in env.agents},
-        {agent.name: forward_action for agent in env.agents},
+        {agent: forward_action for agent in env.agents},
+        {agent: forward_action for agent in env.agents},
+        {agent: forward_action for agent in env.agents},
+        {agent: forward_action for agent in env.agents},
 
-        {agent.name: right_action for agent in env.agents},
-        {agent.name: right_action for agent in env.agents},
-        {agent.name: right_action for agent in env.agents},
-        {agent.name: right_action for agent in env.agents},
+        {agent: right_action for agent in env.agents},
+        {agent: right_action for agent in env.agents},
+        {agent: right_action for agent in env.agents},
+        {agent: right_action for agent in env.agents},
     ]
 
     print(f'=' * 80)
@@ -255,8 +255,8 @@ def test_rollout(env: HarvestEnv, render_mode):
 def test_collisions(render_mode, display=False):
     if display:
         print(f'Running collision tests')
-    env_obstacles_func = det_ring_env(scale_factor=0.5, num_excavators=0)
-    env_pois_func = det_ring_env(scale_factor=0.5, num_excavators=0, num_obstacles=0)
+    env_obstacles_func = det_ring_env(scale_factor=1, num_excavators=1)
+    env_pois_func = det_ring_env(scale_factor=1, num_excavators=1, num_obstacles=1)
 
     env_obstacles = env_obstacles_func()
     env_pois = env_pois_func()
@@ -279,25 +279,25 @@ def test_collisions(render_mode, display=False):
     right_action = np.array((step_size, 0))
 
     tests = [
-        {agent.name: right_action for agent in env_obstacles.agents},
-        {agent.name: right_action for agent in env_obstacles.agents},
-        {agent.name: right_action for agent in env_obstacles.agents},
-        {agent.name: right_action for agent in env_obstacles.agents},
+        {agent: right_action for agent in env_obstacles.agents},
+        {agent: right_action for agent in env_obstacles.agents},
+        {agent: right_action for agent in env_obstacles.agents},
+        {agent: right_action for agent in env_obstacles.agents},
 
-        {agent.name: right_action for agent in env_obstacles.agents},
-        {agent.name: right_action for agent in env_obstacles.agents},
-        {agent.name: right_action for agent in env_obstacles.agents},
-        {agent.name: right_action for agent in env_obstacles.agents},
+        {agent: right_action for agent in env_obstacles.agents},
+        {agent: right_action for agent in env_obstacles.agents},
+        {agent: right_action for agent in env_obstacles.agents},
+        {agent: right_action for agent in env_obstacles.agents},
 
-        {agent.name: left_action for agent in env_obstacles.agents},
-        {agent.name: left_action for agent in env_obstacles.agents},
-        {agent.name: left_action for agent in env_obstacles.agents},
-        {agent.name: left_action for agent in env_obstacles.agents},
+        {agent: left_action for agent in env_obstacles.agents},
+        {agent: left_action for agent in env_obstacles.agents},
+        {agent: left_action for agent in env_obstacles.agents},
+        {agent: left_action for agent in env_obstacles.agents},
 
-        {agent.name: right_action for agent in env_obstacles.agents},
-        {agent.name: right_action for agent in env_obstacles.agents},
-        {agent.name: right_action for agent in env_obstacles.agents},
-        {agent.name: right_action for agent in env_obstacles.agents},
+        {agent: right_action for agent in env_obstacles.agents},
+        {agent: right_action for agent in env_obstacles.agents},
+        {agent: right_action for agent in env_obstacles.agents},
+        {agent: right_action for agent in env_obstacles.agents},
     ]
 
     for each_action in tests:
@@ -388,7 +388,7 @@ def test_reset(env: HarvestEnv, render_mode, display=False):
 
 def main(main_args):
     env_params = {
-        'scale_factor': 0.5, 'num_harvesters': 4, 'num_excavators': 4, 'num_obstacles': 16, 'num_pois': 8, 'collision_penalty_scalar': 0,
+        'scale_factor': 2, 'num_harvesters': 4, 'num_excavators': 4, 'num_obstacles': 8, 'num_pois': 8, 'collision_penalty_scalar': 0,
         'max_steps': 25, 'save_dir': Path(project_properties.env_dir, 'harvest_env_test')
     }
     env_func = det_ring_env(**env_params)
@@ -397,7 +397,7 @@ def main(main_args):
     env.normalize_rewards = True
 
     test_observations(env)
-    # test_actions(env)
+    test_actions(env)
     # test_save_env(env)
     # test_save_transitions(env)
 

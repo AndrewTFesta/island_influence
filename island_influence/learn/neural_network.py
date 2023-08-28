@@ -75,7 +75,7 @@ class NeuralNetwork(nn.Module):
             raise RuntimeError(f'Can\'t set a fitness value on a non-learning network')
         return
 
-    def __init__(self, n_inputs, n_outputs, n_hidden=2, learner=True, network_func=linear_relu_stack):
+    def __init__(self, n_inputs, n_outputs, n_hidden=2, learner=True, agent_type=None, network_func=linear_relu_stack):
         super(NeuralNetwork, self).__init__()
         # todo  make network funcs defines layers from ModuleDict or ParameterDict
         # https://pytorch.org/docs/stable/generated/torch.nn.ModuleDict.html#torch.nn.ModuleDict
@@ -103,6 +103,8 @@ class NeuralNetwork(nn.Module):
         self.network = self.network_func(n_inputs=n_inputs, n_hidden=n_hidden, n_outputs=n_outputs)
 
         self.parent = None
+
+        self.agent_type = agent_type
         return
 
     def __repr__(self):

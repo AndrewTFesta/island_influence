@@ -13,25 +13,26 @@ from pathlib import Path
 from torch.utils.tensorboard import SummaryWriter
 
 from island_influence import project_properties
-from island_influence.agent import AgentType
+from island_influence.envs.harvest_env import HarvestEnv
 from island_influence.learn.optimizer.cceaV2 import ccea
 from island_influence.setup_env import rand_ring_env, create_agent_policy
 
 
 def run_ccea(env_type, env_params, ccea_params, base_pop_size, experiment_dir, max_iters):
     env_func = env_type(**env_params)
-    env = env_func()
+    env: HarvestEnv = env_func()
+    env.reset()
 
     num_agents = {
-        AgentType.Harvester: env_params['num_harvesters'], AgentType.Excavator: env_params['num_excavators'],
-        AgentType.Obstacle: env_params['num_obstacles'], AgentType.StaticPoi: env_params['num_pois']
+        'harvester': env_params['num_harvesters'], 'excavator': env_params['num_excavators'],
+        'obstacle': env_params['num_obstacles'], 'poi': env_params['num_pois']
     }
     policy_funcs = {
-        AgentType.Harvester: partial(create_agent_policy, env.harvesters[0]),
-        AgentType.Excavator: partial(create_agent_policy, env.excavators[0]),
+        'harvester': partial(create_agent_policy, env.observation_space('harvester:0'), env.action_space('harvester:0')),
+        'excavator': partial(create_agent_policy, env.observation_space('excavator:0'), env.action_space('excavator:0')),
     }
 
-    population_sizes = {AgentType.Harvester: base_pop_size, AgentType.Excavator: base_pop_size}
+    population_sizes = {'harvester': base_pop_size, 'excavator': base_pop_size}
     agent_pops = {
         agent_type: [
             policy_funcs[agent_type](learner=True)
@@ -50,11 +51,9 @@ def run_ccea(env_type, env_params, ccea_params, base_pop_size, experiment_dir, m
     ccea_params['experiment_dir'] = experiment_dir
     ccea_params['max_iters'] = max_iters
 
-    writer = SummaryWriter(log_dir=experiment_dir)
     opt_start = time.process_time()
     trained_pops, top_inds, gens_run = ccea(env, agent_policies=agent_pops, **ccea_params)
     opt_end = time.process_time()
-    writer.close()
     opt_time = opt_end - opt_start
     print(f'Optimization time: {opt_time} for {gens_run} generations')
     for agent_type, individuals in top_inds.items():
@@ -82,9 +81,9 @@ def main(main_args):
         'track_progress': True, 'use_mp': False,
     }
     env_params = {
-        'scale_factor': 0.5, 'num_harvesters': 4, 'num_excavators': 4, 'num_obstacles': 50, 'num_pois': 8, 'obs_rad': 1, 'max_vel': 1,
+        'scale_factor': 0.5, 'num_harvesters': 4, 'num_excavators': 4, 'num_obstacles': 15, 'num_pois': 8, 'obs_rad': 1, 'max_vel': 1,
         'agent_size': 1, 'obs_size': 1, 'poi_size': 1, 'agent_weight': 1, 'obs_weight': 1, 'poi_weight': 1, 'agent_value': 1, 'obstacle_value': 1,
-        'poi_value': 1, 'sen_res': 8, 'delta_time': 1, 'max_steps': 100, 'collision_penalty_scalar': 0, 'reward_type': 'global', 'normalize_rewards': True,
+        'poi_value': 1, 'sen_res': 8, 'delta_time': 1, 'max_steps': 10, 'collision_penalty_scalar': 0, 'reward_type': 'global', 'normalize_rewards': True,
         'render_mode': None
     }
 
