@@ -10,8 +10,6 @@ import time
 from functools import partial
 from pathlib import Path
 
-from torch.utils.tensorboard import SummaryWriter
-
 from island_influence import project_properties
 from island_influence.envs.harvest_env import HarvestEnv
 from island_influence.learn.optimizer.cceaV2 import ccea
@@ -66,7 +64,7 @@ def run_ccea(env_type, env_params, ccea_params, base_pop_size, experiment_dir, m
 
 def main(main_args):
     num_runs = 3
-    base_pop_size = 15
+    base_pop_size = 5
     max_iters = 15
     env_type = rand_ring_env
 
@@ -78,10 +76,10 @@ def main(main_args):
 
     ccea_params = {
         'starting_gen': 0, 'mutation_scalar': 0.1, 'prob_to_mutate': 0.05, 'num_sims': 5, 'fitness_update_eps': 0,
-        'track_progress': True, 'use_mp': False,
+        'track_progress': True, 'use_mp': True,
     }
     env_params = {
-        'scale_factor': 0.5, 'num_harvesters': 4, 'num_excavators': 4, 'num_obstacles': 15, 'num_pois': 8, 'obs_rad': 5, 'max_vel': 1,
+        'scale_factor': 0.5, 'num_harvesters': 4, 'num_excavators': 4, 'num_obstacles': 4, 'num_pois': 4, 'obs_rad': 5, 'max_vel': 1,
         'agent_size': 1, 'obs_size': 1, 'poi_size': 1, 'agent_weight': 1, 'obs_weight': 1, 'poi_weight': 1, 'agent_value': 1, 'obstacle_value': 1,
         'poi_value': 1, 'sen_res': 8, 'delta_time': 1, 'max_steps': 10, 'collision_penalty_scalar': 0, 'reward_type': 'global', 'normalize_rewards': True,
         'render_mode': None

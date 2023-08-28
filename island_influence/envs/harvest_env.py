@@ -44,7 +44,7 @@ class HarvestEnv:
         return self.pois['value'].sum()
 
     def __init__(self, actors: dict[str, list], num_harvesters, num_excavators, num_obstacles, num_pois, location_funcs: dict, max_steps, save_dir,
-                 sensor_resolution=8, observation_radius=2, delta_time=1, normalize_rewards=False, collision_penalty_scalar: int = 0, reward_type='global',
+                 sensor_resolution=8, observation_radius=2, delta_time=1, normalize_rewards=False, collision_penalty_scalar: float = 0, reward_type='global',
                  render_mode=None):
         """
         Always make sure to add agents and call `HarvestEnv.reset()` after before using the environment
@@ -527,6 +527,7 @@ class HarvestEnv:
                     arg_closest = np.argmin(obstacle_dists)
                     closest_obstacle = remaining_obstacles.iloc[arg_closest]
                     each_reward = closest_obstacle['value']
+                    each_reward *= self.collision_penalty_scalar
                     if self.normalize_rewards:
                         each_reward = each_reward / self.initial_obstacle_value
                     team_rewards['harvester'] -= each_reward

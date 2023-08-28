@@ -342,16 +342,16 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims,
         #     each_result = eval_func(each_entry)
         #     rollout_results.append(each_result)
         ###############################################################################################
-        agent_results = {}
+        policy_results = {}
         for each_result in rollout_results:
             for each_policy_name, fitness in each_result.items():
                 # todo  replace with dict.get
-                if each_policy_name not in agent_results:
-                    agent_results[each_policy_name] = []
-                agent_results[each_policy_name].append(fitness)
+                if each_policy_name not in policy_results:
+                    policy_results[each_policy_name] = []
+                policy_results[each_policy_name].append(fitness)
         ###############################################################################################
         # average all fitnesses and assign back to agent
-        avg_fitnesses = {each_agent: np.average(fitnesses) for each_agent, fitnesses in agent_results.items()}
+        avg_fitnesses = {each_agent: np.average(fitnesses) for each_agent, fitnesses in policy_results.items()}
 
         # need to have the eval function pass back the policy name rather than the policy directly because when passing
         # a network to a new process, it creates a new object and so is no longer the original policy
