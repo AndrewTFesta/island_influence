@@ -151,6 +151,19 @@ def test_step(env: HarvestEnv, render_mode):
     right_action = np.array((step_size, 0))
 
     tests = [
+        {agent: right_action for agent in env.agents},
+        {agent: right_action for agent in env.agents},
+        {agent: right_action for agent in env.agents},
+        {agent: right_action for agent in env.agents},
+        {agent: right_action for agent in env.agents},
+        {agent: right_action for agent in env.agents},
+        {agent: right_action for agent in env.agents},
+        {agent: right_action for agent in env.agents},
+        {agent: right_action for agent in env.agents},
+        {agent: right_action for agent in env.agents},
+        {agent: right_action for agent in env.agents},
+        {agent: right_action for agent in env.agents},
+
         {agent: forward_action for agent in env.agents},
         {agent: backwards_action for agent in env.agents},
         {agent: right_action for agent in env.agents},
@@ -255,8 +268,8 @@ def test_rollout(env: HarvestEnv, render_mode):
 def test_collisions(render_mode, display=False):
     if display:
         print(f'Running collision tests')
-    env_obstacles_func = det_ring_env(scale_factor=1, num_excavators=1)
-    env_pois_func = det_ring_env(scale_factor=1, num_excavators=1, num_obstacles=1)
+    env_obstacles_func = det_ring_env(scale_factor=0.5, num_excavators=1)
+    env_pois_func = det_ring_env(scale_factor=0.5, num_excavators=1, num_obstacles=1)
 
     env_obstacles = env_obstacles_func()
     env_pois = env_pois_func()
@@ -388,7 +401,7 @@ def test_reset(env: HarvestEnv, render_mode, display=False):
 
 def main(main_args):
     env_params = {
-        'scale_factor': 2, 'num_harvesters': 4, 'num_excavators': 4, 'num_obstacles': 8, 'num_pois': 8, 'collision_penalty_scalar': 0,
+        'scale_factor': 1, 'num_harvesters': 15, 'num_excavators': 1, 'num_obstacles': 15, 'num_pois': 8, 'collision_penalty_scalar': 0,
         'max_steps': 25, 'save_dir': Path(project_properties.env_dir, 'harvest_env_test')
     }
     env_func = det_ring_env(**env_params)
@@ -396,12 +409,12 @@ def main(main_args):
     env.reset()
     env.normalize_rewards = True
 
-    test_observations(env)
-    test_actions(env)
+    # test_observations(env)
+    # test_actions(env)
     # test_save_env(env)
     # test_save_transitions(env)
 
-    test_collisions(render_mode=None)
+    # test_collisions(render_mode=None)
     # test_collisions(render_mode='human')
 
     # test_rewards(env, render_mode=None)

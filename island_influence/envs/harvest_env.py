@@ -74,12 +74,14 @@ class HarvestEnv:
         self.save_dir = save_dir
 
         self.num_dims = 2
+        # observation radius controls how far the agent can "see"
+        # size controls how far an agent is able to interact with another object
         self._fields = ['name', 'location_0', 'location_1', 'observation_radius', 'size', 'weight', 'value', 'agent_type']
         self._info = {
             'harvester': {'observation_radius': 5, 'size': 1, 'weight': 1, 'value': 1, 'agent_type': 0},
             'excavator': {'observation_radius': 5, 'size': 1, 'weight': 1, 'value': 1, 'agent_type': 1},
-            'obstacle': {'observation_radius': 5, 'size': 1, 'weight': 1, 'value': 1, 'agent_type': 2},
-            'poi': {'observation_radius': 5, 'size': 1, 'weight': 1, 'value': 1, 'agent_type': 3},
+            'obstacle': {'observation_radius': 1, 'size': 1, 'weight': 1, 'value': 1, 'agent_type': 2},
+            'poi': {'observation_radius': 1, 'size': 1, 'weight': 1, 'value': 1, 'agent_type': 3},
         }
         self.type_map = {
             info['agent_type']: agent_type
@@ -451,27 +453,27 @@ class HarvestEnv:
             cum_rewards[agent_name] = agent_reward
         return cum_rewards
 
-    def check_observed(self, observing_agents, observed_agents):
+    def check_collision(self, moving_objects, static_objects):
         closest = {}
-        for observed_idx, observed_agent in observed_agents.iterrows():
-            observed_value = observed_agent['value']
-            if observed_value == 0:
+        for static_idx, static_object in static_objects.iterrows():
+            static_value = static_object['value']
+            if static_value == 0:
                 continue
 
-            observed_name = observed_agent['name']
-            observed_location = self.get_object_location(observed_agent)
+            static_name = static_object['name']
+            static_loc = self.get_object_location(static_object)
 
-            all_observed = []
-            for observing_idx, observing_agent in observing_agents.iterrows():
-                observing_location = self.get_object_location(observing_agent)
+            all_collide = []
+            for moving_idx, moving_object in moving_objects.iterrows():
+                moving_loc = self.get_object_location(moving_object)
 
-                angle, dist = relative(observing_location, observed_location)
-                if dist <= observing_agent['observation_radius']:
-                    entry = {'agent': observing_agent, 'distance': dist}
-                    all_observed.append(entry)
-            if len(all_observed) > 0:
-                all_observed.sort(key=lambda x: x['distance'])
-                closest[observed_name] = all_observed
+                angle, dist = relative(moving_loc, static_loc)
+                if dist <= moving_object['size']:
+                    entry = {'agent': moving_object, 'distance': dist}
+                    all_collide.append(entry)
+            if len(all_collide) > 0:
+                all_collide.sort(key=lambda x: x['distance'])
+                closest[static_name] = all_collide
         return closest
 
     def eval_rewards(self, current_state, actions, next_state):
@@ -519,7 +521,7 @@ class HarvestEnv:
                 obstacle_dists -= obstacle_radii
                 obstacle_dists = np.clip(obstacle_dists, 0, None)
                 closest_dist = obstacle_dists.min()
-                if closest_dist <= 0:
+                if closest_dist <= agent_state['size']:
                     agent_action /= 2
                     # penalty for being in a hazardous region based on the value of the closest obstacle
                     arg_closest = np.argmin(obstacle_dists)
@@ -533,8 +535,8 @@ class HarvestEnv:
 
         # find the closest pairs of relevant agents after excavators and harvesters have moved
         # check closest agents based on observation radii of actors rather than stationary objects
-        observed_obstacles_excavators = self.check_observed(self.excavators, self.obstacles)
-        observed_pois_harvesters = self.check_observed(self.harvesters, self.pois)
+        observed_obstacles_excavators = self.check_collision(self.excavators, self.obstacles)
+        observed_pois_harvesters = self.check_collision(self.harvesters, self.pois)
 
         # apply the effects of harvesters and excavators on obstacles and pois
         # assign rewards to harvester for observing pois and excavators for removing obstacles
@@ -646,9 +648,11 @@ class HarvestEnv:
         agent_colors = {'harvester': (0, 255, 0), 'excavator': (0, 0, 255), 'obstacle': black, 'poi': (255, 0, 0)}
         default_color = (128, 128, 128)
 
-        agent_sizes = {'harvester': 0.5, 'excavator': 0.5, 'obstacle': 0.25, 'poi': 0.25}
+        agent_sizes = {'harvester': 0.25, 'excavator': 0.25, 'obstacle': 0.25, 'poi': 0.25}
         default_size = 0.1
-        size_scalar = 2
+        size_scalar = 1
+        size_width = 2
+        obs_width = 1
 
         text_size = 14
         write_values = False
@@ -671,6 +675,8 @@ class HarvestEnv:
         for agent in self.agents:
             agent = self.get_object_state(agent)
             agent_type = agent['agent_type']
+            obs_radius = agent['observation_radius']
+            size_radius = agent['size']
             agent_type = self.type_map[agent_type]
             location = self.get_object_location(agent).to_numpy()
             location = location + self.location_offset
@@ -678,11 +684,9 @@ class HarvestEnv:
             asize = agent_sizes.get(agent_type, default_size)
             asize *= size_scalar
 
-            pygame.draw.rect(
-                canvas, acolor, pygame.Rect(
-                    pix_square_size * location, (pix_square_size * asize, pix_square_size * asize)
-                )
-            )
+            pygame.draw.circle(canvas, acolor, (location + 0.5) * pix_square_size, pix_square_size * size_radius, width=size_width)
+            pygame.draw.circle(canvas, black, (location + 0.5) * pix_square_size, pix_square_size * asize)
+            pygame.draw.circle(canvas, acolor, (location + 0.5) * pix_square_size, pix_square_size * obs_radius, width=obs_width)
 
         for idx, agent in self.obstacles.iterrows():
             agent_value = agent['value']
@@ -694,6 +698,7 @@ class HarvestEnv:
             agent_type = agent['agent_type']
             agent_type = self.type_map[agent_type]
             obs_radius = agent['observation_radius']
+            size_radius = agent['size']
             location = self.get_object_location(agent).to_numpy()
             location = location + self.location_offset
             asize = agent_sizes.get(agent_type, default_size)
@@ -704,13 +709,15 @@ class HarvestEnv:
             acolor = np.divide(acolor, (agent_value + 1))
 
             # draw a circle at the location to represent the obstacle
-            pygame.draw.circle(canvas, acolor, (location + 0.5) * pix_square_size, pix_square_size * asize)
-            pygame.draw.circle(canvas, acolor, (location + 0.5) * pix_square_size, pix_square_size * obs_radius, width=1)
+            pygame.draw.circle(canvas, acolor, (location + 0.5) * pix_square_size, pix_square_size * size_radius, width=size_width)
+            pygame.draw.circle(canvas, black, (location + 0.5) * pix_square_size, pix_square_size * asize)
+            pygame.draw.circle(canvas, acolor, (location + 0.5) * pix_square_size, pix_square_size * obs_radius, width=obs_width)
 
         for idx, agent in self.pois.iterrows():
             agent_type = agent['agent_type']
             agent_type = self.type_map[agent_type]
             obs_radius = agent['observation_radius']
+            size_radius = agent['size']
             agent_value = agent['value']
             location = self.get_object_location(agent).to_numpy()
             location = location + self.location_offset
@@ -722,9 +729,9 @@ class HarvestEnv:
             acolor = np.divide(acolor, (agent_value + 1))
             # draw circle around poi indicating the observation radius
             # draw a circle at the location to represent the obstacle
+            pygame.draw.circle(canvas, acolor, (location + 0.5) * pix_square_size, pix_square_size * size_radius, width=size_width)
             pygame.draw.circle(canvas, black, (location + 0.5) * pix_square_size, pix_square_size * asize)
-            pygame.draw.circle(canvas, acolor, (location + 0.5) * pix_square_size, pix_square_size * asize * 0.75)
-            pygame.draw.circle(canvas, acolor, (location + 0.5) * pix_square_size, pix_square_size * obs_radius, width=1)
+            pygame.draw.circle(canvas, acolor, (location + 0.5) * pix_square_size, pix_square_size * obs_radius, width=obs_width)
 
         if write_values:
             for agent in self.agents:
