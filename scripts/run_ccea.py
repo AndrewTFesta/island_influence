@@ -67,7 +67,7 @@ def run_ccea(env_type, env_params, ccea_params, base_pop_size, experiment_dir, m
 def main(main_args):
     num_runs = 3
     base_pop_size = 15
-    max_iters = 100
+    max_iters = 15
     env_type = rand_ring_env
 
     now = datetime.datetime.now()
@@ -81,7 +81,7 @@ def main(main_args):
         'track_progress': True, 'use_mp': False,
     }
     env_params = {
-        'scale_factor': 0.5, 'num_harvesters': 4, 'num_excavators': 4, 'num_obstacles': 15, 'num_pois': 8, 'obs_rad': 1, 'max_vel': 1,
+        'scale_factor': 0.5, 'num_harvesters': 4, 'num_excavators': 4, 'num_obstacles': 15, 'num_pois': 8, 'obs_rad': 5, 'max_vel': 1,
         'agent_size': 1, 'obs_size': 1, 'poi_size': 1, 'agent_weight': 1, 'obs_weight': 1, 'poi_weight': 1, 'agent_value': 1, 'obstacle_value': 1,
         'poi_value': 1, 'sen_res': 8, 'delta_time': 1, 'max_steps': 10, 'collision_penalty_scalar': 0, 'reward_type': 'global', 'normalize_rewards': True,
         'render_mode': None

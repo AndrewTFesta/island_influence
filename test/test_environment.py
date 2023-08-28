@@ -221,7 +221,7 @@ def test_random(env: HarvestEnv, render_mode, display=False):
 
     done = False
     while not done:
-        actions = {agent.name: env.action_space(agent).sample() for agent in env.agents}
+        actions = {agent: env.action_space(agent).sample() for agent in env.agents}
         observations, rewards, terminations, truncs, infos = env.step(actions)
         done = all(terminations.values())
         counter += 1
@@ -237,7 +237,7 @@ def test_random(env: HarvestEnv, render_mode, display=False):
         print(f'{init_observations=}')
     done = False
     while not done:
-        actions = {agent.name: env.action_space(agent).sample() for agent in env.agents}
+        actions = {agent: env.action_space(agent).sample() for agent in env.agents}
         observations, rewards, terminations, truncs, infos = env.step(actions)
         done = all(terminations.values())
         counter += 1
@@ -353,13 +353,13 @@ def test_save_env(env: HarvestEnv, display=False):
     save_path = env.save_environment()
     test_env = HarvestEnv.load_environment(save_path)
 
-    assert len(env.entities) == len(test_env.entities)
+    assert len(env.state()) == len(test_env.state())
     assert len(env.state_history) == len(test_env.state_history)
     assert len(env.action_history) == len(test_env.action_history)
     assert len(env.reward_history) == len(test_env.reward_history)
 
-    for env_entity, test_entity in zip(env.entities, test_env.entities):
-        assert env_entity.name == test_entity.name
+    for env_entity, test_entity in zip(env.state(), test_env.state()):
+        assert env_entity == test_entity
     return
 
 
@@ -411,8 +411,8 @@ def main(main_args):
 
     # test_observations(env)
     # test_actions(env)
-    # test_save_env(env)
-    # test_save_transitions(env)
+    test_save_env(env)
+    test_save_transitions(env)
 
     # test_collisions(render_mode=None)
     # test_collisions(render_mode='human')
