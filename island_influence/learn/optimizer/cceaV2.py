@@ -61,7 +61,8 @@ def select_roulette(agent_pops, select_sizes: dict[AgentType, int], noise=0.01, 
 
         # add small amount of noise to each fitness value (help deal with all same value)
         fitness_noise = np.random.uniform(-noise / 2, noise / 2, len(fitness_vals))
-        fitness_vals += fitness_noise
+        # numpy.core._exceptions._UFuncOutputCastingError: Cannot cast ufunc 'add' output from dtype('float64') to dtype('int32') with casting rule 'same_kind'
+        fitness_vals = np.add(fitness_vals, fitness_noise)
 
         fitness_vals -= np.min(fitness_vals)
         fitness_vals = fitness_vals / sum(fitness_vals)

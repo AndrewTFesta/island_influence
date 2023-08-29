@@ -63,9 +63,9 @@ def run_ccea(env_type, env_params, ccea_params, base_pop_size, experiment_dir, m
 
 
 def main(main_args):
-    num_runs = 3
+    num_runs = 15
     base_pop_size = 5
-    max_iters = 15
+    max_iters = 5
     env_type = rand_ring_env
 
     now = datetime.datetime.now()
@@ -76,7 +76,7 @@ def main(main_args):
 
     ccea_params = {
         'starting_gen': 0, 'mutation_scalar': 0.1, 'prob_to_mutate': 0.05, 'num_sims': 5, 'fitness_update_eps': 0,
-        'track_progress': True, 'use_mp': True,
+        'track_progress': True, 'use_mp': False,
     }
     env_params = {
         'scale_factor': 0.5, 'num_harvesters': 4, 'num_excavators': 4, 'num_obstacles': 4, 'num_pois': 4, 'obs_rad': 5, 'max_vel': 1,
