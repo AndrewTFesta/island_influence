@@ -6,6 +6,7 @@
 """
 import json
 import multiprocessing
+from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor
 from functools import partial
 from pathlib import Path
@@ -166,8 +167,18 @@ def select_top_n(agent_pops, select_sizes: dict[AgentType, int], filter_learners
 def evaluate_agents(agent_team, env: HarvestEnv):
     team_members, update_policy_ids = agent_team
     agent_rewards, policy_rewards = rollout(env, team_members, render=False)
-    eval_policy_rewards = {policy.name: policy_reward for policy, policy_reward in policy_rewards.items() if policy in update_policy_ids}
+    eval_policy_rewards = {
+        policy.name: {'individual_reward': policy_reward, 'policy_rewards': policy_rewards, 'agent_rewards': agent_rewards}
+        for policy, policy_reward in policy_rewards.items()
+        if policy in update_policy_ids
+    }
     return eval_policy_rewards
+
+# def evaluate_agents(agent_team, env: HarvestEnv):
+#     team_members, update_policy_ids = agent_team
+#     agent_rewards, policy_rewards = rollout(env, team_members, render=False)
+#     eval_policy_rewards = {policy.name: policy_reward for policy, policy_reward in policy_rewards.items() if policy in update_policy_ids}
+#     return eval_policy_rewards
 
 
 def rollout(env: HarvestEnv, agent_policies, render: bool = False):
@@ -269,21 +280,26 @@ def generation(agent_policies, map_func, selection_func, mutation_scalar, prob_t
     ###############################################################################################
     policy_results = {}
     for each_result in rollout_results:
-        for each_policy_name, fitness in each_result.items():
-            # todo  replace with dict.get
+        for each_policy_name, result_info in each_result.items():
             if each_policy_name not in policy_results:
                 policy_results[each_policy_name] = []
-            policy_results[each_policy_name].append(fitness)
+            policy_results[each_policy_name].append(result_info)
     ###############################################################################################
-    # average all fitnesses and assign back to agent
-    avg_fitnesses = {each_agent: np.average(fitnesses) for each_agent, fitnesses in policy_results.items()}
-
     # need to have the eval function pass back the policy name rather than the policy directly because when passing
     # a network to a new process, it creates a new object and so is no longer the original policy
+    eval_agent_names = [each_policy for each_policy in policy_results.keys()]
     for agent_type, population in agent_policies.items():
         for policy in population:
-            if policy.name in avg_fitnesses and policy.learner:
-                fitness = avg_fitnesses[policy.name]
+            # todo  verify - any agent name in assignment_agents should correspond to a learning agent
+            #       should never select a non-learning agent for evaluation
+            # if policy.name in eval_agent_names and policy.learner:
+            if policy.name in eval_agent_names:
+                assert policy.learner
+                each_result = policy_results[policy.name]
+                policy.fitness_history.append(each_result)
+                # average all fitnesses and assign back to agent
+                fitness = np.average([rollout_eval['individual_reward'] for rollout_eval in each_result])
+
                 # if fitness update eps is 0, then evaluating a fitness would have no change on the current fitness of the agent
                 # can also pass a negative value to force the evaluated fitness to replace the fitness value of the policy
                 if fitness_update_eps <= 0:
@@ -292,6 +308,7 @@ def generation(agent_policies, map_func, selection_func, mutation_scalar, prob_t
                     # todo  dan't have a delta if the policy does not have a fitness yet
                     fitness_delta = fitness - policy.fitness
                     policy.fitness += fitness_delta * fitness_update_eps
+
     # downselect
     agent_policies = downselect_func(agent_policies)
     return agent_policies

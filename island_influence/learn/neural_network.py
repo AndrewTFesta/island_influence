@@ -94,6 +94,8 @@ class NeuralNetwork(nn.Module):
         #       sample from distribution when fitness is collapsed
         #   this also implies that the same network will (almost certainly) have a
         #   different fitness value on two consecutive queries
+        self.fitness = None
+        self.fitness_history = []
         self._fitness_distribution = (0, 0)
         self._fitness_vector = [(0, 0)]
         self._fitness = None if learner else 0.0
