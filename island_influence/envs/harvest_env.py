@@ -282,7 +282,8 @@ class HarvestEnv:
         object_state = object_state.iloc[0]
         return object_state
 
-    def get_object_location(self, object_state: pd.Series):
+    @staticmethod
+    def get_object_location(object_state: pd.Series):
         agent_locations = object_state.loc[['location_0', 'location_1']]
         return agent_locations
 
@@ -677,63 +678,23 @@ class HarvestEnv:
         pygame.font.init()
         font = pygame.font.SysFont('arial', text_size)
 
-        for agent in self.agents:
-            agent = self.get_object_state(agent)
+        for ridx, agent in self._state.iterrows():
             agent_type = agent['agent_type']
             obs_radius = agent['observation_radius']
-            size_radius = agent['size']
-            agent_type = self.type_map[agent_type]
-            location = self.get_object_location(agent).to_numpy()
-            location = location + self.location_offset
-            acolor = agent_colors.get(agent_type, default_color)
-            asize = agent_sizes.get(agent_type, default_size)
-            asize *= size_scalar
-
-            pygame.draw.circle(canvas, acolor, (location + 0.5) * pix_square_size, pix_square_size * size_radius, width=size_width)
-            pygame.draw.circle(canvas, black, (location + 0.5) * pix_square_size, pix_square_size * asize)
-            pygame.draw.circle(canvas, acolor, (location + 0.5) * pix_square_size, pix_square_size * obs_radius, width=obs_width)
-
-        for idx, agent in self.obstacles.iterrows():
             agent_value = agent['value']
-
-            # only render the obstacle if it has not been removed by an excavator
-            if agent_value <= 0:
-                continue
-
-            agent_type = agent['agent_type']
-            agent_type = self.type_map[agent_type]
-            obs_radius = agent['observation_radius']
             size_radius = agent['size']
+
+            # only render the object if it has not been removed by an excavator
+            # if agent_value <= 0:
+            #     continue
+
+            agent_type = self.type_map[agent_type]
             location = self.get_object_location(agent).to_numpy()
             location = location + self.location_offset
+            acolor = agent_colors.get(agent_type, default_color)
             asize = agent_sizes.get(agent_type, default_size)
             asize *= size_scalar
 
-            # different colors to distinguish how much remains of the obstacle
-            acolor = agent_colors.get(agent_type, default_color)
-            acolor = np.divide(acolor, (agent_value + 1))
-
-            # draw a circle at the location to represent the obstacle
-            pygame.draw.circle(canvas, acolor, (location + 0.5) * pix_square_size, pix_square_size * size_radius, width=size_width)
-            pygame.draw.circle(canvas, black, (location + 0.5) * pix_square_size, pix_square_size * asize)
-            pygame.draw.circle(canvas, acolor, (location + 0.5) * pix_square_size, pix_square_size * obs_radius, width=obs_width)
-
-        for idx, agent in self.pois.iterrows():
-            agent_type = agent['agent_type']
-            agent_type = self.type_map[agent_type]
-            obs_radius = agent['observation_radius']
-            size_radius = agent['size']
-            agent_value = agent['value']
-            location = self.get_object_location(agent).to_numpy()
-            location = location + self.location_offset
-            asize = agent_sizes.get(agent_type, default_size)
-            asize *= size_scalar
-
-            # different colors to distinguish how much of the poi is observed
-            acolor = agent_colors.get(agent_type, default_color)
-            acolor = np.divide(acolor, (agent_value + 1))
-            # draw circle around poi indicating the observation radius
-            # draw a circle at the location to represent the obstacle
             pygame.draw.circle(canvas, acolor, (location + 0.5) * pix_square_size, pix_square_size * size_radius, width=size_width)
             pygame.draw.circle(canvas, black, (location + 0.5) * pix_square_size, pix_square_size * asize)
             pygame.draw.circle(canvas, acolor, (location + 0.5) * pix_square_size, pix_square_size * obs_radius, width=obs_width)

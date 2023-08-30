@@ -210,13 +210,13 @@ def save_agent_policies(experiment_dir, gen_idx, env: HarvestEnv, agent_pops, hu
     if not fitnesses_path.parent.exists():
         fitnesses_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # best_policies = select_top_n(agent_pops, select_sizes={name: env.types_num[name] for name, pop in agent_pops.items()})
-    # best_agent_fitnesses, policy_rewards = rollout(env, best_policies, render=False)
-
     fitnesses = {
         str(agent_name): [each_individual.fitness for each_individual in policy]
         for agent_name, policy in agent_pops.items()
     }
+
+    # best_policies = select_top_n(agent_pops, select_sizes={name: env.types_num[name] for name, pop in agent_pops.items()})
+    # best_agent_fitnesses, policy_rewards = rollout(env, best_policies, render=False)
     # fitnesses['global_harvester'] = best_agent_fitnesses['global_harvester']
     # fitnesses['global_excavator'] = best_agent_fitnesses['global_excavator']
 
@@ -225,12 +225,14 @@ def save_agent_policies(experiment_dir, gen_idx, env: HarvestEnv, agent_pops, hu
         if not network_save_path:
             network_save_path.mkdir(parents=True, exist_ok=True)
 
-        saved_policies = []
-        if network_save_path.exists() and network_save_path.is_dir():
-            saved_policies = [each_dir.name for each_dir in network_save_path.iterdir()]
+        # also overwrite any policies already in pool
+        # in case they might have been updated in some way
+        # if network_save_path.exists() and network_save_path.is_dir():
+        #     saved_policies = [each_dir.name for each_dir in network_save_path.iterdir()]
+        #     policies = [each_policy for each_policy in policies if each_policy.save_name not in saved_policies]
+
         for idx, each_policy in enumerate(policies):
-            if each_policy.save_name not in saved_policies:
-                each_policy.save_model(save_dir=network_save_path)
+            each_policy.save_model(save_dir=network_save_path)
 
     with open(fitnesses_path, 'w') as fitness_file:
         json.dump(fitnesses, fitness_file, indent=indent)
