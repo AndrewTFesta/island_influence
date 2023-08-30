@@ -64,6 +64,10 @@ class NeuralNetwork(nn.Module):
         return f'{str(self.network_id)}_NN_{self.network_func.__name__}'
 
     @property
+    def save_name(self):
+        return f'{self.name}_model{self.tag}.pt'
+
+    @property
     def fitness(self):
         return self._fitness
 
@@ -105,6 +109,7 @@ class NeuralNetwork(nn.Module):
         self.parent = None
 
         self.agent_type = agent_type
+        self.tag = ''
         return
 
     def __repr__(self):
@@ -235,7 +240,7 @@ class NeuralNetwork(nn.Module):
         logits = self.network(x)
         return logits
 
-    def save_model(self, save_dir=None, tag=''):
+    def save_model(self, save_dir=None):
         # todo optimize saving pytorch model
         # https://pytorch.org/tutorials/beginner/saving_loading_models.html#saving-loading-a-general-checkpoint-for-inference-and-or-resuming-training
         if save_dir is None:
@@ -244,9 +249,6 @@ class NeuralNetwork(nn.Module):
         if not save_dir.exists():
             save_dir.mkdir(parents=True, exist_ok=True)
 
-        if tag != '':
-            tag = f'_{tag}'
-
-        save_name = Path(save_dir, f'{self.name}_model{tag}.pt')
+        save_name = Path(save_dir, f'{self.save_name}')
         torch.save(self, save_name)
         return save_name

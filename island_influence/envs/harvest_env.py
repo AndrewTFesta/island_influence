@@ -530,6 +530,10 @@ class HarvestEnv:
                     each_reward *= self.collision_penalty_scalar
                     if self.normalize_rewards:
                         each_reward = each_reward / self.initial_obstacle_value
+                    # todo  implement negative difference rewards for penalty
+                    # todo  test difference rewards for accuracy
+                    if self.reward_type == 'difference':
+                        pass
                     team_rewards['harvester'] -= each_reward
             new_loc = agent_location + agent_action
             self._state.loc[self._state['name'] == agent_name, 'location_0'], self._state.loc[self._state['name'] == agent_name, 'location_1'] = new_loc

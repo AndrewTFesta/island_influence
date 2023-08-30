@@ -14,9 +14,9 @@ from matplotlib import pyplot as plt
 
 from island_influence import project_properties
 from island_influence.agent import AgentType
-# from island_influence.envs.harvest_env import HarvestEnv
-# from island_influence.learn.optimizer.cceaV2 import rollout
-# from island_influence.learn.neural_network import load_pytorch_model
+from island_influence.envs.harvest_env import HarvestEnv
+from island_influence.learn.neural_network import load_pytorch_model
+from island_influence.learn.optimizer.cceaV2 import rollout
 
 
 def parse_generations(generations_dir):
@@ -59,11 +59,10 @@ def parse_harvest_fitnesses(experiment_dir: Path):
 def parse_harvest_exp(exp_dir, save_dir):
     exp_name = exp_dir.stem
     save_dir = Path(save_dir, f'harvest_{exp_name}')
-    exp_types = list(exp_dir.iterdir())
-    for each_type in exp_types:
-        fitness_data = parse_harvest_fitnesses(each_type)
-        # replay_episode(each_dir)
-        plot_fitnesses(fitness_data, save_dir=save_dir, tag=f'{each_type.stem}')
+
+    fitness_data = parse_harvest_fitnesses(exp_dir)
+    # replay_episode(each_dir)
+    plot_fitnesses(fitness_data, save_dir=save_dir, tag=f'{exp_name}')
     return
 
 
@@ -113,12 +112,12 @@ def plot_fitnesses(fitness_data, save_dir, tag, save_format='svg'):
     fig, axes = plt.subplots(nrows=1, ncols=1, figsize=(12, 12))
 
     plot_keys = [
-        # 'global',
+        'global',
         'global_harvester',
         'global_excavator'
     ]
-    agent_keys = [f'AgentType.{element.name}' for element in AgentType]
-    # plot_keys.extend(agent_keys)
+    agent_keys = ['harvester', 'excavator']
+    plot_keys.extend(agent_keys)
 
     for each_key in plot_keys:
         if each_key in fitness_data:
@@ -190,7 +189,7 @@ def replay_episode(episode_dir: Path):
 
             # find the best policies for each agent based on fitnesses.json
             agent_fitnesses = fitness_data[agent_name][last_gen_idx]
-            num_agent_types = env.num_agent_types(agent_name)
+            num_agent_types = env.types_num[agent_name]
             arg_best_policies = np.argpartition(agent_fitnesses, -num_agent_types)[-num_agent_types:]
 
             policy_fnames = list(agent_policy_dir.glob(f'*_model*.pt'))
@@ -227,11 +226,9 @@ def main(main_args):
     for each_exp in exp_dirs:
         exp_type = '_'.join(each_exp.stem.split('_')[:-6])
         if exp_type.startswith('island_exp'):
-            continue
-            # parse_island_exp(each_exp, save_dir=island_save_dir)
+            parse_island_exp(each_exp, save_dir=island_save_dir)
         elif exp_type.startswith('harvest_exp'):
-            continue
-            # parse_harvest_exp(each_exp, save_dir=harvest_save_dir)
+            parse_harvest_exp(each_exp, save_dir=harvest_save_dir)
         elif exp_type.startswith('island_param_sweep'):
             parse_param_sweep_exp(each_exp, save_dir=param_save_dir)
     return

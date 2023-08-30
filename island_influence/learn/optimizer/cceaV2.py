@@ -200,37 +200,99 @@ def rollout(env: HarvestEnv, agent_policies, render: bool = False):
 
 
 def save_agent_policies(experiment_dir, gen_idx, env: HarvestEnv, agent_pops, human_readable=False):
-    best_policies = select_top_n(agent_pops, select_sizes={name: env.types_num[name] for name, pop in agent_pops.items()})
-    best_agent_fitnesses, policy_rewards = rollout(env, best_policies, render=False)
+    indent = 2 if human_readable else None
+    networks_dir = Path(experiment_dir, f'networks')
+    fitnesses_path = Path(experiment_dir, f'gen_{gen_idx}_fitnesses.json')
+
+    if not networks_dir.exists():
+        networks_dir.mkdir(parents=True, exist_ok=True)
+
+    if not fitnesses_path.parent.exists():
+        fitnesses_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # best_policies = select_top_n(agent_pops, select_sizes={name: env.types_num[name] for name, pop in agent_pops.items()})
+    # best_agent_fitnesses, policy_rewards = rollout(env, best_policies, render=False)
 
     fitnesses = {
         str(agent_name): [each_individual.fitness for each_individual in policy]
         for agent_name, policy in agent_pops.items()
     }
-    fitnesses['global_harvester'] = best_agent_fitnesses['global_harvester']
-    fitnesses['global_excavator'] = best_agent_fitnesses['global_excavator']
+    # fitnesses['global_harvester'] = best_agent_fitnesses['global_harvester']
+    # fitnesses['global_excavator'] = best_agent_fitnesses['global_excavator']
 
-    indent = 2 if human_readable else None
-    gen_path = Path(experiment_dir, f'gen_{gen_idx}')
-    if not gen_path:
-        gen_path.mkdir(parents=True, exist_ok=True)
-
-    # env.save_environment(gen_path, tag=f'gen_{gen_idx}')
-    # todo  save policies into a pool of all policies
-    #       check the current saved polic
     for agent_name, policies in agent_pops.items():
-        network_save_path = Path(gen_path, f'{agent_name}_networks')
+        network_save_path = Path(networks_dir, f'{agent_name}_networks')
         if not network_save_path:
             network_save_path.mkdir(parents=True, exist_ok=True)
 
+        saved_policies = []
+        if network_save_path.exists() and network_save_path.is_dir():
+            saved_policies = [each_dir.name for each_dir in network_save_path.iterdir()]
         for idx, each_policy in enumerate(policies):
-            # fitnesses[agent_name].append(each_policy.fitness)
-            each_policy.save_model(save_dir=network_save_path, tag=f'{idx}')
+            if each_policy.save_name not in saved_policies:
+                each_policy.save_model(save_dir=network_save_path)
 
-    fitnesses_path = Path(gen_path, 'fitnesses.json')
     with open(fitnesses_path, 'w') as fitness_file:
         json.dump(fitnesses, fitness_file, indent=indent)
     return
+
+
+def generation(agent_policies, map_func, selection_func, mutation_scalar, prob_to_mutate, eval_func, fitness_update_eps, downselect_func):
+    selected_policies = selection_func(agent_policies)
+
+    ###############################################################################################
+    # results = map(eval_func, selected_policies)
+    # # results = mp_pool.map(sim_func, selected_policies)
+    teams = []
+    for individuals, update_fitnesses in selected_policies:
+        networks = []
+        for agent_type, policy_idxs in update_fitnesses.items():
+            for each_idx in policy_idxs:
+                policy_to_mutate = individuals[agent_type][each_idx]
+                model_copy = policy_to_mutate.copy()
+                model_copy.mutate_gaussian(mutation_scalar=mutation_scalar, probability_to_mutate=prob_to_mutate)
+                model_copy.fitness = None
+                # add mutated policies into respective agent_population
+                agent_policies[agent_type].append(model_copy)
+                networks.append(model_copy)
+                individuals[agent_type][each_idx] = model_copy
+        teams.append((individuals, networks))
+
+    ###############################################################################################
+    rollout_results = map_func(eval_func, teams)
+    # rollout_results = []
+    # for each_entry in teams:
+    #     each_result = eval_func(each_entry)
+    #     rollout_results.append(each_result)
+    ###############################################################################################
+    policy_results = {}
+    for each_result in rollout_results:
+        for each_policy_name, fitness in each_result.items():
+            # todo  replace with dict.get
+            if each_policy_name not in policy_results:
+                policy_results[each_policy_name] = []
+            policy_results[each_policy_name].append(fitness)
+    ###############################################################################################
+    # average all fitnesses and assign back to agent
+    avg_fitnesses = {each_agent: np.average(fitnesses) for each_agent, fitnesses in policy_results.items()}
+
+    # need to have the eval function pass back the policy name rather than the policy directly because when passing
+    # a network to a new process, it creates a new object and so is no longer the original policy
+    for agent_type, population in agent_policies.items():
+        for policy in population:
+            if policy.name in avg_fitnesses and policy.learner:
+                fitness = avg_fitnesses[policy.name]
+                # if fitness update eps is 0, then evaluating a fitness would have no change on the current fitness of the agent
+                # can also pass a negative value to force the evaluated fitness to replace the fitness value of the policy
+                if fitness_update_eps <= 0:
+                    policy.fitness = fitness
+                else:
+                    # todo  dan't have a delta if the policy does not have a fitness yet
+                    fitness_delta = fitness - policy.fitness
+                    policy.fitness += fitness_delta * fitness_update_eps
+    # downselect
+    agent_policies = downselect_func(agent_policies)
+    return agent_policies
 
 
 def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims, experiment_dir, completion_criteria=lambda: False,
@@ -259,6 +321,10 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims,
     selection_func = partial(select_hall_of_fame, **{'env': env, 'num_sims': num_sims, 'filter_learners': True})
     eval_func = partial(evaluate_agents, env=env)
     downselect_func = partial(select_top_n, **{'select_sizes': population_sizes})
+    generation_func = partial(
+        generation, selection_func=selection_func, mutation_scalar=mutation_scalar, prob_to_mutate=prob_to_mutate,
+        eval_func=eval_func, fitness_update_eps=fitness_update_eps, downselect_func=downselect_func
+    )
     ##########################################################################################
     # only run initialize if there are any policies with no fitness assigned
     # initial rollout to assign fitnesses of individuals on random teams
@@ -296,7 +362,7 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims,
 
         }
         save_config(config=ccea_config, save_dir=experiment_dir, config_name='ccea_config')
-        env.save_environment()
+        env.save_environment(save_dir=experiment_dir)
         # save initial fitnesses
         save_agent_policies(experiment_dir, 0, env, agent_policies)
     ##########################################################################################
@@ -316,60 +382,7 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims,
 
     num_iters = 0
     for gen_idx in range(starting_gen, max_iters):
-        selected_policies = selection_func(agent_policies)
-
-        ###############################################################################################
-        # results = map(eval_func, selected_policies)
-        # # results = mp_pool.map(sim_func, selected_policies)
-        teams = []
-        for individuals, update_fitnesses in selected_policies:
-            networks = []
-            for agent_type, policy_idxs in update_fitnesses.items():
-                for each_idx in policy_idxs:
-                    policy_to_mutate = individuals[agent_type][each_idx]
-                    model_copy = policy_to_mutate.copy()
-                    model_copy.mutate_gaussian(mutation_scalar=mutation_scalar, probability_to_mutate=prob_to_mutate)
-                    model_copy.fitness = None
-                    # add mutated policies into respective agent_population
-                    agent_policies[agent_type].append(model_copy)
-                    networks.append(model_copy)
-                    individuals[agent_type][each_idx] = model_copy
-            teams.append((individuals, networks))
-
-        ###############################################################################################
-        rollout_results = map_func(eval_func, teams)
-        # rollout_results = []
-        # for each_entry in teams:
-        #     each_result = eval_func(each_entry)
-        #     rollout_results.append(each_result)
-        ###############################################################################################
-        policy_results = {}
-        for each_result in rollout_results:
-            for each_policy_name, fitness in each_result.items():
-                # todo  replace with dict.get
-                if each_policy_name not in policy_results:
-                    policy_results[each_policy_name] = []
-                policy_results[each_policy_name].append(fitness)
-        ###############################################################################################
-        # average all fitnesses and assign back to agent
-        avg_fitnesses = {each_agent: np.average(fitnesses) for each_agent, fitnesses in policy_results.items()}
-
-        # need to have the eval function pass back the policy name rather than the policy directly because when passing
-        # a network to a new process, it creates a new object and so is no longer the original policy
-        for agent_type, population in agent_policies.items():
-            for policy in population:
-                if policy.name in avg_fitnesses and policy.learner:
-                    fitness = avg_fitnesses[policy.name]
-                    # if fitness update eps is 0, then evaluating a fitness would have no change on the current fitness of the agent
-                    # can also pass a negative value to force the evaluated fitness to replace the fitness value of the policy
-                    if fitness_update_eps <= 0:
-                        policy.fitness = fitness
-                    else:
-                        # todo  dan't have a delta if the policy does not have a fitness yet
-                        fitness_delta = fitness - policy.fitness
-                        policy.fitness += fitness_delta * fitness_update_eps
-        # downselect
-        agent_policies = downselect_func(agent_policies)
+        agent_policies = generation_func(agent_policies=agent_policies, map_func=map_func)
 
         # save generation progress
         # save all policies of each agent and save fitnesses mapping policies to fitnesses

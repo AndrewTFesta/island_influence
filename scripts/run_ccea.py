@@ -63,9 +63,10 @@ def run_ccea(env_type, env_params, ccea_params, base_pop_size, experiment_dir, m
 
 
 def main(main_args):
-    num_runs = 15
+    num_runs = 1
     base_pop_size = 5
-    max_iters = 5
+    num_gens = 150
+    use_mp = False
     env_type = rand_ring_env
 
     now = datetime.datetime.now()
@@ -75,19 +76,19 @@ def main(main_args):
         experiment_dir.mkdir(parents=True, exist_ok=True)
 
     ccea_params = {
-        'starting_gen': 0, 'mutation_scalar': 0.1, 'prob_to_mutate': 0.05, 'num_sims': 5, 'fitness_update_eps': 0,
-        'track_progress': True, 'use_mp': False,
+        'starting_gen': 0, 'mutation_scalar': 0.15, 'prob_to_mutate': 0.25, 'num_sims': 5, 'fitness_update_eps': 0,
+        'track_progress': True, 'use_mp': use_mp,
     }
     env_params = {
-        'scale_factor': 0.5, 'num_harvesters': 4, 'num_excavators': 4, 'num_obstacles': 4, 'num_pois': 4, 'obs_rad': 5, 'max_vel': 1,
+        'scale_factor': 0.5, 'num_harvesters': 4, 'num_excavators': 4, 'num_obstacles': 4, 'num_pois': 8, 'obs_rad': 5, 'max_vel': 1,
         'agent_size': 1, 'obs_size': 1, 'poi_size': 1, 'agent_weight': 1, 'obs_weight': 1, 'poi_weight': 1, 'agent_value': 1, 'obstacle_value': 1,
-        'poi_value': 1, 'sen_res': 8, 'delta_time': 1, 'max_steps': 10, 'collision_penalty_scalar': 0, 'reward_type': 'global', 'normalize_rewards': True,
+        'poi_value': 1, 'sen_res': 8, 'delta_time': 1, 'max_steps': 10, 'collision_penalty_scalar': 1, 'reward_type': 'global', 'normalize_rewards': True,
         'render_mode': None
     }
 
     for idx in range(num_runs):
         stat_dir = Path(experiment_dir, f'stat_run_{idx}')
-        run_ccea(env_type, env_params, ccea_params, base_pop_size=base_pop_size, experiment_dir=stat_dir, max_iters=max_iters)
+        run_ccea(env_type, env_params, ccea_params, base_pop_size=base_pop_size, experiment_dir=stat_dir, max_iters=num_gens)
     return
 
 
