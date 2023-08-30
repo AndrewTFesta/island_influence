@@ -13,19 +13,17 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 from island_influence import project_properties
-from island_influence.agent import AgentType
 from island_influence.envs.harvest_env import HarvestEnv
 from island_influence.learn.neural_network import load_pytorch_model
 from island_influence.learn.optimizer.cceaV2 import rollout
 
 
 def parse_generations(generations_dir):
-    gen_dirs = list(generations_dir.glob('gen_*'))
-    gen_dirs = sorted(gen_dirs, key=lambda x: int(x.stem.split('_')[-1]))
+    gen_paths = list(generations_dir.glob('gen_*'))
+    gen_paths = sorted(gen_paths, key=lambda x: int(x.stem.split('_')[1]))
     generations = []
-    for each_dir in gen_dirs:
-        fitness_fname = Path(each_dir, 'fitnesses.json')
-        with open(fitness_fname, 'r') as fitness_file:
+    for each_path in gen_paths:
+        with open(each_path, 'r') as fitness_file:
             gen_data = json.load(fitness_file)
         generations.append(gen_data)
 
@@ -41,7 +39,7 @@ def parse_generations(generations_dir):
     return np_gens
 
 
-def parse_harvest_fitnesses(experiment_dir: Path):
+def parse_fitnesses(experiment_dir: Path):
     stat_dirs = list(experiment_dir.glob('stat_run_*'))
     stat_dirs = sorted(stat_dirs, key=lambda x: int(x.stem.split('_')[-1]))
     stat_runs = []
@@ -60,7 +58,7 @@ def parse_harvest_exp(exp_dir, save_dir):
     exp_name = exp_dir.stem
     save_dir = Path(save_dir, f'harvest_{exp_name}')
 
-    fitness_data = parse_harvest_fitnesses(exp_dir)
+    fitness_data = parse_fitnesses(exp_dir)
     # replay_episode(each_dir)
     plot_fitnesses(fitness_data, save_dir=save_dir, tag=f'{exp_name}')
     return
