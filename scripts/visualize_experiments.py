@@ -200,7 +200,7 @@ def replay_episode(episode_dir: Path):
                 agent_policies[agent_name].append(model)
 
         episode_rewards, policy_rewards = rollout(env, agent_policies, render=True)
-        rewards = env.cumulative_rewards()
+        rewards = env.cumulative_agent_rewards()
         print(f'stat_run: {idx} | {episode_rewards=}')
     return
 

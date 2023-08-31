@@ -277,5 +277,5 @@ In this work, we presented a framework for learning inter-agent dependencies tha
 
 [//]: # (The key insight here is that the follower policy acts as a method of injecting domain knowledge about the task without fully specifying the behavior of the system. In a tightly coupled problem, multiple agents must work in close coordination to accomplish the task. The follower policy pushes some agents towards acting in a manner that is conducive to the agents working closely. Often, designers will shape the fitness functions to try and capture how well a task is performed, and it is this fitness shaping that is meant to drive the manifestation of a desired behavior. However, simple policies themselves can also serve as an effective means of guiding systems of agents to coordinate in complex manners.)
 
-- https://github.com/DEAP/notebooks
-- https://github.com/DEAP/notebooks/blob/master/SIGEvolution.ipynb
+[//]: # (- https://github.com/DEAP/notebooks)
+[//]: # (- https://github.com/DEAP/notebooks/blob/master/SIGEvolution.ipynb)

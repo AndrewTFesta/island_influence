@@ -194,6 +194,8 @@ def test_step(env: HarvestEnv, render_mode):
         observations, rewards, terminations, truncs, infos = env.step(each_action)
         if render_mode:
             display_env(env, render_mode, render_delay)
+    agent_rewards = env.cumulative_agent_rewards()
+    policy_rewards = env.cumulative_policy_rewards()
 
     # reset and do it again
     env.reset()
@@ -201,7 +203,8 @@ def test_step(env: HarvestEnv, render_mode):
         observations, rewards, terminations, truncs, infos = env.step(each_action)
         if render_mode:
             display_env(env, render_mode, render_delay)
-    # display_final_agents(env)
+    agent_rewards = env.cumulative_agent_rewards()
+    policy_rewards = env.cumulative_policy_rewards()
     print(f'=' * 80)
     return
 
@@ -317,7 +320,7 @@ def test_collisions(render_mode, display=False):
         observations, rewards, terminations, truncs, infos = env_obstacles.step(each_action)
         if render_mode:
             display_env(env_obstacles, render_mode, render_delay)
-    cum_rewards = env_obstacles.cumulative_rewards()
+    cum_rewards = env_obstacles.cumulative_agent_rewards()
     if display:
         print(f'Obstacle environment: {env_obstacles.collision_penalty_scalar}: {cum_rewards}')
     env_obstacles.reset()
@@ -326,7 +329,7 @@ def test_collisions(render_mode, display=False):
         observations, rewards, terminations, truncs, infos = env_obstacles.step(each_action)
         if render_mode:
             display_env(env_obstacles, render_mode, render_delay)
-    cum_rewards = env_obstacles.cumulative_rewards()
+    cum_rewards = env_obstacles.cumulative_agent_rewards()
     if display:
         print(f'Obstacle environment: {env_obstacles.collision_penalty_scalar}: {cum_rewards}')
         print(f'=' * 80)
@@ -335,7 +338,7 @@ def test_collisions(render_mode, display=False):
         observations, rewards, terminations, truncs, infos = env_pois.step(each_action)
         if render_mode:
             display_env(env_pois, render_mode, render_delay)
-    cum_rewards = env_pois.cumulative_rewards()
+    cum_rewards = env_pois.cumulative_agent_rewards()
     if display:
         print(f'Poi environment: {env_pois.collision_penalty_scalar}: {cum_rewards}')
     env_pois.reset()
@@ -409,10 +412,10 @@ def main(main_args):
     env.reset()
     env.normalize_rewards = True
 
-    # test_observations(env)
-    # test_actions(env)
-    test_save_env(env)
-    test_save_transitions(env)
+    test_observations(env)
+    test_actions(env)
+    # test_save_env(env)
+    # test_save_transitions(env)
 
     # test_collisions(render_mode=None)
     # test_collisions(render_mode='human')
@@ -421,7 +424,7 @@ def main(main_args):
     # test_rewards(env, render_mode='human')
 
     # test_reset(env, render_mode=None)
-    # test_step(env, render_mode=None)
+    test_step(env, render_mode=None)
     # test_random(env, render_mode=None)
     # test_rollout(env, render_mode=None)
 

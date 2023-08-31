@@ -73,7 +73,7 @@ def deterministic_ring(num_points, center, radius, start_proportion=0, seed=None
 
 def random_ring(num_points, center, min_rad, max_rad, seed=None):
     rng = np.random.default_rng(seed=seed)
-    angles = rng.uniform(size=num_points)
+    angles = rng.normal(size=num_points)
     angles *= 2 * np.pi
 
     radius = rng.uniform(low=min_rad, high=max_rad, size=num_points)

@@ -5,8 +5,8 @@
 
 """
 import json
+import math
 import multiprocessing
-from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor
 from functools import partial
 from pathlib import Path
@@ -174,12 +174,6 @@ def evaluate_agents(agent_team, env: HarvestEnv):
     }
     return eval_policy_rewards
 
-# def evaluate_agents(agent_team, env: HarvestEnv):
-#     team_members, update_policy_ids = agent_team
-#     agent_rewards, policy_rewards = rollout(env, team_members, render=False)
-#     eval_policy_rewards = {policy.name: policy_reward for policy, policy_reward in policy_rewards.items() if policy in update_policy_ids}
-#     return eval_policy_rewards
-
 
 def rollout(env: HarvestEnv, agent_policies, render: bool = False):
     render_func = partial(env.render, **render) if isinstance(render, dict) else env.render
@@ -202,15 +196,21 @@ def rollout(env: HarvestEnv, agent_policies, render: bool = False):
             render_func()
 
     # assign rewards based on the cumulative rewards of the env
-    agent_rewards = env.cumulative_rewards()
-    # correlate policies to rewards
-    policy_rewards = {policy: agent_rewards[each_agent] for each_agent, policy in env._actors.items()}
-    # episode_rewards = all_rewards[-1]
-    # episode_rewards = reward_func(env)
+    agent_rewards = env.cumulative_agent_rewards()
+    policy_rewards = {env.get_actor(agent_name): {'reward': agent_rewards[agent_name], 'agent_name': agent_name} for agent_name in env.agents}
     return agent_rewards, policy_rewards
 
 
-def save_agent_policies(experiment_dir, gen_idx, env: HarvestEnv, agent_pops, human_readable=False):
+def get_policy(population, policy_name):
+    policy = None
+    for each_policy in population:
+        if each_policy.name == policy_name:
+            policy = each_policy
+            break
+    return policy
+
+
+def save_agent_policies(experiment_dir, gen_idx, env: HarvestEnv, agent_pops, best_policies, human_readable=False):
     indent = 2 if human_readable else None
     networks_dir = Path(experiment_dir, f'networks')
     fitnesses_path = Path(experiment_dir, f'gen_{gen_idx}_fitnesses.json')
@@ -226,10 +226,10 @@ def save_agent_policies(experiment_dir, gen_idx, env: HarvestEnv, agent_pops, hu
         for agent_name, policy in agent_pops.items()
     }
 
-    # best_policies = select_top_n(agent_pops, select_sizes={name: env.types_num[name] for name, pop in agent_pops.items()})
-    # best_agent_fitnesses, policy_rewards = rollout(env, best_policies, render=False)
-    # fitnesses['global_harvester'] = best_agent_fitnesses['global_harvester']
-    # fitnesses['global_excavator'] = best_agent_fitnesses['global_excavator']
+    best_agent_fitnesses, policy_rewards = rollout(env, best_policies, render=False)
+    fitnesses['global_harvester'] = best_agent_fitnesses['global_harvester']
+    fitnesses['global_excavator'] = best_agent_fitnesses['global_excavator']
+    fitnesses['global'] = best_agent_fitnesses['global_harvester']
 
     for agent_name, policies in agent_pops.items():
         network_save_path = Path(networks_dir, f'{agent_name}_networks')
@@ -238,10 +238,6 @@ def save_agent_policies(experiment_dir, gen_idx, env: HarvestEnv, agent_pops, hu
 
         # also overwrite any policies already in pool
         # in case they might have been updated in some way
-        # if network_save_path.exists() and network_save_path.is_dir():
-        #     saved_policies = [each_dir.name for each_dir in network_save_path.iterdir()]
-        #     policies = [each_policy for each_policy in policies if each_policy.save_name not in saved_policies]
-
         for idx, each_policy in enumerate(policies):
             each_policy.save_model(save_dir=network_save_path)
 
@@ -251,6 +247,7 @@ def save_agent_policies(experiment_dir, gen_idx, env: HarvestEnv, agent_pops, hu
 
 
 def generation(agent_policies, map_func, selection_func, mutation_scalar, prob_to_mutate, eval_func, fitness_update_eps, downselect_func):
+    # todo  currently, only new policies are evaluated as the policies are selected, mutated, and the mutated policies are evaluated
     selected_policies = selection_func(agent_policies)
 
     ###############################################################################################
@@ -273,21 +270,31 @@ def generation(agent_policies, map_func, selection_func, mutation_scalar, prob_t
 
     ###############################################################################################
     rollout_results = map_func(eval_func, teams)
-    # rollout_results = []
-    # for each_entry in teams:
-    #     each_result = eval_func(each_entry)
-    #     rollout_results.append(each_result)
-    ###############################################################################################
+    best_global = -math.inf
+    best_result = {}
     policy_results = {}
     for each_result in rollout_results:
         for each_policy_name, result_info in each_result.items():
             if each_policy_name not in policy_results:
                 policy_results[each_policy_name] = []
             policy_results[each_policy_name].append(result_info)
+
+            global_reward = result_info['agent_rewards']
+            global_reward = global_reward['global']
+            if global_reward > best_global:
+                best_global = global_reward
+                best_result = result_info['policy_rewards']
+    best_team = {}
+    for policy, policy_info in best_result.items():
+        agent_type = policy_info['agent_name'].split(':')[0]
+        if agent_type not in best_team:
+            best_team[agent_type] = []
+        best_team[agent_type].append(policy)
     ###############################################################################################
     # need to have the eval function pass back the policy name rather than the policy directly because when passing
     # a network to a new process, it creates a new object and so is no longer the original policy
     eval_agent_names = [each_policy for each_policy in policy_results.keys()]
+
     for agent_type, population in agent_policies.items():
         for policy in population:
             # todo  verify - any agent name in assignment_agents should correspond to a learning agent
@@ -297,8 +304,9 @@ def generation(agent_policies, map_func, selection_func, mutation_scalar, prob_t
                 assert policy.learner
                 each_result = policy_results[policy.name]
                 policy.fitness_history.append(each_result)
+
                 # average all fitnesses and assign back to agent
-                fitness = np.average([rollout_eval['individual_reward'] for rollout_eval in each_result])
+                fitness = np.average([rollout_eval['individual_reward']['reward'] for rollout_eval in each_result])
 
                 # if fitness update eps is 0, then evaluating a fitness would have no change on the current fitness of the agent
                 # can also pass a negative value to force the evaluated fitness to replace the fitness value of the policy
@@ -309,9 +317,8 @@ def generation(agent_policies, map_func, selection_func, mutation_scalar, prob_t
                     fitness_delta = fitness - policy.fitness
                     policy.fitness += fitness_delta * fitness_update_eps
 
-    # downselect
     agent_policies = downselect_func(agent_policies)
-    return agent_policies
+    return agent_policies, best_team
 
 
 def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims, experiment_dir, completion_criteria=lambda: False,
@@ -365,9 +372,9 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims,
             for idx in range(max_len)]
         for individuals in all_teams:
             agent_rewards, policy_rewards = rollout(env, individuals, render=False)
-            for policy, fitness in policy_rewards.items():
+            for policy, fitness_info in policy_rewards.items():
                 if policy.learner:
-                    policy.fitness = fitness
+                    policy.fitness = fitness_info['reward']
     ##########################################################################################
     ccea_config_fname = Path(experiment_dir, 'ccea_config.json')
     exp_started = ccea_config_fname.exists() and ccea_config_fname.is_file()
@@ -382,8 +389,10 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims,
         }
         save_config(config=ccea_config, save_dir=experiment_dir, config_name='ccea_config')
         env.save_environment(save_dir=experiment_dir)
+
+        best_policies = select_top_n(agent_policies, select_sizes={name: env.types_num[name] for name, pop in agent_policies.items()})
         # save initial fitnesses
-        save_agent_policies(experiment_dir, 0, env, agent_policies)
+        save_agent_policies(experiment_dir, 0, env, agent_policies, best_policies)
     ##########################################################################################
     map_func = map
     mp_pool = None
@@ -401,11 +410,14 @@ def ccea(env: HarvestEnv, agent_policies, population_sizes, max_iters, num_sims,
 
     num_iters = 0
     for gen_idx in range(starting_gen, max_iters):
-        agent_policies = generation_func(agent_policies=agent_policies, map_func=map_func)
+        # agent_policies, map_func, env, experiment_dir, gen_idx
+        agent_policies, best_team = generation_func(agent_policies=agent_policies, map_func=map_func)
 
         # save generation progress
         # save all policies of each agent and save fitnesses mapping policies to fitnesses
-        save_agent_policies(experiment_dir, gen_idx + 1, env, agent_policies)
+        # save before downselecting in case a policy in the best team gets pruned
+        save_agent_policies(experiment_dir, gen_idx + 1, env, agent_policies, best_team)
+
         num_iters += 1
         if isinstance(pbar, tqdm):
             pbar.update(1)
