@@ -258,6 +258,34 @@ This approach was tested using an environment designed to require agents to rely
 ### Experiments and evaluation
 
 ## Results
+
+<img src="docs/fitness_curves/Learning_Curves_penalty_0.png" alt="simulator" width="250">
+
+<img src="docs/fitness_curves/Learning_Curves_penalty_1.png" alt="simulator" width="250">
+
+<img src="docs/fitness_curves/Learning_Curves_penalty_2.png" alt="simulator" width="250">
+
+<img src="docs/loc_distributions/CCEA_Generation_150.png" alt="simulator" width="250">
+
+<img src="docs/loc_distributions/MFL_Generation_150.png" alt="simulator" width="250">
+
+<img src="docs/loc_distributions/Islands_Generation_150.png" alt="simulator" width="250">
+
+<img src="docs/loc_distributions/Influence-Learning_Islands_Generation_150.png" alt="simulator" width="250">
+
+[//]: # (![Learning Curves penalty 1.png]&#40;docs%2Ffitness_curves%2FLearning%20Curves%20penalty%201.png&#41;)
+
+[//]: # (![Learning Curves penalty 2.png]&#40;docs%2Ffitness_curves%2FLearning%20Curves%20penalty%202.png&#41;)
+
+[//]: # ()
+[//]: # (![CCEA Generation 150.png]&#40;docs%2Floc_distributions%2FCCEA%20Generation%20150.png&#41;)
+
+[//]: # (![Influence-Learning Islands Generation 150.png]&#40;docs%2Floc_distributions%2FInfluence-Learning%20Islands%20Generation%20150.png&#41;)
+
+[//]: # (![Islands Generation 150.png]&#40;docs%2Floc_distributions%2FIslands%20Generation%20150.png&#41;)
+
+[//]: # (![MFL Generation 150.png]&#40;docs%2Floc_distributions%2FMFL%20Generation%20150.png&#41;)
+
 ## Conclusion
 
 In this work, we presented a framework for learning inter-agent dependencies that arise due to environmental dynamics as related to the desired objective. By allowing for distributed optimization processes that intermittently incorporate the learning of other types of agents, the non-stationarity issue in multi-agent learning can be alleviated, leading to faster convergence along with more optimal policies as the degree of this reliance is increased compared to a standard cooperative co-evolutionary optimization loop. Additionally, when presented with an altered environment, the agents trained using the influenced-learning island model were able to adapt to the new environment much more quickly that agents trained using other methods.
