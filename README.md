@@ -1,4 +1,4 @@
-Leader Follower
+Asymmetric Island Model for inter-class dependencies
 =====
 
 # License
