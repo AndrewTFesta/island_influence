@@ -1,4 +1,4 @@
-Asymmetric Island Model for inter-class dependencies
+Distributed Optimization of Asymmetric Actors
 =====
 
 # License
